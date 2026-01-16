@@ -17,9 +17,14 @@ This driver enables seamless integration of EZGripper with Unitree G1 robots by 
 ## Architecture
 
 ```
-Unitree XR Teleop → Dex1 DDS Commands → Unitree Dex1 EZGripper Driver → libezgripper → EZGripper Hardware
-                    ← Dex1 DDS State    ←                              ←              ←
+Unitree XR Teleop → Dex1 DDS → Unitree Dex1 Driver → EZGripper DDS → EZGripper Interface → Hardware
+                    ← Dex1 DDS ←                    ← EZGripper DDS ←                    ←
 ```
+
+**DDS-to-DDS Translation Layer:**
+- **Hardware abstraction boundary** at DDS level
+- **Future-proof** for Dynamixel API 2.0 migration
+- **Language-agnostic** development (all languages use same DDS interface)
 
 **DDS Topics (Dex1 Compatible):**
 - `rt/dex1/left/cmd` - Command topic for left gripper
@@ -50,17 +55,31 @@ git clone <repository-url>
 cd unitree-dex1-ezgripper-driver
 ```
 
-### 3. Usage
+### 3. Start EZGripper DDS Interface
+
+First, start the ezgripper-dds-driver for hardware communication:
 
 ```bash
-# Left gripper
-python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyUSB0 --id 1
+# Left gripper hardware interface
+python3 ezgripper_dds_driver.py --name ezgripper_left --dev /dev/ttyUSB0 --ids 1
 
-# Right gripper (in another terminal)
-python3 unitree_dex1_ezgripper_driver.py --side right --dev /dev/ttyUSB1 --id 2
+# Right gripper hardware interface  
+python3 ezgripper_dds_driver.py --name ezgripper_right --dev /dev/ttyUSB1 --ids 2
 ```
 
-### 4. Integration with Unitree XR Teleoperate
+### 4. Start Dex1 Translation Layer
+
+Then start the Dex1 translation drivers:
+
+```bash
+# Left gripper Dex1 interface
+python3 unitree_dex1_ezgripper_driver.py --side left --gripper-name ezgripper_left
+
+# Right gripper Dex1 interface (in another terminal)
+python3 unitree_dex1_ezgripper_driver.py --side right --gripper-name ezgripper_right
+```
+
+### 5. Integration with Unitree XR Teleoperate
 
 Now you can use EZGripper with the standard Unitree XR teleoperate system:
 
@@ -111,42 +130,39 @@ python3 unitree_dex1_ezgripper_driver.py --help
 
 **Parameters:**
 - `--side`: Gripper side (left/right)
-- `--dev`: Serial device path
-- `--id`: Motor ID
+- `--gripper-name`: EZGripper name (matches ezgripper-dds-driver config)
 - `--domain`: DDS domain ID (default: 0)
 - `--log-level`: Logging verbosity
 
 ## Network Configuration
 
-For network-connected grippers:
+For network-connected grippers, configure the ezgripper-dds-driver with network devices:
 
 ```bash
-# Left gripper via network
-python3 unitree_dex1_ezgripper_driver.py --side left --dev socket://192.168.1.100:4000 --id 1
+# EZGripper hardware interfaces via network
+python3 ezgripper_dds_driver.py --name ezgripper_left --dev socket://192.168.1.100:4000 --ids 1
+python3 ezgripper_dds_driver.py --name ezgripper_right --dev socket://192.168.1.101:4000 --ids 2
 
-# Right gripper via network  
-python3 unitree_dex1_ezgripper_driver.py --side right --dev socket://192.168.1.101:4000 --id 2
+# Dex1 translation layer (same as before)
+python3 unitree_dex1_ezgripper_driver.py --side left --gripper-name ezgripper_left
+python3 unitree_dex1_ezgripper_driver.py --side right --gripper-name ezgripper_right
 ```
 
-## Advantages over Complex Bridge
+## Advantages of DDS-to-DDS Architecture
 
-This driver eliminates the complex driver layer found in other implementations:
+This driver uses a DDS-to-DDS translation approach:
 
-**Previous Approach:**
+**Architecture:**
 ```
-DDS → Complex Bridge → EZGripper DDS Driver → libezgripper → Hardware
-```
-
-**This Approach:**
-```
-DDS → Direct Driver → libezgripper → Hardware
+XR Teleop → Dex1 DDS → Translation Layer → EZGripper DDS → Hardware Interface → libezgripper → Hardware
 ```
 
 **Benefits:**
-- **Reduced complexity** - Fewer layers and components
-- **Better performance** - Direct communication path
-- **Easier maintenance** - Single driver to manage
-- **Motor driver compatibility** - Works with any DDS-compatible motor controller
+- **Hardware abstraction** - DDS boundary enables future hardware changes
+- **Language-agnostic** - All languages use same DDS interface
+- **Future-proof** - Easy migration to Dynamixel API 2.0
+- **Modular design** - Independent hardware and translation layers
+- **Single point of change** - Update EZGripper interface affects all consumers
 
 ## Troubleshooting
 

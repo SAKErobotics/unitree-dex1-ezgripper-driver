@@ -9,10 +9,11 @@ This driver provides a drop-in replacement for the Unitree Dex1 gripper service,
 enabling seamless integration with XR teleoperate and other G1 control systems.
 
 Key Features:
-- Direct DDS to libezgripper interface (no complex driver layer)
+- DDS-to-DDS translation layer (Dex1 commands → EZGripper commands)
+- Hardware abstraction boundary for future Dynamixel API 2.0 migration
+- Language-agnostic architecture - all tools use same DDS interface
 - Motor driver level compatibility using only q (position) and tau (torque)
 - Optimized grasping: uses close mode when q ≤ 0.1 for improved grip strength
-- Position + force control with automatic object detection
 - Full XR teleoperate compatibility via rt/dex1/left|right/cmd topics
 """
 
@@ -29,9 +30,6 @@ from cyclonedds.sub import DataReader
 from cyclonedds.pub import DataWriter
 from cyclonedds.qos import Qos, Policy
 from cyclonedds.idl import IdlStruct
-
-# Import libezgripper
-from libezgripper import create_connection, Gripper
 
 
 # DDS Message Types (Unitree Dex1 compatible)
@@ -72,58 +70,83 @@ class MotorStates_(IdlStruct, typename="unitree_go.msg.dds_.MotorStates_"):
     states: List[MotorState_] = None
 
 
+# EZGripper DDS Message Types (from ezgripper-dds-driver)
+@dataclass
+class EzGripperCmd(IdlStruct, typename="ezgripper.msg.dds_.EzGripperCmd"):
+    """EZGripper command message"""
+    target_name: str = ""
+    seq: int = 0
+    stamp_ns: int = 0
+    mode: int = 0           # ControlMode: 0=position, 1=open, 2=close
+    position_pct: float = 0.0  # 0-100%
+    effort_pct: float = 0.0    # 0-100%
+    request_ack: bool = False
+
+@dataclass
+class EzGripperState(IdlStruct, typename="ezgripper.msg.dds_.EzGripperState"):
+    """EZGripper state message"""
+    source_name: str = ""
+    seq: int = 0
+    stamp_ns: int = 0
+    connected: bool = False
+    present_position_pct: float = 0.0  # 0-100%
+    present_effort_pct: float = 0.0    # 0-100%
+    is_moving: bool = False
+    error_code: int = 0
+
+
 class UnitreeDex1EZGripperDriver:
     """
     Unitree Dex1 EZGripper Driver
     
-    Provides Dex1-compatible DDS interface for SAKE Robotics EZGripper.
-    Enables EZGripper to work as drop-in replacement for Unitree Dex1 gripper.
+    DDS-to-DDS translation layer that converts Dex1 commands to EZGripper commands.
+    Provides hardware abstraction boundary for future migration and language-agnostic development.
     """
     
-    def __init__(self, side: str, device: str, motor_id: int, domain: int = 0):
+    def __init__(self, side: str, gripper_name: str, domain: int = 0):
         self.side = side
-        self.device = device  
-        self.motor_id = motor_id
+        self.gripper_name = gripper_name
         self.domain = domain
         
         # Setup logging
         self.logger = logging.getLogger(f"dex1_ezgripper_{side}")
         
-        # Connect to EZGripper hardware
-        self.logger.info(f"Connecting Dex1 EZGripper driver: {side} side on {device}, motor ID {motor_id}")
-        self.connection = create_connection(device, 57600)
-        self.gripper = Gripper(self.connection, f"dex1_ezgripper_{side}", [motor_id])
-        
-        # Calibrate gripper
-        self.logger.info("Calibrating EZGripper for Dex1 compatibility...")
-        self.gripper.calibrate()
-        time.sleep(2)
-        
-        # Current state
+        # Current state tracking
         self.current_position_pct = 0.0
         self.current_effort_pct = 0.0
         self.last_cmd_time = time.time()
+        self.last_ezgripper_state = None
         
-        # Setup DDS (Dex1 compatible topics)
+        # Setup DDS interfaces
         self._setup_dds()
         
-        self.logger.info(f"Unitree Dex1 EZGripper driver ready: {side} side")
+        self.logger.info(f"Unitree Dex1 EZGripper driver ready: {side} side → {gripper_name}")
     
     def _setup_dds(self):
-        """Setup DDS subscriber and publisher with Dex1 compatible topics"""
+        """Setup DDS interfaces for Dex1 and EZGripper communication"""
         self.participant = DomainParticipant(self.domain)
         
-        # Command subscriber (rt/dex1/left|right/cmd) - Standard Dex1 topics
-        cmd_topic_name = f"rt/dex1/{self.side}/cmd"
-        self.cmd_topic = Topic(self.participant, cmd_topic_name, MotorCmds_)
-        self.cmd_reader = DataReader(self.participant, self.cmd_topic)
+        # Dex1 interface (standard Dex1 topics)
+        dex1_cmd_topic = f"rt/dex1/{self.side}/cmd"
+        dex1_state_topic = f"rt/dex1/{self.side}/state"
         
-        # State publisher (rt/dex1/left|right/state) - Standard Dex1 topics
-        state_topic_name = f"rt/dex1/{self.side}/state"
-        self.state_topic = Topic(self.participant, state_topic_name, MotorStates_)
-        self.state_writer = DataWriter(self.participant, self.state_topic)
+        self.dex1_cmd_topic = Topic(self.participant, dex1_cmd_topic, MotorCmds_)
+        self.dex1_cmd_reader = DataReader(self.participant, self.dex1_cmd_topic)
         
-        self.logger.info(f"Dex1 DDS topics: {cmd_topic_name} (sub), {state_topic_name} (pub)")
+        self.dex1_state_topic = Topic(self.participant, dex1_state_topic, MotorStates_)
+        self.dex1_state_writer = DataWriter(self.participant, self.dex1_state_topic)
+        
+        # EZGripper interface (ezgripper-dds-driver topics)
+        ezgripper_cmd_topic = f"rt/ezgripper/{self.gripper_name}/cmd"
+        ezgripper_state_topic = f"rt/ezgripper/{self.gripper_name}/state"
+        
+        self.ezgripper_cmd_topic = Topic(self.participant, ezgripper_cmd_topic, EzGripperCmd)
+        self.ezgripper_cmd_writer = DataWriter(self.participant, self.ezgripper_cmd_topic)
+        
+        self.ezgripper_state_topic = Topic(self.participant, ezgripper_state_topic, EzGripperState)
+        self.ezgripper_state_reader = DataReader(self.participant, self.ezgripper_state_topic)
+        
+        self.logger.info(f"DDS interfaces: Dex1 {dex1_cmd_topic}→{dex1_state_topic}, EZGripper {ezgripper_cmd_topic}→{ezgripper_state_topic}")
     
     def _q_to_position_pct(self, q_radians: float) -> float:
         """Convert Dex1 motor position (radians) to EZGripper percentage"""
@@ -146,50 +169,58 @@ class UnitreeDex1EZGripperDriver:
         return effort_pct / 10.0
     
     def _process_dex1_commands(self):
-        """Process Dex1 DDS commands and control EZGripper"""
-        samples = self.cmd_reader.take(N=1)
+        """Process Dex1 DDS commands and translate to EZGripper DDS commands"""
+        samples = self.dex1_cmd_reader.take(N=1)
         
         for sample in samples:
             if sample and sample.cmds and len(sample.cmds) > 0:
                 # Get first motor command (Dex1 format)
                 motor_cmd = sample.cmds[0]
                 
-                # Extract position and torque from Dex1 command
-                target_position_pct = self._q_to_position_pct(motor_cmd.q)
-                target_effort_pct = self._tau_to_effort_pct(motor_cmd.tau)
+                # Translate Dex1 command to EZGripper command
+                ezgripper_cmd = self._translate_dex1_to_ezgripper(motor_cmd)
                 
-                # Use default effort if tau is zero
-                if target_effort_pct == 0.0:
-                    target_effort_pct = 80.0  # Default grip strength
+                # Publish EZGripper command via DDS
+                self.ezgripper_cmd_writer.write(ezgripper_cmd)
                 
-                # EZGripper control logic with Dex1 optimization
-                if motor_cmd.q <= 0.1:  # Close to 0 radians (fully closed)
-                    self.logger.debug(f"Dex1 close command: using EZGripper close mode (q={motor_cmd.q:.3f})")
-                    self.gripper.close(target_effort_pct)
-                elif motor_cmd.q >= 6.0:  # Close to 2π radians (fully open)
-                    self.logger.debug(f"Dex1 open command: using EZGripper open mode (q={motor_cmd.q:.3f})")
-                    self.gripper.open(target_effort_pct)
-                else:
-                    # Normal position control with force limiting
-                    self.gripper.goto_position(target_position_pct, target_effort_pct)
-                
-                # Update state
-                self.current_position_pct = target_position_pct
-                self.current_effort_pct = target_effort_pct
+                # Update tracking state
+                self.current_position_pct = ezgripper_cmd.position_pct
+                self.current_effort_pct = ezgripper_cmd.effort_pct
                 self.last_cmd_time = time.time()
                 
-                self.logger.debug(f"Dex1 command: q={motor_cmd.q:.3f}rad → {target_position_pct:.1f}%, "
-                                f"tau={motor_cmd.tau:.3f} → {target_effort_pct:.1f}%")
+                self.logger.debug(f"Dex1→EZGripper: q={motor_cmd.q:.3f}rad → {ezgripper_cmd.position_pct:.1f}%, "
+                                f"tau={motor_cmd.tau:.3f} → {ezgripper_cmd.effort_pct:.1f}%, mode={ezgripper_cmd.mode}")
+    
+    def _process_ezgripper_state(self):
+        """Process EZGripper DDS state and update tracking"""
+        samples = self.ezgripper_state_reader.take(N=1)
+        
+        for sample in samples:
+            if sample:
+                self.last_ezgripper_state = sample
+                # Update tracking from actual EZGripper state
+                self.current_position_pct = sample.present_position_pct
+                self.current_effort_pct = sample.present_effort_pct
     
     def _publish_dex1_state(self):
         """Publish current EZGripper state as Dex1 motor state"""
+        # Use actual EZGripper state if available, otherwise use tracking state
+        if self.last_ezgripper_state:
+            position_pct = self.last_ezgripper_state.present_position_pct
+            effort_pct = self.last_ezgripper_state.present_effort_pct
+            connected = self.last_ezgripper_state.connected
+        else:
+            position_pct = self.current_position_pct
+            effort_pct = self.current_effort_pct
+            connected = False
+        
         # Convert EZGripper state back to Dex1 motor units
-        current_q = self._position_pct_to_q(self.current_position_pct)
-        current_tau = self._effort_pct_to_tau(self.current_effort_pct)
+        current_q = self._position_pct_to_q(position_pct)
+        current_tau = self._effort_pct_to_tau(effort_pct)
         
         # Create Dex1 compatible motor state
         motor_state = MotorState_(
-            mode=1,  # FOC mode
+            mode=1 if connected else 0,  # FOC mode if connected, brake mode if not
             q=current_q,
             dq=0.0,
             ddq=0.0,
@@ -198,25 +229,57 @@ class UnitreeDex1EZGripperDriver:
             dq_raw=0.0,
             ddq_raw=0.0,
             temperature=25,
-            lost=0,
+            lost=0 if connected else 1,
             reserve=[0, 0]
         )
         
         # Publish to Dex1 state topic
         motor_states = MotorStates_(states=[motor_state])
-        self.state_writer.write(motor_states)
+        self.dex1_state_writer.write(motor_states)
+    
+    def _translate_dex1_to_ezgripper(self, motor_cmd: MotorCmd_) -> EzGripperCmd:
+        """Translate Dex1 motor command to EZGripper command"""
+        # Extract position and torque from Dex1 command
+        target_position_pct = self._q_to_position_pct(motor_cmd.q)
+        target_effort_pct = self._tau_to_effort_pct(motor_cmd.tau)
+        
+        # Use default effort if tau is zero
+        if target_effort_pct == 0.0:
+            target_effort_pct = 80.0  # Default grip strength
+        
+        # Determine EZGripper control mode based on Dex1 position
+        if motor_cmd.q <= 0.1:  # Close to 0 radians (fully closed)
+            mode = 2  # MODE_CLOSE - use EZGripper's optimized close mode
+        elif motor_cmd.q >= 6.0:  # Close to 2π radians (fully open)
+            mode = 1  # MODE_OPEN
+        else:
+            mode = 0  # MODE_POSITION - normal position control
+        
+        # Create EZGripper command
+        return EzGripperCmd(
+            target_name=self.gripper_name,
+            seq=int(time.time() * 1000),  # Simple sequence number
+            stamp_ns=time.time_ns(),
+            mode=mode,
+            position_pct=target_position_pct,
+            effort_pct=target_effort_pct,
+            request_ack=False
+        )
     
     def run(self):
-        """Main Dex1 EZGripper driver loop"""
-        self.logger.info("Starting Unitree Dex1 EZGripper driver loop")
+        """Main Dex1 EZGripper driver loop (DDS-to-DDS translation)"""
+        self.logger.info("Starting Unitree Dex1 EZGripper driver (DDS translation layer)")
         
         state_period = 0.1  # 10 Hz state publishing (Dex1 compatible)
         last_state_time = 0
         
         try:
             while True:
-                # Process incoming Dex1 commands
+                # Process incoming Dex1 commands → translate to EZGripper commands
                 self._process_dex1_commands()
+                
+                # Process EZGripper state updates
+                self._process_ezgripper_state()
                 
                 # Publish Dex1 state periodically
                 current_time = time.time()
@@ -230,18 +293,14 @@ class UnitreeDex1EZGripperDriver:
             self.logger.info("Shutting down Dex1 EZGripper driver...")
         except Exception as e:
             self.logger.error(f"Error in Dex1 EZGripper driver: {e}")
-        finally:
-            self.connection.close()
 
 
 def main():
-    parser = argparse.ArgumentParser(description="Unitree Dex1 EZGripper Driver")
+    parser = argparse.ArgumentParser(description="Unitree Dex1 EZGripper Driver (DDS Translation Layer)")
     parser.add_argument("--side", required=True, choices=["left", "right"],
                        help="Gripper side (left/right)")
-    parser.add_argument("--dev", required=True,
-                       help="Serial device (e.g., /dev/ttyUSB0)")
-    parser.add_argument("--id", type=int, required=True,
-                       help="Motor ID")
+    parser.add_argument("--gripper-name", required=True,
+                       help="EZGripper name (matches ezgripper-dds-driver config)")
     parser.add_argument("--domain", type=int, default=0,
                        help="DDS domain")
     parser.add_argument("--log-level", default="INFO",
@@ -255,11 +314,10 @@ def main():
         format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
     )
     
-    # Create and run Dex1 EZGripper driver
+    # Create and run Dex1 EZGripper driver (DDS translation layer)
     driver = UnitreeDex1EZGripperDriver(
         side=args.side,
-        device=args.dev, 
-        motor_id=args.id,
+        gripper_name=args.gripper_name,
         domain=args.domain
     )
     
