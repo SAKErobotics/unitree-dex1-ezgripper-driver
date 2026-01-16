@@ -10,7 +10,7 @@ This driver enables seamless integration of EZGripper with Unitree G1 robots by 
 - ✅ **Drop-in Dex1 replacement** - Uses identical DDS topics and message types
 - ✅ **Motor driver level compatibility** - Only uses `q` (position) and `tau` (torque) fields
 - ✅ **Optimized grasping** - Uses EZGripper's close mode for improved grip strength
-- ✅ **Position + force control** - Automatic object detection and force limiting
+- ✅ **Position + torque control** - Uses Dex1 q and tau fields
 ```bash
 git clone https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver.git
 cd unitree-dex1-ezgripper-driver
@@ -18,19 +18,10 @@ pip install -e .
 ```
 
 ### 2. Connect Hardware
-- Connect EZGripper to USB port
-- Note the device path (usually `/dev/ttyUSB0`)
+- Connect EZGripper to network adapter for TCP connection
+- For development: Connect to USB port (device path usually `/dev/ttyUSB0`)
 
 ### 3. Run Driver
-
-**USB Connection (Development/Testing):**
-```bash
-# Left gripper
-python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyUSB0
-
-# Right gripper  
-python3 unitree_dex1_ezgripper_driver.py --side right --dev /dev/ttyUSB0
-```
 
 **TCP Connection (Unitree Robots):**
 ```bash
@@ -41,6 +32,15 @@ python3 unitree_dex1_ezgripper_driver.py --side left --dev socket://192.168.123.
 python3 unitree_dex1_ezgripper_driver.py --side right --dev socket://192.168.123.101:4000
 ```
 
+**USB Connection (Development/Testing):**
+```bash
+# Left gripper
+python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyUSB0
+
+# Right gripper  
+python3 unitree_dex1_ezgripper_driver.py --side right --dev /dev/ttyUSB0
+```
+
 That's it! Your G1 robot will now control the EZGripper exactly like a Dex1 gripper.
 
 ## 📋 Requirements
@@ -48,11 +48,16 @@ That's it! Your G1 robot will now control the EZGripper exactly like a Dex1 grip
 - **Python 3.8+**
 - **Linux** (Ubuntu 20.04+ recommended)
 - **Connection Options:**
-  - **USB**: USB port for EZGripper connection
   - **TCP**: Network connection for Unitree robots
+  - **USB**: USB port for development
 - **Hardware**: EZGripper with USB or Ethernet-Serial adapter
 
 ## 🔧 Hardware Setup
+
+### TCP Connection (Unitree Robots)
+1. **Connect EZGripper** to Ethernet-Serial adapter
+2. **Configure adapter** for TCP server mode (port 4000)
+3. **Connect to robot network** (usually 192.168.123.x)
 
 ### USB Connection (Development/Testing)
 1. **Connect EZGripper** to USB port
@@ -62,20 +67,6 @@ That's it! Your G1 robot will now control the EZGripper exactly like a Dex1 grip
    sudo usermod -a -G dialout $USER
    # Logout and login again
    ```
-
-### TCP Connection (Unitree Robots)
-1. **Connect EZGripper** to Ethernet-Serial adapter
-2. **Configure adapter** with static IP (e.g., 192.168.123.100)
-3. **Test connection**:
-   ```bash
-   # Test TCP connectivity
-   telnet 192.168.123.100 4000
-   # Should connect to EZGripper serial port
-   ```
-4. **Network setup** for Unitree robots:
-   - EZGripper connects to robot's internal network
-   - Use IPs in 192.168.123.x range
-   - Port 4000 is standard for EZGripper TCP
 
 ## 🎮 Usage
 
