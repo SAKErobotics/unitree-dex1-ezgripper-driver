@@ -1,162 +1,76 @@
-# Unitree Dex1 EZGripper Driver
+# EZGripper DDS Driver for Unitree G1
 
-A drop-in replacement driver that allows SAKE Robotics EZGripper to be connected to Unitree G1 robot and controlled through the standard Dex1 DDS interface.
+CycloneDDS driver for EZGripper control on Unitree G1 robots using the Dex1 DDS interface.
 
-## Overview
+## Features
 
-This driver enables seamless integration of EZGripper with Unitree G1 robots by providing full compatibility with the Dex1 DDS API. The EZGripper appears as a standard Dex1 gripper to all G1 control systems including XR teleoperate.
+- ✅ **DDS Interface** - Compatible with Unitree Dex1 DDS topics
+- ✅ **Calibration Persistence** - Software-based calibration storage
+- ✅ **Position Control** - Accurate 0-100% gripper positioning
+- ✅ **XR Teleoperate Compatible** - Fixed 50% effort for preliminary compatibility
+- ✅ **TCP Connection** - Network-based gripper communication
 
-**Key Features:**
-- ✅ **Drop-in Dex1 replacement** - Uses identical DDS topics and message types
-- ✅ **Motor driver level compatibility** - Only uses `q` (position) and `tau` (torque) fields
-- ✅ **Optimized grasping** - Uses EZGripper's close mode for improved grip strength
-- ✅ **Position + torque control** - Uses Dex1 q and tau fields
+## Installation
+
 ```bash
-git clone https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver.git
-cd unitree-dex1-ezgripper-driver
-pip install -e .
+git clone https://github.com/SAKErobotics/ezgripper-dds-driver.git
+cd ezgripper-dds-driver
+pip install -r requirements.txt
 ```
 
-### 2. Connect Hardware
-- Connect EZGripper to network adapter for TCP connection
-- For development: Connect to USB port (device path usually `/dev/ttyUSB0`)
+### CycloneDDS Setup
 
-### 3. Run Driver
+The driver requires CycloneDDS 0.10.2. Set the environment variable:
 
-**TCP Connection (Unitree Robots):**
 ```bash
-# Left gripper (TCP to EZGripper network adapter)
-python3 unitree_dex1_ezgripper_driver.py --side left --dev socket://192.168.123.100:4000
-
-# Right gripper
-python3 unitree_dex1_ezgripper_driver.py --side right --dev socket://192.168.123.101:4000
+export CYCLONEDDS_HOME=/opt/cyclonedds-0.10.2
 ```
 
-**USB Connection (Development/Testing):**
-```bash
-# Left gripper
-python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyUSB0
+Or the driver will set it automatically in the code.
 
-# Right gripper  
-python3 unitree_dex1_ezgripper_driver.py --side right --dev /dev/ttyUSB0
+## Usage
+
+### Start the Driver
+
+```bash
+python3 ezgripper_dds_driver_corrected.py --side left --dev socket://192.168.0.131:4000
 ```
 
-That's it! Your G1 robot will now control the EZGripper exactly like a Dex1 gripper.
+### Calibration
 
-## 📋 Requirements
+Run calibration to establish zero position:
 
-- **Python 3.8+**
-- **Linux** (Ubuntu 20.04+ recommended)
-- **Connection Options:**
-  - **TCP**: Network connection for Unitree robots
-  - **USB**: USB port for development
-- **Hardware**: EZGripper with USB or Ethernet-Serial adapter
-
-## 🔧 Hardware Setup
-
-### TCP Connection (Unitree Robots)
-1. **Connect EZGripper** to Ethernet-Serial adapter
-2. **Configure adapter** for TCP server mode (port 4000)
-3. **Connect to robot network** (usually 192.168.123.x)
-
-### USB Connection (Development/Testing)
-1. **Connect EZGripper** to USB port
-2. **Check device**: `ls /dev/ttyUSB*`
-3. **Add user to dialout group** (if needed):
-   ```bash
-   sudo usermod -a -G dialout $USER
-   # Logout and login again
-   ```
-
-## 🎮 Usage
-
-### Basic Control
 ```bash
-# USB connection (development)
-python3 unitree_dex1_ezgripper_driver.py --side left
-
-# TCP connection (Unitree robots)
-python3 unitree_dex1_ezgripper_driver.py --side left --dev socket://192.168.123.100:4000
+python3 run_hardware_calibration.py
 ```
 
-### With Custom Device
-```bash
-# USB device
-python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyACM0
+Calibration is stored in `/tmp/ezgripper_left_calibration.txt` and loaded automatically on driver startup.
 
-# TCP device
-python3 unitree_dex1_ezgripper_driver.py --side left --dev socket://192.168.123.100:4000
+## DDS Topics
+
+- **Command**: `rt/dex1/left/cmd` (MotorCmds_)
+- **State**: `rt/dex1/left/state` (MotorStates_)
+
+## Position Mapping
+
+- `q = 0.0 rad` → 0% (closed)
+- `q = π rad` → 50% (neutral)
+- `q = 2π rad` → 100% (open)
+
+## Hardware Setup
+
+1. Connect EZGripper to ethernet adapter
+2. Configure adapter as TCP server on port 4000, baud 57600
+3. Connect to network (local: 192.168.0.x, G1: 192.168.123.x)
+4. Run calibration once
+5. Start driver
+
+## Architecture
+
+```
+XR Teleoperate → Dex1 DDS Topics → EZGripper DDS Driver → libezgripper → Hardware
 ```
 
-### Debug Mode
-```bash
-python3 unitree_dex1_ezgripper_driver.py --side left --log-level DEBUG
-```
+## License
 
-## 🤖 Integration
-
-### How Unitree Controls Motors with DDS
-
-Unitree robots use **CycloneDDS** for all motor communication:
-
-1. **DDS Topics**: Standard topics for motor commands/states
-   - Commands: `rt/dex1/left/cmd`, `rt/dex1/right/cmd`
-   - States: `rt/dex1/left/state`, `rt/dex1/right/state`
-
-2. **Message Types**: Standard motor command/state structures
-   - `MotorCmd_`: Contains `q` (position) and `tau` (torque)
-   - `MotorState_`: Contains current motor state
-
-3. **Network Communication**: DDS handles all networking automatically
-   - No need to manage TCP connections manually
-   - DDS handles discovery, reliability, and data routing
-
-**Our driver uses the same DDS interface**, making the EZGripper appear exactly like a native Dex1 gripper to the system.
-
-### XR Teleoperate
-Works automatically with Unitree XR teleoperate. No setup required.
-
-### Custom Control
-The driver subscribes to standard Dex1 DDS topics:
-- **Commands**: `rt/dex1/left/cmd`, `rt/dex1/right/cmd`
-- **States**: `rt/dex1/left/state`, `rt/dex1/right/state`
-
-Send standard Dex1 motor commands - the driver handles the EZGripper control automatically.
-
-## 🔍 Troubleshooting
-
-### Permission Denied
-```bash
-sudo usermod -a -G dialout $USER
-# Then logout and login again
-```
-
-### Device Not Found
-```bash
-# Check available devices
-ls /dev/ttyUSB*
-ls /dev/ttyACM*
-
-# Try different device path
-python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyACM0
-```
-
-### Driver Won't Start
-1. Check device connection
-2. Verify device path
-3. Check user permissions
-4. Try debug mode: `--log-level DEBUG`
-
-## 📞 Support
-
-- **Issues**: https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver/issues
-- **Documentation**: https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver/wiki
-- **Email**: info@sakerobotics.com
-
-## 📄 License
-
-BSD 3-Clause License - see LICENSE file for details.
-
----
-
-**SAKE Robotics** - Advanced Gripper Solutions for Robotics
+BSD-3-Clause
