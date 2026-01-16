@@ -11,191 +11,161 @@ This driver enables seamless integration of EZGripper with Unitree G1 robots by 
 - ✅ **Motor driver level compatibility** - Only uses `q` (position) and `tau` (torque) fields
 - ✅ **Optimized grasping** - Uses EZGripper's close mode for improved grip strength
 - ✅ **Position + force control** - Automatic object detection and force limiting
-- ✅ **XR teleoperate ready** - Full compatibility with Unitree XR teleoperate system
-- ✅ **Minimal complexity** - Direct DDS to libezgripper interface
-
-## Architecture
-
-```
-Unitree XR Teleop → Dex1 DDS → Unitree Dex1 Driver → EZGripper DDS → EZGripper Interface → Hardware
-                    ← Dex1 DDS ←                    ← EZGripper DDS ←                    ←
-```
-
-**DDS-to-DDS Translation Layer:**
-- **Hardware abstraction boundary** at DDS level
-- **Future-proof** for Dynamixel API 2.0 migration
-- **Language-agnostic** development (all languages use same DDS interface)
-
-**DDS Topics (Dex1 Compatible):**
-- `rt/dex1/left/cmd` - Command topic for left gripper
-- `rt/dex1/left/state` - State topic for left gripper  
-- `rt/dex1/right/cmd` - Command topic for right gripper
-- `rt/dex1/right/state` - State topic for right gripper
-
-**Message Types:**
-- `MotorCmds_` - Dex1 compatible command messages
-- `MotorStates_` - Dex1 compatible state messages
-
-## Quick Start
-
-### 1. Hardware Setup
-
-1. **Connect EZGripper(s)** to USB ports using RS485 adapters
-2. **Power on the grippers** 
-3. **Note the serial port names** (usually `/dev/ttyUSB0`, `/dev/ttyUSB1`)
-
-### 2. Installation
-
 ```bash
-# Install dependencies
-pip install cyclonedds pyserial libezgripper
-
-# Clone this repository
-git clone <repository-url>
+git clone https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver.git
 cd unitree-dex1-ezgripper-driver
+pip install -e .
 ```
 
-### 3. Start EZGripper DDS Interface
+### 2. Connect Hardware
+- Connect EZGripper to USB port
+- Note the device path (usually `/dev/ttyUSB0`)
 
-First, start the ezgripper-dds-driver for hardware communication:
+### 3. Run Driver
 
+**USB Connection (Development/Testing):**
 ```bash
-# Left gripper hardware interface
-python3 ezgripper_dds_driver.py --name ezgripper_left --dev /dev/ttyUSB0 --ids 1
+# Left gripper
+python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyUSB0
 
-# Right gripper hardware interface  
-python3 ezgripper_dds_driver.py --name ezgripper_right --dev /dev/ttyUSB1 --ids 2
+# Right gripper  
+python3 unitree_dex1_ezgripper_driver.py --side right --dev /dev/ttyUSB0
 ```
 
-### 4. Start Dex1 Translation Layer
-
-Then start the Dex1 translation drivers:
-
+**TCP Connection (Unitree Robots):**
 ```bash
-# Left gripper Dex1 interface
-python3 unitree_dex1_ezgripper_driver.py --side left --gripper-name ezgripper_left
+# Left gripper (TCP to EZGripper network adapter)
+python3 unitree_dex1_ezgripper_driver.py --side left --dev socket://192.168.123.100:4000
 
-# Right gripper Dex1 interface (in another terminal)
-python3 unitree_dex1_ezgripper_driver.py --side right --gripper-name ezgripper_right
+# Right gripper
+python3 unitree_dex1_ezgripper_driver.py --side right --dev socket://192.168.123.101:4000
 ```
 
-### 5. Integration with Unitree XR Teleoperate
+That's it! Your G1 robot will now control the EZGripper exactly like a Dex1 gripper.
 
-Now you can use EZGripper with the standard Unitree XR teleoperate system:
+## 📋 Requirements
 
+- **Python 3.8+**
+- **Linux** (Ubuntu 20.04+ recommended)
+- **Connection Options:**
+  - **USB**: USB port for EZGripper connection
+  - **TCP**: Network connection for Unitree robots
+- **Hardware**: EZGripper with USB or Ethernet-Serial adapter
+
+## 🔧 Hardware Setup
+
+### USB Connection (Development/Testing)
+1. **Connect EZGripper** to USB port
+2. **Check device**: `ls /dev/ttyUSB*`
+3. **Add user to dialout group** (if needed):
+   ```bash
+   sudo usermod -a -G dialout $USER
+   # Logout and login again
+   ```
+
+### TCP Connection (Unitree Robots)
+1. **Connect EZGripper** to Ethernet-Serial adapter
+2. **Configure adapter** with static IP (e.g., 192.168.123.100)
+3. **Test connection**:
+   ```bash
+   # Test TCP connectivity
+   telnet 192.168.123.100 4000
+   # Should connect to EZGripper serial port
+   ```
+4. **Network setup** for Unitree robots:
+   - EZGripper connects to robot's internal network
+   - Use IPs in 192.168.123.x range
+   - Port 4000 is standard for EZGripper TCP
+
+## 🎮 Usage
+
+### Basic Control
 ```bash
-# Start XR teleoperation with Dex1 grippers (EZGripper will work transparently)
-python3 teleop_hand_and_arm.py --ee dex1 --input-mode hand
+# USB connection (development)
+python3 unitree_dex1_ezgripper_driver.py --side left
 
-# Or with controller input
-python3 teleop_hand_and_arm.py --ee dex1 --input-mode controller
+# TCP connection (Unitree robots)
+python3 unitree_dex1_ezgripper_driver.py --side left --dev socket://192.168.123.100:4000
 ```
 
-## Control Interface
-
-### Motor Driver Level Compatibility
-
-The driver uses only two fields from the Dex1 motor command:
-
-- **`q` (position)**: 0 to 2π radians (0 = closed, 2π = open)
-- **`tau` (torque)**: Force/effort value (scaled to EZGripper effort percentage)
-
-### Optimized Grasping Logic
-
-```python
-if q <= 0.1:        # Close command (≈ 0 radians)
-    gripper.close(effort_pct)     # Use EZGripper's optimized close mode
-elif q >= 6.0:      # Open command (≈ 2π radians)  
-    gripper.open(effort_pct)      # Use open mode
-else:               # Position command
-    gripper.goto_position(position_pct, effort_pct)  # Position + force control
-```
-
-### Force Control
-
-The operator controls force through hand gesture intensity:
-- **Light hand closure** → Low `tau` → Gentle grip (paper cup)
-- **Firm hand closure** → High `tau` → Strong grip (solid objects)
-
-The EZGripper uses **position control with force limiting**:
-1. Move toward target position
-2. Stop when force limit (`tau`) is exceeded (object contact)
-3. Maintain grip at force limit
-
-## Configuration Options
-
+### With Custom Device
 ```bash
-python3 unitree_dex1_ezgripper_driver.py --help
+# USB device
+python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyACM0
+
+# TCP device
+python3 unitree_dex1_ezgripper_driver.py --side left --dev socket://192.168.123.100:4000
 ```
 
-**Parameters:**
-- `--side`: Gripper side (left/right)
-- `--gripper-name`: EZGripper name (matches ezgripper-dds-driver config)
-- `--domain`: DDS domain ID (default: 0)
-- `--log-level`: Logging verbosity
-
-## Network Configuration
-
-For network-connected grippers, configure the ezgripper-dds-driver with network devices:
-
+### Debug Mode
 ```bash
-# EZGripper hardware interfaces via network
-python3 ezgripper_dds_driver.py --name ezgripper_left --dev socket://192.168.1.100:4000 --ids 1
-python3 ezgripper_dds_driver.py --name ezgripper_right --dev socket://192.168.1.101:4000 --ids 2
-
-# Dex1 translation layer (same as before)
-python3 unitree_dex1_ezgripper_driver.py --side left --gripper-name ezgripper_left
-python3 unitree_dex1_ezgripper_driver.py --side right --gripper-name ezgripper_right
+python3 unitree_dex1_ezgripper_driver.py --side left --log-level DEBUG
 ```
 
-## Advantages of DDS-to-DDS Architecture
+## 🤖 Integration
 
-This driver uses a DDS-to-DDS translation approach:
+### How Unitree Controls Motors with DDS
 
-**Architecture:**
-```
-XR Teleop → Dex1 DDS → Translation Layer → EZGripper DDS → Hardware Interface → libezgripper → Hardware
-```
+Unitree robots use **CycloneDDS** for all motor communication:
 
-**Benefits:**
-- **Hardware abstraction** - DDS boundary enables future hardware changes
-- **Language-agnostic** - All languages use same DDS interface
-- **Future-proof** - Easy migration to Dynamixel API 2.0
-- **Modular design** - Independent hardware and translation layers
-- **Single point of change** - Update EZGripper interface affects all consumers
+1. **DDS Topics**: Standard topics for motor commands/states
+   - Commands: `rt/dex1/left/cmd`, `rt/dex1/right/cmd`
+   - States: `rt/dex1/left/state`, `rt/dex1/right/state`
 
-## Troubleshooting
+2. **Message Types**: Standard motor command/state structures
+   - `MotorCmd_`: Contains `q` (position) and `tau` (torque)
+   - `MotorState_`: Contains current motor state
 
-**Gripper not detected:**
-- Check serial connection and power
-- Verify serial port permissions: `sudo usermod -a -G dialout $USER`
+3. **Network Communication**: DDS handles all networking automatically
+   - No need to manage TCP connections manually
+   - DDS handles discovery, reliability, and data routing
 
-**DDS communication issues:**
-- Check DDS domain ID matches G1 system
-- Verify network interface configuration
+**Our driver uses the same DDS interface**, making the EZGripper appear exactly like a native Dex1 gripper to the system.
 
-**Calibration failures:**
-- Ensure gripper is manually closed tightly during calibration
-- Check motor ID assignment
+### XR Teleoperate
+Works automatically with Unitree XR teleoperate. No setup required.
 
-## Integration with G1 Systems
+### Custom Control
+The driver subscribes to standard Dex1 DDS topics:
+- **Commands**: `rt/dex1/left/cmd`, `rt/dex1/right/cmd`
+- **States**: `rt/dex1/left/state`, `rt/dex1/right/state`
 
-The driver works with all Unitree G1 configurations:
+Send standard Dex1 motor commands - the driver handles the EZGripper control automatically.
 
+## 🔍 Troubleshooting
+
+### Permission Denied
 ```bash
-# G1 with 29-DOF arms
-python3 teleop_hand_and_arm.py --arm G1_29 --ee dex1
-
-# G1 with 23-DOF arms  
-python3 teleop_hand_and_arm.py --arm G1_23 --ee dex1
+sudo usermod -a -G dialout $USER
+# Then logout and login again
 ```
 
-## License
+### Device Not Found
+```bash
+# Check available devices
+ls /dev/ttyUSB*
+ls /dev/ttyACM*
 
-BSD-3-Clause License
+# Try different device path
+python3 unitree_dex1_ezgripper_driver.py --side left --dev /dev/ttyACM0
+```
 
-## Acknowledgments
+### Driver Won't Start
+1. Check device connection
+2. Verify device path
+3. Check user permissions
+4. Try debug mode: `--log-level DEBUG`
 
-- Unitree Robotics for Dex1 DDS API specification
-- SAKE Robotics for EZGripper hardware and libezgripper
-- Cyclone DDS project for reliable DDS implementation
+## 📞 Support
+
+- **Issues**: https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver/issues
+- **Documentation**: https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver/wiki
+- **Email**: info@sakerobotics.com
+
+## 📄 License
+
+BSD 3-Clause License - see LICENSE file for details.
+
+---
+
+**SAKE Robotics** - Advanced Gripper Solutions for Robotics
