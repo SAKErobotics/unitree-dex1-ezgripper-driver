@@ -33,7 +33,7 @@ Or the driver will set it automatically in the code.
 ### Start the Driver
 
 ```bash
-python3 ezgripper_dds_driver_corrected.py --side left --dev socket://192.168.0.131:4000
+python3 ezgripper_dds_driver.py --side left --dev socket://192.168.0.131:4000
 ```
 
 ### Calibration
