@@ -21,10 +21,36 @@ pip install -r requirements.txt
 
 ## Hardware Setup
 
-1. Connect EZGripper to ethernet adapter
-2. Configure adapter as TCP server on port 4000, baud 57600
-3. Connect adapter to G1 internal network (192.168.123.x)
-4. Note the adapter's IP address
+### Elfin-EE11A Ethernet Adapter Configuration
+
+The EZGrippers connect to the G1 via Elfin-EE11A serial-to-ethernet adapters.
+
+**Default Credentials:**
+- Username: `admin`
+- Password: `admin`
+
+**Configuration for Left Gripper:**
+1. Connect EZGripper to Elfin-EE11A adapter
+2. Access adapter web interface (default IP: 192.168.1.200)
+3. Login with admin/admin
+4. Configure the following settings:
+   - **Mode**: TCP Server
+   - **Port**: 4000
+   - **Baud Rate**: 57600
+   - **Data Bits**: 8
+   - **Stop Bits**: 1
+   - **Parity**: None
+   - **IP Address**: Set to available address on G1 network (e.g., 192.168.123.10)
+   - **Subnet Mask**: 255.255.255.0
+   - **Gateway**: 192.168.123.1
+5. Save settings and reboot adapter
+6. Connect adapter to G1 internal network (192.168.123.x)
+
+**Configuration for Right Gripper:**
+1. Repeat above steps with different IP address (e.g., 192.168.123.11)
+2. Use same port (4000) and serial settings
+
+**Note:** Ensure each adapter has a unique IP address on the G1 network.
 
 ## Usage
 
@@ -40,17 +66,19 @@ Calibration is stored in `/tmp/ezgripper_left_calibration.txt` and loaded automa
 
 ### Start the Driver
 
-```bash
-python3 ezgripper_dds_driver.py --side left --dev socket://192.168.123.X:4000
-```
-
-Replace `192.168.123.X` with your ethernet adapter's IP address on the G1 network.
-
-For the right gripper:
+For the left gripper (assuming adapter IP 192.168.123.10):
 
 ```bash
-python3 ezgripper_dds_driver.py --side right --dev socket://192.168.123.X:4000
+python3 ezgripper_dds_driver.py --side left --dev socket://192.168.123.10:4000
 ```
+
+For the right gripper (assuming adapter IP 192.168.123.11):
+
+```bash
+python3 ezgripper_dds_driver.py --side right --dev socket://192.168.123.11:4000
+```
+
+Replace the IP addresses with your actual Elfin-EE11A adapter IP addresses configured in the Hardware Setup section.
 
 ## DDS Topics
 
