@@ -13,8 +13,8 @@ CycloneDDS driver for EZGripper control on Unitree G1 robots using the Dex1 DDS 
 ## Installation
 
 ```bash
-git clone https://github.com/SAKErobotics/ezgripper-dds-driver.git
-cd ezgripper-dds-driver
+git clone https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver.git
+cd unitree-dex1-ezgripper-driver
 pip install -r requirements.txt
 ```
 
