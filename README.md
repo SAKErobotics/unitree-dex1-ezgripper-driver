@@ -21,9 +21,40 @@ pip install -r requirements.txt
 
 ## Hardware Setup
 
+### Connection Options
+
+The EZGrippers can be connected to the G1 using either:
+- **USB Interface** - Direct USB connection (simpler, no additional hardware)
+- **Ethernet Adapter** - Elfin-EE11A serial-to-ethernet adapters (network-based, supports remote grippers)
+
+### USB Interface Configuration (Recommended)
+
+For direct USB connection, connect the EZGripper directly to the G1's USB port. This is the simplest setup and requires no additional hardware configuration.
+
+**USB Device Setup:**
+1. Connect EZGripper to G1 USB port
+2. Identify the USB device (usually `/dev/ttyUSB0`, `/dev/ttyUSB1`, etc.):
+   ```bash
+   ls /dev/ttyUSB*
+   ```
+3. Verify user permissions (add to dialout group if needed):
+   ```bash
+   sudo usermod -a -G dialout $USER
+   ```
+   Then reboot for changes to take effect.
+
+**Note:** If you have multiple USB devices, device names may change. For more reliable identification, you can use hardware-specific URLs:
+- By vendor:device ID: `hwgrep://0403:6001`
+- By serial number: `hwgrep://A4012B2G`
+
+To find your device properties:
+```bash
+python3 -c "import serial.tools.list_ports; print(serial.tools.list_ports.comports())"
+```
+
 ### Elfin-EE11A Ethernet Adapter Configuration
 
-The EZGrippers connect to the G1 via Elfin-EE11A serial-to-ethernet adapters.
+The EZGrippers can also connect to the G1 via Elfin-EE11A serial-to-ethernet adapters.
 
 **Default Credentials:**
 - Username: `admin`
@@ -65,6 +96,28 @@ python3 run_hardware_calibration.py
 Calibration is stored in `/tmp/ezgripper_left_calibration.txt` and loaded automatically on driver startup.
 
 ### Start the Driver
+
+#### USB Interface
+
+For the left gripper (assuming USB device `/dev/ttyUSB0`):
+
+```bash
+python3 ezgripper_dds_driver.py --side left --dev /dev/ttyUSB0 --baudrate 57600
+```
+
+For the right gripper (assuming USB device `/dev/ttyUSB1`):
+
+```bash
+python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1 --baudrate 57600
+```
+
+For more reliable device identification using hardware-specific URLs:
+
+```bash
+python3 ezgripper_dds_driver.py --side left --dev hwgrep://0403:6001 --baudrate 57600
+```
+
+#### Ethernet Adapter Interface
 
 For the left gripper (assuming adapter IP 192.168.123.10):
 
