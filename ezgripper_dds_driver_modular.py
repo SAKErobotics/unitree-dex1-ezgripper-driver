@@ -126,18 +126,19 @@ class ModularEZGripperDriver:
                 
                 # Priority 2: Execute command if available
                 if cmd:
-                    self.hardware.execute_command(cmd.position_pct, cmd.effort_pct)
+                    position_pct, effort_pct = cmd
+                    self.hardware.execute_command(position_pct, effort_pct)
                     self.command_count += 1
                     
                     # Log occasionally
                     if self.command_count % 50 == 0:
-                        if cmd.q_radians <= 0.1:
+                        if position_pct <= 5.0:
                             mode = "CLOSE"
-                        elif cmd.q_radians >= 6.0:
+                        elif position_pct >= 95.0:
                             mode = "OPEN"
                         else:
-                            mode = f"POSITION {cmd.position_pct:.1f}%"
-                        self.logger.info(f"Executing: {mode} (q={cmd.q_radians:.3f}, tau={cmd.tau:.3f})")
+                            mode = f"POSITION {position_pct:.1f}%"
+                        self.logger.info(f"Executing: {mode} (effort={effort_pct:.0f}%)")
                 
                 # Priority 3: Read position periodically (not every cycle)
                 if self.command_count % self.position_read_interval == 0:
