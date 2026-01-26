@@ -5,9 +5,8 @@ CycloneDDS driver for EZGripper control on Unitree G1 robots using the Dex1 DDS 
 ## Features
 
 - ✅ **DDS Interface** - Compatible with Unitree Dex1 DDS topics
-- ✅ **Calibration Persistence** - Software-based calibration storage
-- ✅ **Position Control** - Accurate 0-100% gripper positioning
-- ✅ **XR Teleoperate Compatible** - Fixed 50% effort for preliminary compatibility
+- Integrated with Unitree https://github.com/unitreerobotics/xr_teleoperate
+- Unitree G1 integration kit includes; mount, cabling and software for EZGripper integration
 
 ## Installation on Unitree G1
 
@@ -150,6 +149,71 @@ Replace the IP addresses with your actual Elfin-EE11A adapter IP addresses confi
 
 ```
 XR Teleoperate → Dex1 DDS Topics → EZGripper DDS Driver → libezgripper → Hardware
+```
+
+## Testing
+
+The `test_gripper.py` script provides automated testing for both grippers. This is useful for:
+
+- Verifying correct left/right mapping
+- Testing calibration and basic movements
+- Debugging gripper issues
+
+### Usage
+
+```bash
+python3 test_gripper.py --right-dev /dev/ttyUSB0 --left-dev /dev/ttyUSB1
+```
+
+### Test Sequence
+
+For each gripper (right first, then left):
+1. Calibrate
+2. Open to 100% - wait 2 seconds
+3. Close to 0% - wait 2 seconds
+4. Repeat 3 times
+5. Move to 50% - stop
+
+### Verifying Mapping
+
+The script tests the right gripper first, then the left gripper. Watch which physical gripper moves during each test:
+
+- If the right side of the robot moves during the "RIGHT Gripper" test, mapping is correct
+- If the left side of the robot moves during the "RIGHT Gripper" test, swap the device paths
+
+### Example Output
+
+```
+============================================================
+Testing RIGHT Gripper
+============================================================
+Device: /dev/ttyUSB0
+...
+============================================================
+Testing LEFT Gripper
+============================================================
+Device: /dev/ttyUSB1
+...
+
+============================================================
+Test Summary
+============================================================
+Right gripper: ✅ PASS
+Left gripper: ✅ PASS
+
+Verify the grippers moved correctly:
+- Right gripper should be on the RIGHT side of the robot
+- Left gripper should be on the LEFT side of the robot
+
+If mapping is incorrect, swap the device paths and re-run
+```
+
+### Custom Iterations
+
+To change the number of open/close cycles:
+
+```bash
+python3 test_gripper.py --right-dev /dev/ttyUSB0 --left-dev /dev/ttyUSB1 --iterations 5
 ```
 
 ## License
