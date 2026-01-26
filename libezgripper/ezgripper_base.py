@@ -141,12 +141,12 @@ class Gripper:
             set_torque_mode(servo, False)
         for i in range(len(self.servos)):
             self.servos[i].write_word(30, self.zero_positions[i] + position)
-        wait_for_stop(self.servos[0])
+        # wait_for_stop removed for non-blocking teleoperation control
 
     def _close_with_torque(self):
         for servo in self.servos:
             set_torque_mode(servo, True)
-        wait_for_stop(self.servos[0])
+        wait_for_stop(self.servos[0])  # Keep wait_for_stop for torque-based closing
 
     def get_position(self, servo_num=0, \
             use_percentages = True, gripper_module = 'dual_gen1'):
