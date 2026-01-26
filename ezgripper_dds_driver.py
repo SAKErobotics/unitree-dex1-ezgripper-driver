@@ -176,6 +176,7 @@ class CorrectedEZGripperDriver:
         # Control state
         self.current_position_pct = 50.0
         self.current_effort_pct = 30.0
+        self.last_effort_pct = None  # Track last effort to avoid redundant set_max_effort calls
         self.last_cmd_time = time.time()
         self.target_position_pct = 50.0
         
@@ -393,8 +394,13 @@ class CorrectedEZGripperDriver:
         try:
             cmd = self.latest_command
             
-            # Execute command immediately (no lock needed in single-threaded)
-            self.gripper.goto_position(int(cmd.position_pct), int(cmd.effort_pct))
+            # Only update effort if it changed (reduces serial writes from 3 to 1)
+            if self.last_effort_pct != cmd.effort_pct:
+                self.gripper.set_max_effort(int(cmd.effort_pct))
+                self.last_effort_pct = cmd.effort_pct
+            
+            # Send position command (only 1 serial write instead of 3)
+            self.gripper._goto_position(self.gripper.scale(int(cmd.position_pct), self.gripper.GRIP_MAX))
             
             # Update state
             self.target_position_pct = cmd.position_pct
