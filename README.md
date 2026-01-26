@@ -2,6 +2,43 @@
 
 CycloneDDS driver for EZGripper control on Unitree G1 robots using the Dex1 DDS interface.
 
+## Quick Start
+
+Get up and running in 5 minutes:
+
+```bash
+# 1. Clone and install
+git clone https://github.com/SAKErobotics/unitree-dex1-ezgripper-driver.git
+cd unitree-dex1-ezgripper-driver
+pip install -r requirements.txt
+
+# 2. Connect grippers to USB ports
+# (physically connect EZGrippers to G1 USB ports)
+
+# 3. Start left gripper driver (auto-discovers on first run)
+python3 ezgripper_dds_driver.py --side left
+
+# Follow prompts to verify left/right mapping
+
+# 4. Calibrate left gripper
+python3 ezgripper_dds_driver.py --side left --calibrate
+
+# 5. Start right gripper driver
+python3 ezgripper_dds_driver.py --side right
+
+# 6. Calibrate right gripper
+python3 ezgripper_dds_driver.py --side right --calibrate
+
+# 7. Start both drivers for normal operation
+# Terminal 1:
+python3 ezgripper_dds_driver.py --side left
+
+# Terminal 2:
+python3 ezgripper_dds_driver.py --side right
+```
+
+**That's it!** The driver auto-discovers devices, guides you through verification, and stores calibration automatically.
+
 ## Features
 
 - ✅ **DDS Interface** - Compatible with Unitree Dex1 DDS topics
@@ -84,53 +121,104 @@ The EZGrippers can also connect to the G1 via Elfin-EE11A serial-to-ethernet ada
 
 ## Usage
 
-### Calibration
+### First Run - Auto-Discovery and Verification
 
-Run calibration once to establish zero position:
+On first run, the driver will automatically discover connected EZGripper devices and guide you through verifying the left/right mapping:
 
 ```bash
-python3 run_hardware_calibration.py
+# Start left gripper driver
+python3 ezgripper_dds_driver.py --side left
+
+# Start right gripper driver  
+python3 ezgripper_dds_driver.py --side right
 ```
 
-Calibration is stored in `/tmp/ezgripper_left_calibration.txt` and loaded automatically on driver startup.
+**First Run Process:**
+1. Driver auto-discovers EZGripper USB devices
+2. Displays discovered devices with serial numbers
+3. Prompts you to verify left/right mapping
+4. Saves device configuration to `/tmp/ezgripper_device_config.json`
+
+**Interactive Verification Example:**
+```
+============================================================
+EZGripper Device Mapping Verification
+============================================================
+
+Discovered devices:
+  Left:  /dev/ttyUSB0 (serial: A4012B2G)
+  Right: /dev/ttyUSB1 (serial: B5023C3D)
+
+Please verify this mapping is correct.
+The 'left' gripper should be on the LEFT side of the robot.
+The 'right' gripper should be on the RIGHT side of the robot.
+
+Is this mapping correct? [Y/n]
+```
+
+- **Y/Enter**: Mapping confirmed, configuration saved
+- **N**: Mapping swapped, configuration saved
+
+**Device Config Structure:**
+```json
+{
+  "left": "/dev/ttyUSB0",
+  "right": "/dev/ttyUSB1",
+  "left_serial": "A4012B2G",
+  "right_serial": "B5023C3D",
+  "calibration": {
+    "A4012B2G": 12.5,
+    "B5023C3D": -8.3
+  }
+}
+```
+
+**Subsequent Runs:**
+- Device config loaded automatically
+- No verification needed
+- Calibration loaded from config
+
+### Calibration
+
+Calibration is now tied to gripper serial numbers and stored in the device config file. Each gripper must be calibrated separately:
+
+**Calibrate Left Gripper:**
+```bash
+python3 ezgripper_dds_driver.py --side left --calibrate
+```
+
+**Calibrate Right Gripper:**
+```bash
+python3 ezgripper_dds_driver.py --side right --calibrate
+```
+
+**Calibration Process:**
+1. Driver moves gripper to relaxed position (50%)
+2. Performs calibration sequence
+3. Saves offset to device config by serial number
+4. Calibration persists across reboots
+
+**Note:** Calibration stays with the physical gripper (serial number), not the left/right designation. If you swap the left/right mapping, calibration automatically stays with the correct gripper.
 
 ### Start the Driver
 
-#### USB Interface
-
-For the left gripper (assuming USB device `/dev/ttyUSB0`):
+After first run and calibration, start both gripper drivers:
 
 ```bash
-python3 ezgripper_dds_driver.py --side left --dev /dev/ttyUSB0 --baudrate 57600
+# Terminal 1 - Left gripper
+python3 ezgripper_dds_driver.py --side left
+
+# Terminal 2 - Right gripper
+python3 ezgripper_dds_driver.py --side right
 ```
 
-For the right gripper (assuming USB device `/dev/ttyUSB1`):
+**Manual Device Specification (Optional):**
+If you prefer to specify devices manually:
 
 ```bash
-python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1 --baudrate 57600
+python3 ezgripper_dds_driver.py --side left --dev /dev/ttyUSB0
+python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 ```
-
-For more reliable device identification using hardware-specific URLs:
-
-```bash
-python3 ezgripper_dds_driver.py --side left --dev hwgrep://0403:6001 --baudrate 57600
-```
-
-#### Ethernet Adapter Interface
-
-For the left gripper (assuming adapter IP 192.168.123.10):
-
-```bash
-python3 ezgripper_dds_driver.py --side left --dev socket://192.168.123.10:4000
-```
-
-For the right gripper (assuming adapter IP 192.168.123.11):
-
-```bash
-python3 ezgripper_dds_driver.py --side right --dev socket://192.168.123.11:4000
-```
-
-Replace the IP addresses with your actual Elfin-EE11A adapter IP addresses configured in the Hardware Setup section.
 
 ## DDS Topics
 
