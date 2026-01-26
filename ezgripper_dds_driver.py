@@ -415,6 +415,7 @@ class CorrectedEZGripperDriver:
         try:
             cmd = self.command_queue.get_nowait()
             self.current_command = cmd
+            self.last_executed_command = cmd  # Store for re-execution if needed
             
             # Try to acquire lock with timeout (commands can be dropped)
             if self.serial_lock.acquire(timeout=0.001):  # 1ms timeout
@@ -442,8 +443,17 @@ class CorrectedEZGripperDriver:
                 self.logger.debug(f"Skipped command: lock not acquired")
             
         except Empty:
-            # No command in queue
-            pass
+            # No new command in queue, re-execute last command if available
+            if hasattr(self, 'last_executed_command') and self.last_executed_command:
+                cmd = self.last_executed_command
+                
+                # Try to acquire lock with timeout
+                if self.serial_lock.acquire(timeout=0.001):  # 1ms timeout
+                    try:
+                        self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+                        self.logger.debug(f"Re-executing last command: position={cmd.position_pct:.1f}%")
+                    finally:
+                        self.serial_lock.release()
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
     
