@@ -411,29 +411,35 @@ class CorrectedEZGripperDriver:
             self.logger.error(f"Command receive failed: {e}")
     
     def execute_command(self):
-        """Execute latest queued command immediately (servo handles command replacement)"""
+        """Execute latest queued command with timeout (commands can be dropped)"""
         try:
             cmd = self.command_queue.get_nowait()
             self.current_command = cmd
             
-            # Execute command with lock to protect serial connection
-            with self.serial_lock:
-                self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
-            
-            # Update state
-            self.target_position_pct = cmd.position_pct
-            self.current_position_pct = cmd.position_pct
-            self.current_effort_pct = cmd.effort_pct
-            
-            # Log command
-            if cmd.q_radians <= 0.1:
-                mode = "CLOSE"
-            elif cmd.q_radians >= 6.0:
-                mode = "OPEN"
+            # Try to acquire lock with timeout (commands can be dropped)
+            if self.serial_lock.acquire(timeout=0.001):  # 1ms timeout
+                try:
+                    self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+                    
+                    # Update state
+                    self.target_position_pct = cmd.position_pct
+                    self.current_position_pct = cmd.position_pct
+                    self.current_effort_pct = cmd.effort_pct
+                    
+                    # Log command
+                    if cmd.q_radians <= 0.1:
+                        mode = "CLOSE"
+                    elif cmd.q_radians >= 6.0:
+                        mode = "OPEN"
+                    else:
+                        mode = f"POSITION {cmd.position_pct:.1f}%"
+                    
+                    self.logger.info(f"Executing: {mode} (q={cmd.q_radians:.3f}, tau={cmd.tau:.3f})")
+                finally:
+                    self.serial_lock.release()
             else:
-                mode = f"POSITION {cmd.position_pct:.1f}%"
-            
-            self.logger.info(f"Executing: {mode} (q={cmd.q_radians:.3f}, tau={cmd.tau:.3f})")
+                # Lock not acquired, skip this command (next one will arrive soon)
+                self.logger.debug(f"Skipped command: lock not acquired")
             
         except Empty:
             # No command in queue
