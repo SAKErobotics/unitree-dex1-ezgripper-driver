@@ -310,11 +310,7 @@ class CorrectedEZGripperDriver:
         self.logger.info("Starting calibration on command...")
         
         try:
-            # Move to relaxed position
-            self.gripper.goto_position(50, 30)
-            time.sleep(2)
-            
-            # Perform calibration (bug now fixed in libezgripper)
+            # Perform calibration - this closes gripper and sets zero position
             self.gripper.calibrate()
             
             # Save calibration offset to device config
