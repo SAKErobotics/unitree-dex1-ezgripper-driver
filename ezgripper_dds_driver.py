@@ -182,9 +182,7 @@ class CorrectedEZGripperDriver:
         self.current_position_pct = 50.0
         self.current_effort_pct = 30.0
         self.last_cmd_time = time.time()
-        self.last_command_send_time = 0.0
         self.target_position_pct = 50.0
-        self.command_send_interval = 0.02  # 50Hz max (every 20ms)
         
         # Command queue (1-deep - keeps latest, drops old)
         self.command_queue = Queue(maxsize=1)
@@ -198,7 +196,7 @@ class CorrectedEZGripperDriver:
         # Threading
         self.running = True
         self.status_thread = None
-        self.status_update_interval = 0.05  # 20Hz status updates
+        self.status_update_interval = 0.5  # 2Hz status updates (reduced from 20Hz to reduce lock contention)
         
         # Initialize
         self._initialize_hardware()
@@ -413,12 +411,7 @@ class CorrectedEZGripperDriver:
             self.logger.error(f"Command receive failed: {e}")
     
     def execute_command(self):
-        """Execute latest queued command with rate limiting (prevents servo buffer overflow)"""
-        # Check rate limit
-        time_since_last = time.time() - self.last_command_send_time
-        if time_since_last < self.command_send_interval:
-            return  # Rate limited
-        
+        """Execute latest queued command immediately (servo handles command replacement)"""
         try:
             cmd = self.command_queue.get_nowait()
             self.current_command = cmd
@@ -431,7 +424,6 @@ class CorrectedEZGripperDriver:
             self.target_position_pct = cmd.position_pct
             self.current_position_pct = cmd.position_pct
             self.current_effort_pct = cmd.effort_pct
-            self.last_command_send_time = time.time()
             
             # Log command
             if cmd.q_radians <= 0.1:
