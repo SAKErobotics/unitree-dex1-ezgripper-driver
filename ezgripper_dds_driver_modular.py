@@ -21,7 +21,7 @@ import os
 import serial.tools.list_ports
 import json
 
-from dds_interface import Dex1DDSInterface, GripperCommand
+from dds_interface import Dex1DDSInterface
 from hardware_controller import EZGripperHardwareController
 
 
