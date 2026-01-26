@@ -197,6 +197,7 @@ class CorrectedEZGripperDriver:
         self.running = True
         self.status_thread = None
         self.status_update_interval = 0.5  # 2Hz status updates (reduced from 20Hz to reduce lock contention)
+        self.status_update_just_completed = False  # Flag to track if status update just completed
         
         # Initialize
         self._initialize_hardware()
@@ -443,17 +444,20 @@ class CorrectedEZGripperDriver:
                 self.logger.debug(f"Skipped command: lock not acquired")
             
         except Empty:
-            # No new command in queue, re-execute last command if available
-            if hasattr(self, 'last_executed_command') and self.last_executed_command:
+            # No new command in queue, re-execute last command if status update just completed
+            if self.status_update_just_completed and hasattr(self, 'last_executed_command') and self.last_executed_command:
                 cmd = self.last_executed_command
                 
                 # Try to acquire lock with timeout
                 if self.serial_lock.acquire(timeout=0.001):  # 1ms timeout
                     try:
                         self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
-                        self.logger.debug(f"Re-executing last command: position={cmd.position_pct:.1f}%")
+                        self.logger.debug(f"Re-executing last command after status update: position={cmd.position_pct:.1f}%")
                     finally:
                         self.serial_lock.release()
+                
+                # Clear flag after attempting re-execution
+                self.status_update_just_completed = False
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
     
@@ -488,6 +492,9 @@ class CorrectedEZGripperDriver:
                 
                 # Publish state
                 self.state_writer.write(motor_states)
+                
+                # Set flag to indicate status update just completed
+                self.status_update_just_completed = True
                 
             except Exception as e:
                 self.logger.error(f"State publish failed: {e}")
