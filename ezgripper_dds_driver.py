@@ -14,9 +14,7 @@ import argparse
 import logging
 import sys
 import os
-import threading
 import json
-from queue import Queue, Empty
 from dataclasses import dataclass
 
 # Set CYCLONEDDS_HOME before importing cyclonedds
@@ -175,29 +173,21 @@ class CorrectedEZGripperDriver:
         self.connection = None
         self.is_calibrated = False
         
-        # Serial connection lock (prevents concurrent access)
-        self.serial_lock = threading.Lock()
-        
         # Control state
         self.current_position_pct = 50.0
         self.current_effort_pct = 30.0
         self.last_cmd_time = time.time()
         self.target_position_pct = 50.0
         
-        # Command queue (1-deep - keeps latest, drops old)
-        self.command_queue = Queue(maxsize=1)
-        self.current_command = None
+        # Latest command (single-threaded, no queue needed)
+        self.latest_command = None
+        self.command_count = 0
+        self.status_read_interval = 10  # Read status every N command cycles
         
-        # DDS state
-        self.participant = None
-        self.cmd_reader = None
-        self.state_writer = None
-        
-        # Threading
+        # Control loop
         self.running = True
-        self.status_thread = None
-        self.status_update_interval = 0.5  # 2Hz status updates (reduced from 20Hz to reduce lock contention)
-        self.status_update_just_completed = False  # Flag to track if status update just completed
+        self.last_status_time = 0
+        self.status_publish_interval = 0.5  # Publish status at 2Hz
         
         # Initialize
         self._initialize_hardware()
@@ -246,10 +236,9 @@ class CorrectedEZGripperDriver:
         except Exception as e:
             self.logger.warning(f"Failed to load calibration: {e}")
         
-        # No calibration found
-        self.calibration_offset = 0.0
-        self.gripper.zero_positions[0] = self.calibration_offset
-        self.logger.info("No calibration found, using default offset")
+        # No calibration found - auto-calibrate
+        self.logger.info("No calibration found, running auto-calibration...")
+        self.calibrate()
     
     def save_calibration(self, offset: float):
         """Save calibration offset to device config using serial number"""
@@ -313,8 +302,9 @@ class CorrectedEZGripperDriver:
             # Perform calibration - this closes gripper and sets zero position
             self.gripper.calibrate()
             
-            # Save calibration offset to device config
-            self.save_calibration(0.0)  # Offset is 0 since calibrate() sets zero_position
+            # Save actual zero position to device config for persistence
+            zero_pos = self.gripper.zero_positions[0]
+            self.save_calibration(zero_pos)
             
             # Verify with quick test
             self.gripper.goto_position(25, 40)
@@ -367,15 +357,13 @@ class CorrectedEZGripperDriver:
             return 50.0  # Standard effort (peak power limited)
     
     def receive_commands(self):
-        """Receive and queue incoming DDS commands (non-blocking)"""
+        """Receive latest DDS command (non-blocking)"""
         try:
             samples = self.cmd_reader.take(N=10)  # Take up to 10 samples
             
             if samples:
-                self.logger.debug(f"Received {len(samples)} samples")
-                
-                # Keep only the latest command (1-deep queue)
-                latest_sample = samples[-1]  # Last sample is most recent
+                # Keep only the latest command
+                latest_sample = samples[-1]
                 
                 if latest_sample and hasattr(latest_sample, 'cmds') and latest_sample.cmds and len(latest_sample.cmds) > 0:
                     motor_cmd = latest_sample.cmds[0]
@@ -385,137 +373,109 @@ class CorrectedEZGripperDriver:
                     requested_effort = self.tau_to_effort_pct(motor_cmd.tau)
                     actual_effort = min(requested_effort, self.get_appropriate_effort(target_position))
                     
-                    # Create command object
-                    cmd = GripperCommand(
+                    # Store latest command
+                    self.latest_command = GripperCommand(
                         position_pct=target_position,
                         effort_pct=actual_effort,
                         timestamp=time.time(),
                         q_radians=motor_cmd.q,
                         tau=motor_cmd.tau
                     )
-                    
-                    # Put in queue (will drop old command if queue is full)
-                    try:
-                        self.command_queue.put_nowait(cmd)
-                        self.logger.debug(f"Queued command: position={target_position:.1f}%")
-                    except:
-                        # Queue was full, old command will be replaced
-                        self.command_queue.get_nowait()  # Remove old
-                        self.command_queue.put_nowait(cmd)  # Add new
-                        self.logger.debug(f"Replaced old command with new: position={target_position:.1f}%")
         
         except Exception as e:
             self.logger.error(f"Command receive failed: {e}")
     
     def execute_command(self):
-        """Execute latest queued command with timeout (commands can be dropped)"""
+        """Execute latest command (no locking, single-threaded)"""
+        if self.latest_command is None:
+            return
+        
         try:
-            cmd = self.command_queue.get_nowait()
-            self.current_command = cmd
-            self.last_executed_command = cmd  # Store for re-execution if needed
+            cmd = self.latest_command
             
-            # Try to acquire lock with timeout (commands can be dropped)
-            if self.serial_lock.acquire(timeout=0.001):  # 1ms timeout
-                try:
-                    self.gripper.goto_position(int(cmd.position_pct), int(cmd.effort_pct))
-                    
-                    # Update state
-                    self.target_position_pct = cmd.position_pct
-                    self.current_position_pct = cmd.position_pct
-                    self.current_effort_pct = cmd.effort_pct
-                    
-                    # Log command
-                    if cmd.q_radians <= 0.1:
-                        mode = "CLOSE"
-                    elif cmd.q_radians >= 6.0:
-                        mode = "OPEN"
-                    else:
-                        mode = f"POSITION {cmd.position_pct:.1f}%"
-                    
-                    self.logger.info(f"Executing: {mode} (q={cmd.q_radians:.3f}, tau={cmd.tau:.3f})")
-                finally:
-                    self.serial_lock.release()
-            else:
-                # Lock not acquired, skip this command (next one will arrive soon)
-                self.logger.debug(f"Skipped command: lock not acquired")
+            # Execute command immediately (no lock needed in single-threaded)
+            self.gripper.goto_position(int(cmd.position_pct), int(cmd.effort_pct))
             
-        except Empty:
-            # No new command in queue, re-execute last command if status update just completed
-            if self.status_update_just_completed and hasattr(self, 'last_executed_command') and self.last_executed_command:
-                cmd = self.last_executed_command
-                
-                # Try to acquire lock with timeout
-                if self.serial_lock.acquire(timeout=0.001):  # 1ms timeout
-                    try:
-                        self.gripper.goto_position(int(cmd.position_pct), int(cmd.effort_pct))
-                        self.logger.debug(f"Re-executing last command after status update: position={cmd.position_pct:.1f}%")
-                    finally:
-                        self.serial_lock.release()
-                
-                # Clear flag after attempting re-execution
-                self.status_update_just_completed = False
+            # Update state
+            self.target_position_pct = cmd.position_pct
+            self.current_position_pct = cmd.position_pct
+            self.current_effort_pct = cmd.effort_pct
+            
+            # Increment command counter
+            self.command_count += 1
+            
+            # Log command occasionally
+            if self.command_count % 50 == 0:
+                if cmd.q_radians <= 0.1:
+                    mode = "CLOSE"
+                elif cmd.q_radians >= 6.0:
+                    mode = "OPEN"
+                else:
+                    mode = f"POSITION {cmd.position_pct:.1f}%"
+                self.logger.info(f"Executing: {mode} (q={cmd.q_radians:.3f}, tau={cmd.tau:.3f})")
+            
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
     
-    def publish_state_async(self):
-        """Publish current gripper state (non-blocking, runs in separate thread)"""
-        while self.running:
-            try:
-                # Get actual position from hardware with lock to protect serial connection
-                with self.serial_lock:
-                    actual_position = self.gripper.get_position()
-                
-                # Convert to Dex1 units
-                current_q = self.ezgripper_to_dex1(actual_position)
-                current_tau = self.current_effort_pct / 10.0
-                
-                # Create motor state
-                motor_state = MotorState_(
-                    mode=0,
-                    q=current_q,
-                    dq=0.0,
-                    ddq=0.0,
-                    tau_est=current_tau,
-                    q_raw=current_q,
-                    dq_raw=0.0,
-                    ddq_raw=0.0,
-                    temperature=25,
-                    lost=0,
-                    reserve=[0, 0]
-                )
-                
-                motor_states = MotorStates_(states=[motor_state])
-                
-                # Publish state
-                self.state_writer.write(motor_states)
-                
-                # Set flag to indicate status update just completed
-                self.status_update_just_completed = True
-                
-            except Exception as e:
-                self.logger.error(f"State publish failed: {e}")
+    def publish_state(self):
+        """Publish current gripper state periodically (single-threaded)"""
+        current_time = time.time()
+        
+        # Only publish at specified interval (2Hz)
+        if current_time - self.last_status_time < self.status_publish_interval:
+            return
+        
+        try:
+            # Read position every N command cycles to avoid blocking commands
+            if self.command_count % self.status_read_interval == 0:
+                actual_position = self.gripper.get_position()
+                self.current_position_pct = actual_position
             
-            # Sleep for status update interval
-            time.sleep(self.status_update_interval)
+            # Convert to Dex1 units
+            current_q = self.ezgripper_to_dex1(self.current_position_pct)
+            current_tau = self.current_effort_pct / 10.0
+            
+            # Create motor state
+            motor_state = MotorState_(
+                mode=0,
+                q=current_q,
+                dq=0.0,
+                ddq=0.0,
+                tau_est=current_tau,
+                q_raw=current_q,
+                dq_raw=0.0,
+                ddq_raw=0.0,
+                temperature=25,
+                lost=0,
+                reserve=[0, 0]
+            )
+            
+            motor_states = MotorStates_(states=[motor_state])
+            
+            # Publish state
+            self.state_writer.write(motor_states)
+            self.last_status_time = current_time
+            
+        except Exception as e:
+            self.logger.error(f"Status publish failed: {e}")
     
     def run(self):
-        """Main control loop"""
-        self.logger.info("Starting corrected EZGripper driver...")
-        
-        # Start async status publishing thread
-        self.status_thread = threading.Thread(target=self.publish_state_async, daemon=True)
-        self.status_thread.start()
+        """Main single-threaded control loop"""
+        self.logger.info("Starting corrected EZGripper driver (single-threaded)...")
         
         try:
             while self.running:
-                # Receive and queue commands (non-blocking)
+                # Priority 1: Receive latest command
                 self.receive_commands()
                 
-                # Execute queued command with rate limiting
+                # Priority 2: Execute command immediately
                 self.execute_command()
                 
-                # Small sleep to prevent CPU spinning
-                time.sleep(0.01)  # 100Hz loop
+                # Priority 3: Publish status periodically (non-blocking)
+                self.publish_state()
+                
+                # Minimal sleep to prevent CPU spinning (50Hz loop = 20ms)
+                time.sleep(0.02)
                 
         except KeyboardInterrupt:
             self.logger.info("Shutting down corrected EZGripper driver...")
@@ -523,8 +483,6 @@ class CorrectedEZGripperDriver:
             self.logger.error(f"Driver error: {e}")
         finally:
             self.running = False
-            if self.status_thread:
-                self.status_thread.join(timeout=1.0)
     
     def shutdown(self):
         """Clean shutdown"""
