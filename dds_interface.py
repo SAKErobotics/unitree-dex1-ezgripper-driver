@@ -11,14 +11,14 @@ import logging
 import os
 import sys
 
-os.environ['CYCLONEDDS_HOME'] = '/opt/cyclonedds-0.10.2'
+os.environ['CYCLONEDDS_HOME'] = os.path.expanduser('~/CascadeProjects/cyclonedds/install')
 
 from cyclonedds.domain import DomainParticipant
 from cyclonedds.topic import Topic
 from cyclonedds.sub import DataReader
 from cyclonedds.pub import DataWriter
 
-sys.path.insert(0, '/home/kavi/CascadeProjects/unitree_sdk2_python')
+sys.path.insert(0, os.path.expanduser('~/CascadeProjects/unitree_sdk2_python'))
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmd_, MotorCmds_, MotorState_, MotorStates_
 
 

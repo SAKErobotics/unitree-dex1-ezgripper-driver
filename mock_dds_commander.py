@@ -13,13 +13,13 @@ import os
 import sys
 import math
 
-os.environ['CYCLONEDDS_HOME'] = '/opt/cyclonedds-0.10.2'
+os.environ['CYCLONEDDS_HOME'] = os.path.expanduser('~/CascadeProjects/cyclonedds/install')
 
 from cyclonedds.domain import DomainParticipant
 from cyclonedds.topic import Topic
 from cyclonedds.pub import DataWriter
 
-sys.path.insert(0, '/home/kavi/CascadeProjects/unitree_sdk2_python')
+sys.path.insert(0, os.path.expanduser('~/CascadeProjects/unitree_sdk2_python'))
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmd_, MotorCmds_
 
 
@@ -80,7 +80,8 @@ class MockDDSCommander:
                     dq=0.0,
                     tau=0.0,
                     kp=0.0,
-                    kd=0.0
+                    kd=0.0,
+                    reserve=[0, 0, 0]
                 )
                 
                 motor_cmds = MotorCmds_(cmds=[motor_cmd])
