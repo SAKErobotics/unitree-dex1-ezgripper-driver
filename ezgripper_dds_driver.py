@@ -421,7 +421,7 @@ class CorrectedEZGripperDriver:
             # Try to acquire lock with timeout (commands can be dropped)
             if self.serial_lock.acquire(timeout=0.001):  # 1ms timeout
                 try:
-                    self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+                    self.gripper.goto_position(int(cmd.position_pct), int(cmd.effort_pct))
                     
                     # Update state
                     self.target_position_pct = cmd.position_pct
@@ -451,7 +451,7 @@ class CorrectedEZGripperDriver:
                 # Try to acquire lock with timeout
                 if self.serial_lock.acquire(timeout=0.001):  # 1ms timeout
                     try:
-                        self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+                        self.gripper.goto_position(int(cmd.position_pct), int(cmd.effort_pct))
                         self.logger.debug(f"Re-executing last command after status update: position={cmd.position_pct:.1f}%")
                     finally:
                         self.serial_lock.release()
