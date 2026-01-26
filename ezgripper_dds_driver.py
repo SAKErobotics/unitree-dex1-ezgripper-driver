@@ -314,11 +314,11 @@ class CorrectedEZGripperDriver:
             self.gripper.goto_position(50.0, 30.0)
             time.sleep(2)
             
-            # Perform calibration
+            # Perform calibration (bug now fixed in libezgripper)
             self.gripper.calibrate()
             
-            # Save calibration offset to file
-            self._save_calibration()
+            # Save calibration offset to device config
+            self.save_calibration(0.0)  # Offset is 0 since calibrate() sets zero_position
             
             # Verify with quick test
             self.gripper.goto_position(25.0, 40.0)

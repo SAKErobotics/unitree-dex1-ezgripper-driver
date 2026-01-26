@@ -266,13 +266,13 @@ class Robotis_Servo():
             for c in msg:
                 cs += c
 
-        return ( ~cs ) & 0xFF
+        return ( ~int(cs) ) & 0xFF
 
     def __calc_checksum(self, msg):
         chksum = 0
         for m in msg:
             chksum += m
-        chksum = ( ~chksum ) % 256
+        chksum = ( ~int(chksum) ) % 256
         return chksum
 
     def read_address(self, address, nBytes=1):
