@@ -311,7 +311,7 @@ class CorrectedEZGripperDriver:
         
         try:
             # Move to relaxed position
-            self.gripper.goto_position(50.0, 30.0)
+            self.gripper.goto_position(50, 30)
             time.sleep(2)
             
             # Perform calibration (bug now fixed in libezgripper)
@@ -321,7 +321,7 @@ class CorrectedEZGripperDriver:
             self.save_calibration(0.0)  # Offset is 0 since calibrate() sets zero_position
             
             # Verify with quick test
-            self.gripper.goto_position(25.0, 40.0)
+            self.gripper.goto_position(25, 40)
             time.sleep(2)
             actual = self.gripper.get_position()
             error = abs(actual - 25.0)
