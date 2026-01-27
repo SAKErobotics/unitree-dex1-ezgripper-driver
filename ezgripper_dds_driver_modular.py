@@ -109,7 +109,6 @@ class ModularEZGripperDriver:
         # Control loop state
         self.running = True
         self.command_count = 0
-        self.position_read_interval = 10  # Read position every N cycles
         self.last_status_publish_time = 0
         self.status_publish_interval = 0.5  # Publish at 2Hz
         
@@ -134,6 +133,10 @@ class ModularEZGripperDriver:
                     self.hardware.execute_command(position_pct, effort_pct)
                     self.command_count += 1
                     
+                    # Update DDS cached state with commanded position (not actual servo position)
+                    # This keeps XR teleoperate happy and reduces bus traffic
+                    self.dds.update_cached_state(position_pct, effort_pct)
+                    
                     # Log every command for debugging
                     if self.command_count % 10 == 0:
                         if position_pct <= 5.0:
@@ -143,14 +146,6 @@ class ModularEZGripperDriver:
                         else:
                             mode = f"POSITION {position_pct:.1f}%"
                         self.logger.info(f"Executing: {mode} (effort={effort_pct:.0f}%)")
-                
-                # Priority 3: Read position periodically (not every cycle)
-                if self.command_count % self.position_read_interval == 0:
-                    actual_pos = self.hardware.read_position()
-                    actual_effort = self.hardware.get_cached_effort()
-                    
-                    # Update DDS cached state
-                    self.dds.update_cached_state(actual_pos, actual_effort)
                 
                 # Priority 4: Publish status at fixed rate (2Hz)
                 current_time = time.time()

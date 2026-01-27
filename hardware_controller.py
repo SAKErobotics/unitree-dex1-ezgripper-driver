@@ -16,6 +16,7 @@ import os
 from typing import Optional
 
 from libezgripper import create_connection, Gripper
+from libezgripper.lib_robotis import set_torque_mode
 
 
 class EZGripperHardwareController:
@@ -47,6 +48,15 @@ class EZGripperHardwareController:
         self.current_position_pct = 50.0
         self.current_effort_pct = 30.0
         self.last_effort_pct = None  # Track to avoid redundant set_max_effort
+        
+        # Hybrid control state
+        self.control_mode = 'position'  # 'position' or 'torque'
+        self.last_commanded_position = 50.0
+        self.resistance_detected = False
+        self.current_samples = []  # Rolling window for current monitoring
+        self.current_threshold = 300  # Current units indicating resistance
+        self.current_window_size = 5  # Samples to average
+        self.torque_hold_current = 800  # High current for holding in torque mode
         
         # Initialize hardware
         self._initialize_hardware()
@@ -165,28 +175,77 @@ class EZGripperHardwareController:
     
     def execute_command(self, position_pct: float, effort_pct: float):
         """
-        Execute position and effort command.
+        Execute position and effort command with hybrid position/torque control.
+        
+        Strategy:
+        - Position mode: Normal operation, moving freely
+        - Detect resistance: Current sustained above threshold
+        - Switch to torque mode: Hold with high force
+        - Return to position mode: When commanded position decreases (opening)
         
         Args:
             position_pct: Target position (0-100%)
             effort_pct: Target effort (0-100%)
         """
         try:
-            # Debug logging
             servo_pos = self.gripper.scale(int(position_pct), self.gripper.GRIP_MAX)
-            self.logger.debug(f"execute_command: pos={position_pct:.1f}% -> servo={servo_pos}, effort={effort_pct:.0f}%")
             
-            # Only update effort if it changed (reduces serial writes)
-            if self.last_effort_pct != effort_pct:
-                self.gripper.set_max_effort(int(effort_pct))
-                self.last_effort_pct = effort_pct
+            # Read current to detect resistance
+            current = self._read_current()
+            self._update_current_window(current)
+            avg_current = self._get_average_current()
             
-            # Send position command (1 serial write)
-            self.gripper._goto_position(servo_pos)
+            # Detect if commanded position is decreasing (opening)
+            is_opening = position_pct < self.last_commanded_position - 1.0  # 1% hysteresis
+            self.last_commanded_position = position_pct
+            
+            # Mode switching logic
+            if self.control_mode == 'position':
+                # Check for resistance (sustained high current)
+                if avg_current > self.current_threshold and not is_opening:
+                    self.logger.info(f"Resistance detected (current={avg_current:.0f}), switching to TORQUE mode")
+                    self.control_mode = 'torque'
+                    self.resistance_detected = True
+                    
+                    # Switch to torque mode and hold
+                    for servo in self.gripper.servos:
+                        set_torque_mode(servo, True)
+                    self._set_holding_torque()
+                else:
+                    # Normal position control
+                    if self.last_effort_pct != effort_pct:
+                        self.gripper.set_max_effort(int(effort_pct))
+                        self.last_effort_pct = effort_pct
+                    
+                    self.gripper._goto_position(servo_pos)
+                    
+            elif self.control_mode == 'torque':
+                # Check if we should return to position mode (opening command)
+                if is_opening:
+                    self.logger.info(f"Opening command detected, switching to POSITION mode")
+                    self.control_mode = 'position'
+                    self.resistance_detected = False
+                    
+                    # Switch back to position mode
+                    for servo in self.gripper.servos:
+                        set_torque_mode(servo, False)
+                    
+                    # Execute the opening command
+                    if self.last_effort_pct != effort_pct:
+                        self.gripper.set_max_effort(int(effort_pct))
+                        self.last_effort_pct = effort_pct
+                    self.gripper._goto_position(servo_pos)
+                else:
+                    # Continue holding in torque mode
+                    self._set_holding_torque()
             
             # Update cached state
             self.current_position_pct = position_pct
             self.current_effort_pct = effort_pct
+            
+            # Debug logging
+            if int(position_pct) % 10 == 0:  # Log occasionally
+                self.logger.debug(f"mode={self.control_mode}, pos={position_pct:.1f}%, current={avg_current:.0f}")
             
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
@@ -216,13 +275,41 @@ class EZGripperHardwareController:
         return self.current_position_pct
     
     def get_cached_effort(self) -> float:
-        """
-        Get cached effort without hardware read.
-        
-        Returns:
-            Cached effort percentage (0-100)
-        """
+        """Get cached effort value"""
         return self.current_effort_pct
+    
+    def _read_current(self) -> float:
+        """Read current from servo (load)"""
+        try:
+            # Read present load (address 40, 2 bytes)
+            load = self.gripper.servos[0].read_word_signed(40)
+            # Convert to absolute current value
+            return abs(load)
+        except Exception as e:
+            self.logger.debug(f"Failed to read current: {e}")
+            return 0.0
+    
+    def _update_current_window(self, current: float):
+        """Update rolling window of current samples"""
+        self.current_samples.append(current)
+        if len(self.current_samples) > self.current_window_size:
+            self.current_samples.pop(0)
+    
+    def _get_average_current(self) -> float:
+        """Get average current from rolling window"""
+        if not self.current_samples:
+            return 0.0
+        return sum(self.current_samples) / len(self.current_samples)
+    
+    def _set_holding_torque(self):
+        """Set high torque for holding in torque mode"""
+        try:
+            # In torque mode, set goal torque (address 71, 2 bytes)
+            # Positive value for closing direction
+            for servo in self.gripper.servos:
+                servo.write_word(71, self.torque_hold_current)
+        except Exception as e:
+            self.logger.error(f"Failed to set holding torque: {e}")
     
     def shutdown(self):
         """Clean shutdown - move to safe position"""
