@@ -60,7 +60,7 @@ class EZGripperHardwareController:
         self.current_threshold = 200  # Current units indicating resistance (lifetime reliable for new and aged servos)
         self.current_window_size = 2  # Samples to average (faster response)
         self.torque_hold_current = 800  # 78% torque for holding in torque mode (800/1023 max)
-        self.backoff_torque_current = 133  # 13% torque for back-off holding (133/1023)
+        self.backoff_torque_current = 400  # 39% torque for back-off holding (stronger grip)
         self.position_mode_effort = 100  # 100% effort for position control (safe - firmware limited)
         self.torque_mode_start_time = None  # Track when torque mode started
         self.torque_mode_entry_position = None  # Track position when entering torque mode
@@ -247,6 +247,11 @@ class EZGripperHardwareController:
                     self.torque_mode_entry_position = position_pct
                     # DON'T update expected_position_pct - keep tracking commanded positions
                     self.logger.info(f"Torque mode: resistance detected at commanded position {position_pct:.1f}%")
+                    
+                    # Enable torque mode on servo and set holding torque
+                    for servo in self.gripper.servos:
+                        set_torque_mode(servo, True)
+                    self._set_holding_torque()
                 else:
                     # Check if resistance detection was blocked by position threshold
                     if is_closing and position_pct >= 65.0 and (current > self.current_threshold or avg_current > self.current_threshold):
@@ -452,9 +457,9 @@ class EZGripperHardwareController:
         """Set high torque for holding in torque mode"""
         try:
             # In torque mode, set goal torque (address 71, 2 bytes)
-            # Positive value for closing direction
+            # Note: Register 34 (Torque Limit) caps the max value for register 71
             for servo in self.gripper.servos:
-                servo.write_word(71, self.torque_hold_current)
+                servo.write_word(71, 1024 + self.torque_hold_current)
         except Exception as e:
             self.logger.error(f"Failed to set holding torque: {e}")
     
