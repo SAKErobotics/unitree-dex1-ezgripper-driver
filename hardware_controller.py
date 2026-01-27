@@ -60,6 +60,8 @@ class EZGripperHardwareController:
         self.position_mode_effort = 100  # 100% effort for position control (safe - firmware limited)
         self.torque_mode_start_time = None  # Track when torque mode started
         self.torque_mode_timeout = 1.0  # Switch to position control after 1 second in torque mode
+        self.last_mode_switch_time = 0  # Track last mode switch for cooldown
+        self.mode_switch_cooldown = 0.5  # Cooldown period after mode switch to prevent rapid cycling
         
         # Initialize hardware
         self._initialize_hardware()
@@ -204,12 +206,14 @@ class EZGripperHardwareController:
             # Mode switching logic
             if self.control_mode == 'position':
                 # Simple logic: If closing and stopped (high current) → switch to torque mode
-                # No endpoint exclusions needed - closing is closing everywhere
-                if avg_current > self.current_threshold and is_closing:
+                # Add cooldown to prevent rapid cycling after mode switch
+                time_since_switch = time.time() - self.last_mode_switch_time
+                if avg_current > self.current_threshold and is_closing and time_since_switch > self.mode_switch_cooldown:
                     self.logger.info(f"Resistance detected (current={avg_current:.0f}), switching to TORQUE mode")
                     self.control_mode = 'torque'
                     self.resistance_detected = True
                     self.torque_mode_start_time = time.time()  # Start timer for safety backoff
+                    self.last_mode_switch_time = time.time()  # Track mode switch for cooldown
                     
                     # Switch to torque mode and hold
                     for servo in self.gripper.servos:
@@ -232,6 +236,7 @@ class EZGripperHardwareController:
                     self.control_mode = 'position'
                     self.resistance_detected = False
                     self.torque_mode_start_time = None
+                    self.last_mode_switch_time = time.time()  # Track mode switch for cooldown
                     
                     # Switch back to position mode
                     for servo in self.gripper.servos:
@@ -252,6 +257,7 @@ class EZGripperHardwareController:
                     self.control_mode = 'position'
                     self.resistance_detected = False
                     self.torque_mode_start_time = None
+                    self.last_mode_switch_time = time.time()  # Track mode switch for cooldown
                     
                     # Use goto_position to switch to position mode at current location
                     self.gripper.goto_position(int(current_pos), 100)
