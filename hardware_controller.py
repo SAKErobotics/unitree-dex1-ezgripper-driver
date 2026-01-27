@@ -243,9 +243,8 @@ class EZGripperHardwareController:
             self.current_position_pct = position_pct
             self.current_effort_pct = effort_pct
             
-            # Debug logging
-            if int(position_pct) % 10 == 0:  # Log occasionally
-                self.logger.debug(f"mode={self.control_mode}, pos={position_pct:.1f}%, current={avg_current:.0f}")
+            # Debug logging - log all commands to diagnose endpoint issues
+            self.logger.info(f"CMD: mode={self.control_mode}, pos={position_pct:.1f}%, servo_pos={servo_pos}, effort={self.last_effort_pct}%, current={avg_current:.0f}")
             
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
