@@ -50,11 +50,11 @@ class MockDex1DDSCommander:
         # Setup DDS for Dex1 hand topics
         self.participant = DomainParticipant(domain)
         
-        # Dex1 hand command topic naming convention
+        # Dex1 hand command topic naming convention (official Unitree format)
         if side == 'left':
-            cmd_topic_name = "dt/hand_left_cmd"
+            cmd_topic_name = "rt/dex1/left/cmd"
         else:
-            cmd_topic_name = "dt/hand_right_cmd"
+            cmd_topic_name = "rt/dex1/right/cmd"
             
         cmd_topic = Topic(self.participant, cmd_topic_name, HGHandCmd_)
         self.cmd_writer = DataWriter(self.participant, cmd_topic)
@@ -71,7 +71,7 @@ class MockDex1DDSCommander:
     
     def run(self):
         """Run the mock commander - publishes realistic Dex1 hand commands"""
-        print(f"Publishing Dex1 hand commands on {'dt/hand_' + self.side + '_cmd'}...")
+        print(f"Publishing Dex1 hand commands on {'rt/dex1/' + self.side + '/cmd'}...")
         
         start_time = time.time()
         

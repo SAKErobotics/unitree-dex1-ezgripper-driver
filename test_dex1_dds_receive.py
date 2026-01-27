@@ -29,12 +29,12 @@ def test_dex1_receive():
     print("=" * 50)
     
     try:
-        # Setup DDS for left hand
+        # Setup DDS for left hand (official Unitree topic name)
         participant = DomainParticipant(0)
-        cmd_topic = Topic(participant, "dt/hand_left_cmd", HGHandCmd_)
+        cmd_topic = Topic(participant, "rt/dex1/left/cmd", HGHandCmd_)
         cmd_reader = DataReader(participant, cmd_topic)
         
-        print("Listening for Dex1 hand commands on dt/hand_left_cmd...")
+        print("Listening for Dex1 hand commands on rt/dex1/left/cmd...")
         print("Format should be: side=left, motor1, q=X.XXX rad → XX.X%")
         print()
         

@@ -74,13 +74,13 @@ class Dex1DDSInterface:
             # Create domain participant
             self.participant = DomainParticipant(self.domain)
             
-            # Dex1 hand topic naming convention (matches G1)
+            # Dex1 hand topic naming convention (official Unitree format)
             if self.side == 'left':
-                cmd_topic_name = "dt/hand_left_cmd"
-                state_topic_name = "dt/hand_left_state"
+                cmd_topic_name = "rt/dex1/left/cmd"
+                state_topic_name = "rt/dex1/left/state"
             else:
-                cmd_topic_name = "dt/hand_right_cmd"
-                state_topic_name = "dt/hand_right_state"
+                cmd_topic_name = "rt/dex1/right/cmd"
+                state_topic_name = "rt/dex1/right/state"
             
             # Create topics and readers/writers
             cmd_topic = Topic(self.participant, cmd_topic_name, HGHandCmd_)
