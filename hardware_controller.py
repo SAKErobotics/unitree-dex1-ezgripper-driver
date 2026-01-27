@@ -219,14 +219,18 @@ class EZGripperHardwareController:
                     self.control_mode = 'torque'
                     self.resistance_detected = True
                     self.torque_mode_start_time = time.time()  # Start timer for safety backoff
-                    self.torque_mode_entry_position = position_pct  # Save position for later goto_position
-                    self.actual_gripper_position = position_pct  # Update actual position where resistance detected
                     self.last_mode_switch_time = time.time()  # Track mode switch for cooldown
                     
                     # Switch to torque mode and hold
                     for servo in self.gripper.servos:
                         set_torque_mode(servo, True)
                     self._set_holding_torque()
+                    
+                    # Immediately read actual servo position to know where gripper really stopped
+                    actual_pos = self.gripper.get_position()
+                    self.torque_mode_entry_position = actual_pos  # Save actual stopped position
+                    self.actual_gripper_position = actual_pos  # Update actual position
+                    self.logger.info(f"Torque mode: actual stopped position = {actual_pos:.1f}%")
                 else:
                     # Normal position control with 100% effort
                     # Safe for continuous operation - position control is firmware limited
@@ -237,8 +241,12 @@ class EZGripperHardwareController:
                     self.gripper._goto_position(servo_pos)
                     
             elif self.control_mode == 'torque':
-                # In torque mode: hold for 0.5s then return to position, unless opening command
-                if is_opening:
+                # In torque mode: hold for 0.5s then return to position
+                # Exit immediately if commanded position is more open than entry position
+                entry_pos = self.torque_mode_entry_position if self.torque_mode_entry_position else self.actual_gripper_position
+                is_more_open_than_entry = position_pct < entry_pos - 1.0  # 1% hysteresis
+                
+                if is_more_open_than_entry:
                     # Opening command - switch to position mode immediately
                     self.logger.info(f"Opening command detected, switching to POSITION mode")
                     self.control_mode = 'position'
