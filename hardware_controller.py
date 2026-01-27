@@ -56,7 +56,8 @@ class EZGripperHardwareController:
         self.current_samples = []  # Rolling window for current monitoring
         self.current_threshold = 300  # Current units indicating resistance
         self.current_window_size = 5  # Samples to average
-        self.torque_hold_current = 800  # High current for holding in torque mode
+        self.torque_hold_current = 512  # 50% torque for holding in torque mode (1023 max)
+        self.position_mode_effort = 100  # 100% effort for fast position control
         
         # Initialize hardware
         self._initialize_hardware()
@@ -212,10 +213,10 @@ class EZGripperHardwareController:
                         set_torque_mode(servo, True)
                     self._set_holding_torque()
                 else:
-                    # Normal position control
-                    if self.last_effort_pct != effort_pct:
-                        self.gripper.set_max_effort(int(effort_pct))
-                        self.last_effort_pct = effort_pct
+                    # Normal position control with 100% effort for fast movement
+                    if self.last_effort_pct != self.position_mode_effort:
+                        self.gripper.set_max_effort(int(self.position_mode_effort))
+                        self.last_effort_pct = self.position_mode_effort
                     
                     self.gripper._goto_position(servo_pos)
                     
@@ -230,10 +231,10 @@ class EZGripperHardwareController:
                     for servo in self.gripper.servos:
                         set_torque_mode(servo, False)
                     
-                    # Execute the opening command
-                    if self.last_effort_pct != effort_pct:
-                        self.gripper.set_max_effort(int(effort_pct))
-                        self.last_effort_pct = effort_pct
+                    # Execute the opening command with 100% effort for fast movement
+                    if self.last_effort_pct != self.position_mode_effort:
+                        self.gripper.set_max_effort(int(self.position_mode_effort))
+                        self.last_effort_pct = self.position_mode_effort
                     self.gripper._goto_position(servo_pos)
                 else:
                     # Continue holding in torque mode
