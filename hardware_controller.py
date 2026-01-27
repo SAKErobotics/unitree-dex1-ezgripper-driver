@@ -97,18 +97,21 @@ class EZGripperHardwareController:
                 with open(config_file, 'r') as f:
                     config = json.load(f)
                 
-                # Get serial number for this side
+                # Get serial number for this side, or use side name as fallback
                 serial_key = f"{self.side}_serial"
                 if serial_key in config and config[serial_key] != 'unknown':
-                    serial = config[serial_key]
-                    
-                    # Get calibration for this serial number
-                    if 'calibration' in config and serial in config['calibration']:
-                        zero_pos = config['calibration'][serial]
-                        self.gripper.zero_positions[0] = zero_pos
-                        self.is_calibrated = True
-                        self.logger.info(f"Loaded calibration for {serial}: {zero_pos}")
-                        return
+                    key = config[serial_key]
+                else:
+                    # Use side name as key if no serial number
+                    key = self.side
+                
+                # Get calibration for this key
+                if 'calibration' in config and key in config['calibration']:
+                    zero_pos = config['calibration'][key]
+                    self.gripper.zero_positions[0] = zero_pos
+                    self.is_calibrated = True
+                    self.logger.info(f"Loaded calibration for {key}: {zero_pos}")
+                    return
         except Exception as e:
             self.logger.warning(f"Failed to load calibration: {e}")
         
@@ -127,25 +130,26 @@ class EZGripperHardwareController:
                 with open(config_file, 'r') as f:
                     config = json.load(f)
             
-            # Get serial number for this side
+            # Get serial number for this side, or use side name as fallback
             serial_key = f"{self.side}_serial"
             if serial_key in config and config[serial_key] != 'unknown':
-                serial = config[serial_key]
-                
-                # Initialize calibration dict if needed
-                if 'calibration' not in config:
-                    config['calibration'] = {}
-                
-                # Save zero position for this serial number
-                config['calibration'][serial] = zero_position
-                
-                # Write back
-                with open(config_file, 'w') as f:
-                    json.dump(config, f, indent=2)
-                
-                self.logger.info(f"Saved calibration for {serial}: {zero_position}")
+                key = config[serial_key]
             else:
-                self.logger.error(f"Cannot save calibration - no serial number for {self.side}")
+                # Use side name as key if no serial number
+                key = self.side
+            
+            # Initialize calibration dict if needed
+            if 'calibration' not in config:
+                config['calibration'] = {}
+            
+            # Save zero position for this key
+            config['calibration'][key] = zero_position
+            
+            # Write back
+            with open(config_file, 'w') as f:
+                json.dump(config, f, indent=2)
+            
+            self.logger.info(f"Saved calibration for {key}: {zero_position}")
             
         except Exception as e:
             self.logger.error(f"Failed to save calibration: {e}")
