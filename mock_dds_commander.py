@@ -34,14 +34,14 @@ class MockDDSCommander:
     DEX1_OPEN = 6.28    # Fully open (radians)
     DEX1_CLOSE = 0.0    # Fully closed (radians)
     
-    def __init__(self, side: str, domain: int = 0, period: float = 10.0):
+    def __init__(self, side: str, domain: int = 0, period: float = 5.0):
         """
         Initialize mock commander.
         
         Args:
             side: Gripper side ('left' or 'right')
             domain: DDS domain ID
-            period: Oscillation period in seconds (default 10s = 5s open, 5s close)
+            period: Cycle period in seconds (default 5s = 1s close, 2s hold, 1s open, 1s hold)
         """
         self.side = side
         self.domain = domain
@@ -63,7 +63,7 @@ class MockDDSCommander:
     
     def run(self):
         """Run continuous oscillation loop"""
-        self.logger.info("Starting mock commander - oscillating from open to close...")
+        self.logger.info("Starting mock commander - fast close, 2s hold, then open...")
         
         start_time = time.time()
         
@@ -71,15 +71,28 @@ class MockDDSCommander:
             while True:
                 elapsed = time.time() - start_time
                 
-                # Calculate position using sine wave for smooth oscillation
-                # Period = full cycle time, so half period = open to close
-                phase = (elapsed % self.period) / self.period  # 0 to 1
+                # Cycle: close (1s) -> hold (2s) -> open (1s) -> hold (1s) = 5s total
+                cycle_time = elapsed % self.period
                 
-                # Linear motion: 0 -> 1 -> 0 (constant speed)
-                if phase < 0.5:
-                    normalized = phase * 2  # 0 to 1 (opening)
+                # Define phases
+                close_duration = 1.0   # 1 second to close
+                hold_closed = 2.0      # 2 seconds holding closed
+                open_duration = 1.0    # 1 second to open
+                hold_open = self.period - close_duration - hold_closed - open_duration  # Rest of period
+                
+                if cycle_time < close_duration:
+                    # Closing phase: 100% -> 0%
+                    normalized = 1.0 - (cycle_time / close_duration)
+                elif cycle_time < close_duration + hold_closed:
+                    # Hold closed phase: 0%
+                    normalized = 0.0
+                elif cycle_time < close_duration + hold_closed + open_duration:
+                    # Opening phase: 0% -> 100%
+                    open_progress = (cycle_time - close_duration - hold_closed) / open_duration
+                    normalized = open_progress
                 else:
-                    normalized = 2 - phase * 2  # 1 to 0 (closing)
+                    # Hold open phase: 100%
+                    normalized = 1.0
                 
                 # Map to Dex1 range
                 q = self.DEX1_CLOSE + normalized * (self.DEX1_OPEN - self.DEX1_CLOSE)
@@ -123,8 +136,8 @@ def main():
                        help="Gripper side (left/right)")
     parser.add_argument("--domain", type=int, default=0,
                        help="DDS domain")
-    parser.add_argument("--period", type=float, default=10.0,
-                       help="Oscillation period in seconds (default: 10s)")
+    parser.add_argument("--period", type=float, default=5.0,
+                       help="Cycle period in seconds (default: 5s = 1s close, 2s hold, 1s open, 1s hold)")
     parser.add_argument("--log-level", default="INFO",
                        choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     
