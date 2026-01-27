@@ -64,7 +64,7 @@ class EZGripperHardwareController:
         self.position_mode_effort = 100  # 100% effort for position control (safe - firmware limited)
         self.torque_mode_start_time = None  # Track when torque mode started
         self.torque_mode_entry_position = None  # Track position when entering torque mode
-        self.torque_pulse_duration = 0.5  # Hold in torque for 0.5s then back-off
+        self.torque_pulse_duration = 1.0  # Hold in torque for 1.0s then back-off
         self.backoff_mode_timeout = 5.0  # Exit backoff after 5s if no opening command
         self.last_mode_switch_time = 0  # Track last mode switch for cooldown
         self.mode_switch_cooldown = 0.5  # Cooldown period after mode switch to prevent rapid cycling
