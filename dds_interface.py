@@ -133,11 +133,8 @@ class Dex1DDSInterface:
                     # Convert position
                     position_pct = self.dex1_to_ezgripper(motor_cmd.q)
                     
-                    # Convert effort (50% default, 40% at extremes)
-                    if position_pct <= 5.0 or position_pct >= 95.0:
-                        effort_pct = 40.0
-                    else:
-                        effort_pct = 50.0
+                    # Convert effort - fixed at 100% (ignore tau)
+                    effort_pct = 100.0
                     
                     return (position_pct, effort_pct)
             
