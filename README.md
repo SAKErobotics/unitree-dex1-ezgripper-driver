@@ -304,6 +304,164 @@ To change the number of open/close cycles:
 python3 test_gripper.py --right-dev /dev/ttyUSB0 --left-dev /dev/ttyUSB1 --iterations 5
 ```
 
+## DDS Message Structure Reference
+
+### Official Unitree G1 Dex1 Hand Format
+
+This driver uses the official Unitree G1 Dex1 hand DDS message format as defined in the Unitree SDK.
+
+**Source Repository:** [unitreerobotics/dex1_1_service](https://github.com/unitreerobotics/dex1_1_service)
+
+**Official Documentation:** [Unitree G1 Developer Documentation](https://support.unitree.com/home/en/G1_developer/basic_services_interface)
+
+### DDS Topics
+
+```
+Left Gripper:
+  Command Topic:  rt/dex1/left/cmd
+  State Topic:    rt/dex1/left/state
+  Motor ID:       1
+
+Right Gripper:
+  Command Topic:  rt/dex1/right/cmd
+  State Topic:    rt/dex1/right/state
+  Motor ID:       2
+```
+
+### HandCmd_ Message Structure
+
+**Message Type:** `unitree_hg.msg.dds_.HandCmd_`
+
+**Python Definition:**
+```python
+from unitree_sdk2py.idl.default import HGHandCmd_, HGMotorCmd_
+
+@dataclass
+class HandCmd_:
+    motor_cmd: sequence[MotorCmd_]  # Sequence of motor commands
+    reserve: array[uint32, 4]       # Reserved fields [0, 0, 0, 0]
+```
+
+**MotorCmd_ Fields:**
+```python
+@dataclass
+class MotorCmd_:
+    mode: uint8        # Control mode (0 = position control)
+    q: float32         # Position in radians (0.0 = closed, 6.28 = open)
+    dq: float32        # Velocity (0.0 for position control)
+    tau: float32       # Torque (0.0, hardware handles effort)
+    kp: float32        # Position gain (0.0, hardware handles control)
+    kd: float32        # Damping gain (0.0, hardware handles control)
+    reserve: uint32    # Reserved field (0)
+```
+
+**Example Command:**
+```python
+# Create motor command for left gripper (Motor ID 1)
+motor_cmd = HGMotorCmd_(
+    mode=0,      # Position control
+    q=3.14,      # 50% open (π radians)
+    dq=0.0,
+    tau=0.0,
+    kp=0.0,
+    kd=0.0,
+    reserve=0
+)
+
+# Create hand command with single motor
+hand_cmd = HGHandCmd_(
+    motor_cmd=[motor_cmd],
+    reserve=[0, 0, 0, 0]
+)
+```
+
+### HandState_ Message Structure
+
+**Message Type:** `unitree_hg.msg.dds_.HandState_`
+
+**Python Definition:**
+```python
+from unitree_sdk2py.idl.default import HGHandState_, HGMotorState_, HGIMUState_
+
+@dataclass
+class HandState_:
+    motor_state: sequence[MotorState_]              # Motor state data
+    press_sensor_state: sequence[PressSensorState_] # Pressure sensor data
+    imu_state: IMUState_                            # IMU data
+    power_v: float32                                # Power voltage
+    power_a: float32                                # Power current
+    system_v: float32                               # System voltage
+    device_v: float32                               # Device voltage
+    error: array[uint32, 2]                         # Error flags
+    reserve: array[uint32, 2]                       # Reserved fields
+```
+
+**MotorState_ Fields:**
+```python
+@dataclass
+class MotorState_:
+    mode: uint8                  # Current control mode
+    q: float32                   # Current position (radians)
+    dq: float32                  # Current velocity
+    ddq: float32                 # Current acceleration
+    tau_est: float32             # Estimated torque
+    temperature: array[int16, 2] # Temperature readings
+    vol: float32                 # Voltage
+    sensor: array[uint32, 2]     # Sensor data
+    motorstate: uint32           # Motor state flags
+    reserve: array[uint32, 4]    # Reserved fields
+```
+
+### Position Mapping
+
+The Dex1 hand uses radians for position:
+
+```
+q = 0.0 rad  → 0% (fully closed)
+q = 3.14 rad → 50% (neutral)
+q = 6.28 rad → 100% (fully open)
+```
+
+**Conversion Formula:**
+```python
+# Dex1 to EZGripper percentage
+position_pct = (q_radians / 6.28) * 100.0
+
+# EZGripper percentage to Dex1
+q_radians = (position_pct / 100.0) * 6.28
+```
+
+### Message Flow
+
+```
+G1 XR Teleoperate
+    ↓
+rt/dex1/left/cmd (HandCmd_)
+    ↓
+EZGripper DDS Driver
+    ↓
+Hardware Controller → EZGripper
+    ↓
+rt/dex1/left/state (HandState_)
+    ↓
+G1 System
+```
+
+### SDK References
+
+**Unitree SDK2 Python:**
+- Repository: [unitreerobotics/unitree_sdk2_python](https://github.com/unitreerobotics/unitree_sdk2_python)
+- IDL Definitions: `unitree_sdk2py/idl/unitree_hg/msg/dds_/`
+- HandCmd_: `_HandCmd_.py`
+- HandState_: `_HandState_.py`
+- MotorCmd_: `_MotorCmd_.py`
+- MotorState_: `_MotorState_.py`
+
+**Dex1 Service:**
+- Repository: [unitreerobotics/dex1_1_service](https://github.com/unitreerobotics/dex1_1_service)
+- Official Dex1-1 gripper serial-to-DDS service
+- Defines topic names and message usage patterns
+
 ## License
 
 BSD-3-Clause
