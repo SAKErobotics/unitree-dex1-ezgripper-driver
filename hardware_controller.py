@@ -53,19 +53,21 @@ class EZGripperHardwareController:
         self.expected_position_pct = 50.0  # Expected NO-LOAD position based on commands (never corrupted by measurements)
         
         # Hybrid control state
-        self.control_mode = 'position'  # 'position' or 'torque'
+        self.control_mode = 'position'  # 'position', 'torque', or 'backoff_torque'
         self.last_commanded_position = 50.0
         self.resistance_detected = False
         self.current_samples = []  # Rolling window for current monitoring
         self.current_threshold = 200  # Current units indicating resistance (lifetime reliable for new and aged servos)
-        self.current_window_size = 5  # Samples to average
+        self.current_window_size = 2  # Samples to average (faster response)
         self.torque_hold_current = 800  # 78% torque for holding in torque mode (800/1023 max)
+        self.backoff_torque_current = 133  # 13% torque for back-off holding (133/1023)
         self.position_mode_effort = 100  # 100% effort for position control (safe - firmware limited)
         self.torque_mode_start_time = None  # Track when torque mode started
         self.torque_mode_entry_position = None  # Track position when entering torque mode
-        self.torque_pulse_duration = 0.5  # Hold in torque for 0.5s then return to position
+        self.torque_pulse_duration = 0.5  # Hold in torque for 0.5s then back-off
         self.last_mode_switch_time = 0  # Track last mode switch for cooldown
         self.mode_switch_cooldown = 0.5  # Cooldown period after mode switch to prevent rapid cycling
+        self.backoff_entry_position = None  # Track position when entering back-off mode
         
         # Initialize hardware
         self._initialize_hardware()
@@ -222,8 +224,9 @@ class EZGripperHardwareController:
             # Mode switching logic
             if self.control_mode == 'position':
                 # Detect resistance during closing (validated threshold works for new and aged servos)
-                if is_closing and avg_current > self.current_threshold:
-                    self.logger.info(f"Resistance detected (current={avg_current}) at pos={position_pct:.1f}%, switching to TORQUE mode")
+                # Use instant current reading for faster response, avg for stability
+                if is_closing and (current > self.current_threshold or avg_current > self.current_threshold):
+                    self.logger.info(f"Resistance detected (instant={current}, avg={avg_current}) at pos={position_pct:.1f}%, switching to TORQUE mode")
                     self.resistance_detected = True
                     self.control_mode = 'torque'
                     self.torque_mode_start_time = time.time()
@@ -247,6 +250,7 @@ class EZGripperHardwareController:
             elif self.control_mode == 'torque':
                 # In torque mode: hold for 0.5s then return to position
                 # Exit immediately if commanded position is more open than entry position
+                # IMPORTANT: Ignore all other commands to prevent torque pumping
                 entry_pos = self.torque_mode_entry_position if self.torque_mode_entry_position else self.expected_position_pct
                 is_more_open_than_entry = position_pct > entry_pos + 1.0  # 1% hysteresis
                 
@@ -269,29 +273,58 @@ class EZGripperHardwareController:
                     self.gripper._goto_position(servo_pos)
                     
                 elif self.torque_mode_start_time and (time.time() - self.torque_mode_start_time) > self.torque_pulse_duration:
-                    # 0.5s timeout - switch back to position mode
-                    # NEVER update expected_position_pct - it's decision-making data, not measurement data
-                    # expected_position_pct continues tracking commanded positions
+                    # 0.5s timeout - switch to BACKOFF TORQUE mode with 13% torque
+                    # This provides back-off holding instead of returning to position mode
                     hold_pos = self.gripper.get_position()
-                    self.logger.info(f"Torque pulse complete ({self.torque_pulse_duration}s), switching to POSITION mode at {hold_pos:.1f}%")
+                    self.logger.info(f"Torque pulse complete ({self.torque_pulse_duration}s), switching to BACKOFF TORQUE mode at {hold_pos:.1f}% with 13% torque")
+                    self.control_mode = 'backoff_torque'
+                    self.backoff_entry_position = hold_pos
+                    self.last_mode_switch_time = time.time()
+                    
+                    # Reduce torque to 13% for back-off holding
+                    self.gripper.set_max_effort(self.backoff_torque_current)
+                    self.last_effort_pct = self.backoff_torque_current
+                    
+                else:
+                    # Non-opening command received while in torque mode
+                    # IGNORE the command to prevent torque pumping
+                    # Just maintain current torque hold without reapplying commands
+                    self.logger.debug(f"Ignoring non-opening command ({position_pct:.1f}%) while in torque mode - preventing torque pumping")
+                    # EARLY RETURN - skip all remaining command processing
+                    return
+            
+            elif self.control_mode == 'backoff_torque':
+                # In back-off torque mode: hold with 13% torque
+                # Exit if commanded position goes below backoff entry position (closing more)
+                backoff_pos = self.backoff_entry_position if self.backoff_entry_position else self.expected_position_pct
+                is_more_closed_than_backoff = position_pct < backoff_pos - 1.0  # 1% hysteresis
+                
+                if is_more_closed_than_backoff:
+                    # Closing command - switch back to position mode immediately
+                    self.logger.info(f"Closing command detected in backoff mode, switching to POSITION mode")
                     self.control_mode = 'position'
                     self.resistance_detected = False
                     self.torque_mode_start_time = None
-                    self.torque_mode_entry_position = None
+                    self.backoff_entry_position = None
                     self.last_mode_switch_time = time.time()
                     
                     # Switch back to position mode
                     for servo in self.gripper.servos:
                         set_torque_mode(servo, False)
                     
-                    # Command position mode at current actual position (use _goto_position to avoid recalibration)
-                    servo_pos = self.gripper.scale(int(hold_pos), self.gripper.GRIP_MAX)
+                    # Execute the closing command with 100% effort
+                    if self.last_effort_pct != self.position_mode_effort:
+                        self.gripper.set_max_effort(int(self.position_mode_effort))
+                        self.last_effort_pct = self.position_mode_effort
                     self.gripper._goto_position(servo_pos)
-                    self.last_effort_pct = 100
                     
                 else:
-                    # Continue holding in torque mode (800/1023 max)
-                    self._set_holding_torque()
+                    # Non-closing command received while in back-off torque mode
+                    # IGNORE the command to prevent torque pumping
+                    # Just maintain current 13% torque hold without reapplying commands
+                    self.logger.debug(f"Ignoring non-closing command ({position_pct:.1f}%) while in back-off torque mode - maintaining 13% hold")
+                    # EARLY RETURN - skip all remaining command processing
+                    return
             
             # Position tracking is deterministic based on commands after calibration
             # Never reset position tracking - it follows command sequence
@@ -321,8 +354,12 @@ class EZGripperHardwareController:
                     control_action = "OPENING (position mode)"
                 else:
                     control_action = "HOLDING (position mode)"
-            else:
+            elif self.control_mode == 'torque':
                 control_action = f"HOLDING (torque mode, entry={self.torque_mode_entry_position:.1f}%)"
+            elif self.control_mode == 'backoff_torque':
+                control_action = f"HOLDING (backoff torque mode, entry={self.backoff_entry_position:.1f}%, 13% torque)"
+            else:
+                control_action = "UNKNOWN MODE"
             
             # Log complete flow
             self.logger.info(f"INPUT: {cmd_type} | TRACKED: {self.expected_position_pct:.1f}% | {control_action} | SERVO: pos={servo_pos}+{zero_pos}={servo_pos+zero_pos}, effort={self.last_effort_pct}%, current={avg_current:.0f}")
