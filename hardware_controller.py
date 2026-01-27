@@ -217,9 +217,7 @@ class EZGripperHardwareController:
             # Mode switching logic
             if self.control_mode == 'position':
                 # Simple logic: If closing and stopped (high current) → switch to torque mode
-                # Add cooldown to prevent rapid cycling after mode switch
-                time_since_switch = time.time() - self.last_mode_switch_time
-                if avg_current > self.current_threshold and is_closing and time_since_switch > self.mode_switch_cooldown:
+                if avg_current > self.current_threshold and is_closing:
                     self.logger.info(f"Resistance detected (current={avg_current:.0f}) at pos={position_pct:.1f}%, switching to TORQUE mode")
                     self.control_mode = 'torque'
                     self.resistance_detected = True
