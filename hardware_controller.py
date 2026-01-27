@@ -201,8 +201,10 @@ class EZGripperHardwareController:
             # Mode switching logic
             if self.control_mode == 'position':
                 # Check for resistance (sustained high current)
-                # Disable at endpoints (0-5% and 95-100%) to avoid false triggers on mechanical limits
+                # ONLY detect resistance when NOT opening - opening should always be position control
+                # Also disable at endpoints (0-5% and 95-100%) to avoid false triggers on mechanical limits
                 at_endpoint = position_pct <= 5.0 or position_pct >= 95.0
+                # Opening is detected by position decreasing
                 if avg_current > self.current_threshold and not is_opening and not at_endpoint:
                     self.logger.info(f"Resistance detected (current={avg_current:.0f}), switching to TORQUE mode")
                     self.control_mode = 'torque'
