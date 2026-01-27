@@ -64,7 +64,7 @@ class EZGripperHardwareController:
         self.position_mode_effort = 100  # 100% effort for position control (safe - firmware limited)
         self.torque_mode_start_time = None  # Track when torque mode started
         self.torque_mode_entry_position = None  # Track position when entering torque mode
-        self.torque_pulse_duration = 1.0  # Hold in torque for 1.0s then back-off
+        self.torque_pulse_duration = 0.5  # Hold in torque for 0.5s then back-off
         self.backoff_mode_timeout = 5.0  # Exit backoff after 5s if no opening command
         self.last_mode_switch_time = 0  # Track last mode switch for cooldown
         self.mode_switch_cooldown = 0.5  # Cooldown period after mode switch to prevent rapid cycling
@@ -231,11 +231,18 @@ class EZGripperHardwareController:
             
             # Mode switching logic
             if self.control_mode == 'position':
-                # Detect resistance during closing (validated threshold works for new and aged servos)
-                # Only detect resistance when actually closing toward objects (< 65% position)
-                # This prevents false triggers during free space movement and full-open torque grasps
-                # Use instant current reading for faster response, avg for stability
-                if is_closing and position_pct < 65.0 and (current > self.current_threshold or avg_current > self.current_threshold):
+                # Detect resistance: high current OR closing to zero position (< 65% position gate)
+                # High current = object resistance during closing
+                # Closing to zero = gripper reaching hard stop (with calibrated baseline resistance)
+                # Position gate prevents false triggers during free space movement
+                at_zero_and_closing = position_pct <= 5.0 and is_closing  # Only trigger when actively closing to zero
+                high_current = current > self.current_threshold or avg_current > self.current_threshold
+                
+                # Check cooldown to prevent rapid cycling
+                time_since_mode_switch = time.time() - self.last_mode_switch_time
+                cooldown_active = time_since_mode_switch < self.mode_switch_cooldown
+                
+                if position_pct < 65.0 and (high_current or at_zero_and_closing) and not cooldown_active:
                     self.logger.debug(f"Resistance detection trigger: is_closing={is_closing}, current={current}, avg_current={avg_current}, threshold={self.current_threshold}")
                     self.logger.info(f"Resistance detected (instant={current}, avg={avg_current}) at pos={position_pct:.1f}%, switching to TORQUE mode")
                     self.resistance_detected = True
@@ -355,7 +362,7 @@ class EZGripperHardwareController:
                     
                 else:
                     # Non-opening command - maintain backoff torque hold
-                    self.logger.debug(f"Backoff mode: maintaining 13% torque hold (cmd={position_pct:.1f}%, ignoring non-opening command)")
+                    self.logger.debug(f"Backoff mode: maintaining 15% torque hold (cmd={position_pct:.1f}%, ignoring non-opening command)")
                     # EARLY RETURN - skip all remaining command processing
                     return
             

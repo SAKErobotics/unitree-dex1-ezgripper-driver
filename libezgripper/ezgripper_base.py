@@ -117,9 +117,10 @@ class Gripper:
 
         for i in range(len(self.servos)):
             servo = self.servos[i]
-            # Keep 300 units while reading to maintain firm hard stop position
-            servo.write_word(20, 0)                    # 7) set "Multi turn offset" to 0
-            self.zero_positions[i] = servo.read_word_signed(36) # 8) read current position of servo at firm 300-unit pressure
+            servo.write_word(71, 1024 + 150)           # 7) Reduce to 150 units - firm but less stress
+            time.sleep(0.5)                            # 8) Brief settle time
+            servo.write_word(20, 0)                    # 9) set "Multi turn offset" to 0
+            self.zero_positions[i] = servo.read_word_signed(36) # 10) read current position at 150-unit pressure
 
         print("calibration done")
 
