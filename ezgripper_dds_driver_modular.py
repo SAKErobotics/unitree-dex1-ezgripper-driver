@@ -124,14 +124,18 @@ class ModularEZGripperDriver:
                 # Priority 1: Receive latest command from DDS
                 cmd = self.dds.receive_command()
                 
+                # Debug: log if we received a command
+                if cmd and self.command_count == 0:
+                    self.logger.info(f"First command received: {cmd}")
+                
                 # Priority 2: Execute command if available
                 if cmd:
                     position_pct, effort_pct = cmd
                     self.hardware.execute_command(position_pct, effort_pct)
                     self.command_count += 1
                     
-                    # Log occasionally
-                    if self.command_count % 50 == 0:
+                    # Log every command for debugging
+                    if self.command_count % 10 == 0:
                         if position_pct <= 5.0:
                             mode = "CLOSE"
                         elif position_pct >= 95.0:

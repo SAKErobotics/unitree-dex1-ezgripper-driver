@@ -172,13 +172,17 @@ class EZGripperHardwareController:
             effort_pct: Target effort (0-100%)
         """
         try:
+            # Debug logging
+            servo_pos = self.gripper.scale(int(position_pct), self.gripper.GRIP_MAX)
+            self.logger.debug(f"execute_command: pos={position_pct:.1f}% -> servo={servo_pos}, effort={effort_pct:.0f}%")
+            
             # Only update effort if it changed (reduces serial writes)
             if self.last_effort_pct != effort_pct:
                 self.gripper.set_max_effort(int(effort_pct))
                 self.last_effort_pct = effort_pct
             
             # Send position command (1 serial write)
-            self.gripper._goto_position(self.gripper.scale(int(position_pct), self.gripper.GRIP_MAX))
+            self.gripper._goto_position(servo_pos)
             
             # Update cached state
             self.current_position_pct = position_pct
