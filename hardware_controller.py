@@ -60,7 +60,7 @@ class EZGripperHardwareController:
         self.current_threshold = 200  # Current units indicating resistance (lifetime reliable for new and aged servos)
         self.current_window_size = 2  # Samples to average (faster response)
         self.torque_hold_current = 800  # 78% torque for holding in torque mode (800/1023 max)
-        self.backoff_torque_current = 400  # 39% torque for back-off holding (stronger grip)
+        self.backoff_torque_current = 153  # 15% torque for back-off holding (153/1023)
         self.position_mode_effort = 100  # 100% effort for position control (safe - firmware limited)
         self.torque_mode_start_time = None  # Track when torque mode started
         self.torque_mode_entry_position = None  # Track position when entering torque mode
