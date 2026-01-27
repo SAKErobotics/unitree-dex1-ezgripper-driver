@@ -122,21 +122,22 @@ class Dex1DDSInterface:
     def receive_command(self):
         """Receive latest command from DDS, return (position_pct, effort_pct)"""
         try:
-            samples = self.cmd_reader.take(N=10)
+            # DDS already maintains 1-depth queue by default (KEEP_LAST, depth=1)
+            samples = self.cmd_reader.take()
             
-            if samples:
-                latest_sample = samples[-1]
+            if samples and hasattr(samples[0], 'cmds') and samples[0].cmds:
+                motor_cmd = samples[0].cmds[0]
                 
-                if latest_sample and hasattr(latest_sample, 'cmds') and latest_sample.cmds:
-                    motor_cmd = latest_sample.cmds[0]
-                    
-                    # Convert position
-                    position_pct = self.dex1_to_ezgripper(motor_cmd.q)
-                    
-                    # Convert effort - fixed at 100% (ignore tau)
-                    effort_pct = 100.0
-                    
-                    return (position_pct, effort_pct)
+                # Convert position
+                position_pct = self.dex1_to_ezgripper(motor_cmd.q)
+                
+                # Convert effort - fixed at 100% (ignore tau)
+                effort_pct = 100.0
+                
+                # Log DDS input command
+                self.logger.debug(f"DDS INPUT: q={motor_cmd.q:.3f} rad → {position_pct:.1f}%")
+                
+                return (position_pct, effort_pct)
             
             return None
             

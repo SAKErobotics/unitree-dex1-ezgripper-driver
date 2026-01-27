@@ -192,10 +192,14 @@ def main():
     
     args = parser.parse_args()
     
-    # Setup logging
+    # Setup logging with file output
     logging.basicConfig(
         level=getattr(logging, args.log_level),
-        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s'
+        format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
+        handlers=[
+            logging.FileHandler('/tmp/gripper_debug.log'),
+            logging.StreamHandler()
+        ]
     )
     
     # Get device path
