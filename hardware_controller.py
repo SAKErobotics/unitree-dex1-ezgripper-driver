@@ -210,8 +210,9 @@ class EZGripperHardwareController:
             
             # Detect if commanded position is changing relative to ACTUAL position
             # This is critical - we compare against where the gripper actually is, not where we commanded it
-            is_closing = position_pct > self.actual_gripper_position + 1.0  # 1% hysteresis - actively closing
-            is_opening = position_pct < self.actual_gripper_position - 1.0  # 1% hysteresis - actively opening
+            # Closing = position_pct DECREASING (going toward 0%), Opening = position_pct INCREASING (going toward 100%)
+            is_closing = position_pct < self.actual_gripper_position - 1.0  # 1% hysteresis - actively closing
+            is_opening = position_pct > self.actual_gripper_position + 1.0  # 1% hysteresis - actively opening
             
             # Mode switching logic
             if self.control_mode == 'position':
@@ -300,7 +301,8 @@ class EZGripperHardwareController:
             self.current_effort_pct = effort_pct
             
             # Debug logging - log all commands to diagnose endpoint issues
-            self.logger.info(f"CMD: mode={self.control_mode}, pos={position_pct:.1f}%, servo_pos={servo_pos}, effort={self.last_effort_pct}%, current={avg_current:.0f}")
+            zero_pos = self.gripper.zero_positions[0] if self.gripper and self.gripper.zero_positions else 0
+            self.logger.info(f"CMD: mode={self.control_mode}, pos={position_pct:.1f}%, servo_pos={servo_pos}, zero={zero_pos}, effort={self.last_effort_pct}%, current={avg_current:.0f}")
             
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
