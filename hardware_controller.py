@@ -323,17 +323,36 @@ class EZGripperHardwareController:
             
             elif self.control_mode == 'backoff_torque':
                 # In back-off torque mode: hold with 13% torque
-                # In back-off mode: NEVER exit during continuous closing sequence
-                # Only exit if there's a significant pause followed by new closing attempt
-                # This prevents cycling during normal closing operations
-                self.logger.debug(f"Backoff mode: maintaining 13% torque hold (cmd={position_pct:.1f}%, will not exit during continuous closing)")
+                # Exit on opening commands, ignore closing commands
                 
-                # NOTE: We intentionally do NOT exit backoff mode during closing
-                # The user must issue an opening command to exit backoff mode
-                # This provides stable holding without cycling
+                # Check if this is an opening command
+                is_opening = position_pct > self.expected_position_pct + 1.0  # 1% hysteresis
                 
-                # EARLY RETURN - skip all remaining command processing
-                return
+                if is_opening:
+                    # Opening command - exit backoff mode and switch to position mode
+                    self.logger.info(f"Opening command detected in backoff mode, switching to POSITION mode")
+                    self.control_mode = 'position'
+                    self.resistance_detected = False
+                    self.torque_mode_start_time = None
+                    self.backoff_entry_position = None
+                    self.backoff_mode_start_time = None
+                    self.last_mode_switch_time = time.time()
+                    
+                    # Switch back to position mode
+                    for servo in self.gripper.servos:
+                        set_torque_mode(servo, False)
+                    
+                    # Execute the opening command with 100% effort
+                    if self.last_effort_pct != self.position_mode_effort:
+                        self.gripper.set_max_effort(int(self.position_mode_effort))
+                        self.last_effort_pct = self.position_mode_effort
+                    self.gripper._goto_position(servo_pos)
+                    
+                else:
+                    # Non-opening command - maintain backoff torque hold
+                    self.logger.debug(f"Backoff mode: maintaining 13% torque hold (cmd={position_pct:.1f}%, ignoring non-opening command)")
+                    # EARLY RETURN - skip all remaining command processing
+                    return
             
             # Position tracking is deterministic based on commands after calibration
             # Never reset position tracking - it follows command sequence
