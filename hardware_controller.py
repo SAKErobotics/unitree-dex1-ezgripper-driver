@@ -232,8 +232,10 @@ class EZGripperHardwareController:
             # Mode switching logic
             if self.control_mode == 'position':
                 # Detect resistance during closing (validated threshold works for new and aged servos)
+                # Only detect resistance when actually closing toward objects (< 65% position)
+                # This prevents false triggers during free space movement and full-open torque grasps
                 # Use instant current reading for faster response, avg for stability
-                if is_closing and (current > self.current_threshold or avg_current > self.current_threshold):
+                if is_closing and position_pct < 65.0 and (current > self.current_threshold or avg_current > self.current_threshold):
                     self.logger.debug(f"Resistance detection trigger: is_closing={is_closing}, current={current}, avg_current={avg_current}, threshold={self.current_threshold}")
                     self.logger.info(f"Resistance detected (instant={current}, avg={avg_current}) at pos={position_pct:.1f}%, switching to TORQUE mode")
                     self.resistance_detected = True
@@ -246,6 +248,10 @@ class EZGripperHardwareController:
                     # DON'T update expected_position_pct - keep tracking commanded positions
                     self.logger.info(f"Torque mode: resistance detected at commanded position {position_pct:.1f}%")
                 else:
+                    # Check if resistance detection was blocked by position threshold
+                    if is_closing and position_pct >= 65.0 and (current > self.current_threshold or avg_current > self.current_threshold):
+                        self.logger.debug(f"Resistance detection blocked by position threshold: pos={position_pct:.1f}% >= 65.0%, current={current}")
+                    
                     # Normal position control with 100% effort
                     # Safe for continuous operation - position control is firmware limited
                     if self.last_effort_pct != self.position_mode_effort:
