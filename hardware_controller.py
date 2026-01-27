@@ -159,6 +159,10 @@ class EZGripperHardwareController:
             # Move to 50% open position to release from closed state
             self.gripper.goto_position(50, 100)
             
+            # goto_position reduces effort to TORQUE_HOLD (13%) at the end, so reset to 100%
+            self.gripper.set_max_effort(100)
+            self.last_effort_pct = 100
+            
             # Mark as calibrated
             self.is_calibrated = True
             self.logger.info(f"✅ Calibration complete (zero_position: {zero_pos})")
