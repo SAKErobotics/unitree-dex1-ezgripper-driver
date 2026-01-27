@@ -201,12 +201,9 @@ class EZGripperHardwareController:
             
             # Mode switching logic
             if self.control_mode == 'position':
-                # Check for resistance (sustained high current)
-                # ONLY detect resistance when ACTIVELY CLOSING in the middle range
-                # Never trigger when opening, holding position, or near endpoints
-                at_endpoint = position_pct <= 10.0 or position_pct >= 90.0
-                # Only allow resistance detection when actively closing in middle range (10-90%)
-                if avg_current > self.current_threshold and is_closing and not at_endpoint:
+                # Simple logic: If closing and stopped (high current) → switch to torque mode
+                # No endpoint exclusions needed - closing is closing everywhere
+                if avg_current > self.current_threshold and is_closing:
                     self.logger.info(f"Resistance detected (current={avg_current:.0f}), switching to TORQUE mode")
                     self.control_mode = 'torque'
                     self.resistance_detected = True
