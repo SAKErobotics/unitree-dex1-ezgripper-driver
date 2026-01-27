@@ -44,10 +44,11 @@ class EZGripperHardwareController:
         self.connection = None
         self.is_calibrated = False
         
-        # Control state
-        self.current_position_pct = 50.0
+        # Cached state
+        self.current_position_pct = 50.0  # Actual gripper position (updated when entering torque mode)
         self.current_effort_pct = 30.0
         self.last_effort_pct = None  # Track to avoid redundant set_max_effort
+        self.actual_gripper_position = 50.0  # Track actual physical position
         
         # Hybrid control state
         self.control_mode = 'position'  # 'position' or 'torque'
@@ -59,8 +60,8 @@ class EZGripperHardwareController:
         self.torque_hold_current = 800  # 78% torque for holding in torque mode (800/1023 max)
         self.position_mode_effort = 100  # 100% effort for position control (safe - firmware limited)
         self.torque_mode_start_time = None  # Track when torque mode started
-        self.torque_mode_timeout = 1.0  # Switch to position control after 1 second in torque mode
         self.torque_mode_entry_position = None  # Track position when entering torque mode
+        self.torque_pulse_duration = 0.5  # Hold in torque for 0.5s then return to position
         self.last_mode_switch_time = 0  # Track last mode switch for cooldown
         self.mode_switch_cooldown = 0.5  # Cooldown period after mode switch to prevent rapid cycling
         
@@ -168,6 +169,10 @@ class EZGripperHardwareController:
             self.gripper.set_max_effort(100)
             self.last_effort_pct = 100
             
+            # Initialize actual position tracking
+            self.actual_gripper_position = 50.0
+            self.current_position_pct = 50.0
+            
             # Mark as calibrated
             self.is_calibrated = True
             self.logger.info(f"✅ Calibration complete (zero_position: {zero_pos})")
@@ -199,10 +204,10 @@ class EZGripperHardwareController:
             self._update_current_window(current)
             avg_current = self._get_average_current()
             
-            # Detect if commanded position is changing
-            is_closing = position_pct > self.last_commanded_position + 1.0  # 1% hysteresis - actively closing
-            is_opening = position_pct < self.last_commanded_position - 1.0  # 1% hysteresis - actively opening
-            self.last_commanded_position = position_pct
+            # Detect if commanded position is changing relative to ACTUAL position
+            # This is critical - we compare against where the gripper actually is, not where we commanded it
+            is_closing = position_pct > self.actual_gripper_position + 1.0  # 1% hysteresis - actively closing
+            is_opening = position_pct < self.actual_gripper_position - 1.0  # 1% hysteresis - actively opening
             
             # Mode switching logic
             if self.control_mode == 'position':
@@ -215,6 +220,7 @@ class EZGripperHardwareController:
                     self.resistance_detected = True
                     self.torque_mode_start_time = time.time()  # Start timer for safety backoff
                     self.torque_mode_entry_position = position_pct  # Save position for later goto_position
+                    self.actual_gripper_position = position_pct  # Update actual position where resistance detected
                     self.last_mode_switch_time = time.time()  # Track mode switch for cooldown
                     
                     # Switch to torque mode and hold
@@ -231,14 +237,14 @@ class EZGripperHardwareController:
                     self.gripper._goto_position(servo_pos)
                     
             elif self.control_mode == 'torque':
-                # Check if we should return to position mode
+                # In torque mode: hold for 0.5s then return to position, unless opening command
                 if is_opening:
                     # Opening command - switch to position mode immediately
                     self.logger.info(f"Opening command detected, switching to POSITION mode")
                     self.control_mode = 'position'
                     self.resistance_detected = False
                     self.torque_mode_start_time = None
-                    self.last_mode_switch_time = time.time()  # Track mode switch for cooldown
+                    self.last_mode_switch_time = time.time()
                     
                     # Switch back to position mode
                     for servo in self.gripper.servos:
@@ -250,28 +256,37 @@ class EZGripperHardwareController:
                         self.last_effort_pct = self.position_mode_effort
                     self.gripper._goto_position(servo_pos)
                     
-                elif self.torque_mode_start_time and (time.time() - self.torque_mode_start_time) > self.torque_mode_timeout:
-                    # Timeout - read actual servo position and switch to position control
-                    # This creates a pulsed holding pattern: torque (1s) → position → torque (1s) → position...
-                    # Reduces average current while maintaining grip
-                    # get_position() reads servo position register and accounts for zero offset
-                    actual_pos = self.gripper.get_position()
-                    self.logger.info(f"Torque mode timeout ({self.torque_mode_timeout}s), switching to POSITION control at {actual_pos:.1f}%")
+                elif self.torque_mode_start_time and (time.time() - self.torque_mode_start_time) > self.torque_pulse_duration:
+                    # 0.5s timeout - switch back to position mode
+                    # Command position equal to or more closed than entry to maintain/increase grip
+                    entry_pos = self.torque_mode_entry_position if self.torque_mode_entry_position else self.actual_gripper_position
+                    # Close 2% more than entry position to maintain grip pressure
+                    hold_pos = max(0, entry_pos - 2.0)
+                    self.logger.info(f"Torque pulse complete ({self.torque_pulse_duration}s), switching to POSITION mode at {hold_pos:.1f}% (entry was {entry_pos:.1f}%)")
                     self.control_mode = 'position'
                     self.resistance_detected = False
                     self.torque_mode_start_time = None
                     self.torque_mode_entry_position = None
-                    self.last_mode_switch_time = time.time()  # Track mode switch for cooldown
+                    self.last_mode_switch_time = time.time()
                     
-                    # Use goto_position to switch to position mode at actual servo location
-                    self.gripper.goto_position(int(actual_pos), 100)
-                    self.last_effort_pct = 100  # goto_position sets effort
+                    # Switch back to position mode
+                    for servo in self.gripper.servos:
+                        set_torque_mode(servo, False)
+                    
+                    # Command slightly more closed position to maintain grip
+                    self.gripper.goto_position(int(hold_pos), 100)
+                    self.last_effort_pct = 100
+                    
                 else:
                     # Continue holding in torque mode (800/1023 max)
                     self._set_holding_torque()
             
             # Update cached state
-            self.current_position_pct = position_pct
+            # In position mode, actual position follows commanded position
+            # In torque mode, actual position is frozen at entry position
+            if self.control_mode == 'position':
+                self.actual_gripper_position = position_pct
+            self.current_position_pct = self.actual_gripper_position
             self.current_effort_pct = effort_pct
             
             # Debug logging - log all commands to diagnose endpoint issues
