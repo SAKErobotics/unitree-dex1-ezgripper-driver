@@ -111,13 +111,13 @@ class Gripper:
             servo.write_word(34, 500)                  # 2) "Torque Limit" to 500 (or so)
             servo.write_address(24, [0])               # 3) "Torque Enable" to OFF
             servo.write_address(70, [1])               # 4) Set "Goal Torque Mode" to ON
-            servo.write_word(71, 1024 + 100)           # 5) Set "Goal Torque" Direction to CW and Value 100
+            servo.write_word(71, 1024 + 300)           # 5) Set "Goal Torque" Direction to CW and Value 300 - firm close to hard stop
 
         time.sleep(4.0)                               # 6) give it time to stop
 
         for i in range(len(self.servos)):
             servo = self.servos[i]
-            servo.write_word(71, 1024 + 10)            # 7) Set "Goal Torque" Direction to CW and Value 10 - reduce load on servo
+            servo.write_word(71, 1024 + 100)           # 7) Set "Goal Torque" Direction to CW and Value 100 - medium hold for reading
             servo.write_word(20, 0)                    # 8) set "Multi turn offset" to 0
             self.zero_positions[i] = servo.read_word_signed(36) # 9) read current position of servo
 
