@@ -20,11 +20,15 @@ from cyclonedds.topic import Topic
 from cyclonedds.pub import DataWriter
 
 sys.path.insert(0, os.path.expanduser('~/CascadeProjects/unitree_sdk2_python'))
-from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmd_, MotorCmds_
+from unitree_sdk2py.idl.default import HGHandCmd_, HGMotorCmd_
 
 
 class MockDDSCommander:
     """Mock DDS commander that simulates XR teleoperate with slow oscillation"""
+    
+    # Dex1 hand motor configuration (single motor per hand)
+    LEFT_GRIPPER_MOTOR = 1   # Left gripper motor
+    RIGHT_GRIPPER_MOTOR = 2  # Right gripper motor
     
     # Dex1 hand position range
     DEX1_OPEN = 6.28    # Fully open (radians)
@@ -47,11 +51,15 @@ class MockDDSCommander:
         # Setup DDS
         self.participant = DomainParticipant(domain)
         cmd_topic_name = f"rt/dex1/{side}/cmd"
-        cmd_topic = Topic(self.participant, cmd_topic_name, MotorCmds_)
+        cmd_topic = Topic(self.participant, cmd_topic_name, HGHandCmd_)
         self.cmd_writer = DataWriter(self.participant, cmd_topic)
+        
+        # Motor ID for this side
+        self.motor_id = self.LEFT_GRIPPER_MOTOR if side == 'left' else self.RIGHT_GRIPPER_MOTOR
         
         self.logger.info(f"Mock commander ready: {side} side, period={period}s")
         self.logger.info(f"Publishing to: {cmd_topic_name}")
+        self.logger.info(f"Motor ID: {self.motor_id}")
     
     def run(self):
         """Run continuous oscillation loop"""
@@ -76,19 +84,25 @@ class MockDDSCommander:
                 # Map to Dex1 range
                 q = self.DEX1_CLOSE + normalized * (self.DEX1_OPEN - self.DEX1_CLOSE)
                 
-                # Create and publish command
-                motor_cmd = MotorCmd_(
-                    mode=0,
-                    q=q,
-                    dq=0.0,
-                    tau=0.0,
-                    kp=0.0,
-                    kd=0.0,
-                    reserve=[0, 0, 0]
+                # Create single motor command for Dex1 hand
+                motor_cmd = HGMotorCmd_(
+                    mode=0,      # Position control mode
+                    q=q,         # Position command
+                    dq=0.0,      # Velocity command
+                    tau=0.0,     # Torque command
+                    kp=0.0,      # Position gain
+                    kd=0.0,      # Damping gain
+                    reserve=0    # Reserved field (uint32)
+                )
+                motor_cmd.id = self.motor_id
+                
+                # Create proper Dex1 HandCmd_ message with single motor
+                hand_cmd = HGHandCmd_(
+                    motor_cmd=[motor_cmd],  # Single motor in sequence
+                    reserve=[0, 0, 0, 0]   # Reserved fields
                 )
                 
-                motor_cmds = MotorCmds_(cmds=[motor_cmd])
-                self.cmd_writer.write(motor_cmds)
+                self.cmd_writer.write(hand_cmd)
                 
                 # Log occasionally
                 if int(elapsed * 10) % 10 == 0:  # Every 1 second

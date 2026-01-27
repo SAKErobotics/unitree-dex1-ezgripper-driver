@@ -19,7 +19,7 @@ from cyclonedds.sub import DataReader
 from cyclonedds.pub import DataWriter
 
 sys.path.insert(0, os.path.expanduser('~/CascadeProjects/unitree_sdk2_python'))
-from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmd_, MotorCmds_, MotorState_, MotorStates_
+from unitree_sdk2py.idl.default import HGHandCmd_, HGHandState_, HGMotorCmd_, HGMotorState_
 
 
 class Dex1DDSInterface:
@@ -30,7 +30,11 @@ class Dex1DDSInterface:
     Publishes cached state for fast response.
     """
     
-    # Dex1 hand position range (radians)
+    # Dex1 hand motor configuration (single motor per hand)
+    LEFT_GRIPPER_MOTOR = 1   # Left gripper motor
+    RIGHT_GRIPPER_MOTOR = 2  # Right gripper motor
+    
+    # Dex1 hand position range
     DEX1_OPEN = 6.28    # Fully open
     DEX1_CLOSE = 0.0    # Fully closed
     
@@ -54,6 +58,9 @@ class Dex1DDSInterface:
         self.cached_position_pct = 50.0
         self.cached_effort_pct = 30.0
         
+        # Motor ID for this side
+        self.motor_id = self.LEFT_GRIPPER_MOTOR if side == 'left' else self.RIGHT_GRIPPER_MOTOR
+        
         # DDS components
         self.participant = None
         self.cmd_reader = None
@@ -74,14 +81,15 @@ class Dex1DDSInterface:
         state_topic_name = f"rt/dex1/{self.side}/state"
         
         # Create topics
-        cmd_topic = Topic(self.participant, cmd_topic_name, MotorCmds_)
-        state_topic = Topic(self.participant, state_topic_name, MotorStates_)
+        cmd_topic = Topic(self.participant, cmd_topic_name, HGHandCmd_)
+        state_topic = Topic(self.participant, state_topic_name, HGHandState_)
         
         # Create reader and writer
         self.cmd_reader = DataReader(self.participant, cmd_topic)
         self.state_writer = DataWriter(self.participant, state_topic)
         
         self.logger.info(f"DDS topics: {cmd_topic_name} → {state_topic_name}")
+        self.logger.info(f"Motor ID for {self.side}: {self.motor_id}")
     
     def dex1_to_ezgripper(self, q_radians: float) -> float:
         """
@@ -120,24 +128,29 @@ class Dex1DDSInterface:
         return q
     
     def receive_command(self):
-        """Receive latest command from DDS, return (position_pct, effort_pct)"""
+        """Receive latest command from G1 Dex1 DDS, return (position_pct, effort_pct)"""
         try:
             # DDS already maintains 1-depth queue by default (KEEP_LAST, depth=1)
             samples = self.cmd_reader.take()
             
-            if samples and hasattr(samples[0], 'cmds') and samples[0].cmds:
-                motor_cmd = samples[0].cmds[0]
+            if samples and len(samples) > 0:
+                hand_cmd = samples[0]
                 
-                # Convert position
-                position_pct = self.dex1_to_ezgripper(motor_cmd.q)
-                
-                # Convert effort - fixed at 100% (ignore tau)
-                effort_pct = 100.0
-                
-                # Log DDS input command
-                self.logger.debug(f"DDS INPUT: q={motor_cmd.q:.3f} rad → {position_pct:.1f}%")
-                
-                return (position_pct, effort_pct)
+                # Extract motor command for our gripper side
+                if hasattr(hand_cmd, 'motor_cmd') and hand_cmd.motor_cmd:
+                    # Get the first motor command (Dex1 has single motor)
+                    motor_cmd = hand_cmd.motor_cmd[0]
+                    
+                    # Convert position
+                    position_pct = self.dex1_to_ezgripper(motor_cmd.q)
+                    
+                    # Convert effort - fixed at 100% (ignore tau from G1)
+                    effort_pct = 100.0
+                    
+                    # Log G1 Dex1 input command
+                    self.logger.debug(f"G1 Dex1 INPUT: q={motor_cmd.q:.3f} rad → {position_pct:.1f}%")
+                    
+                    return (position_pct, effort_pct)
             
             return None
             
@@ -151,30 +164,32 @@ class Dex1DDSInterface:
         self.cached_effort_pct = effort_pct
     
     def publish_state(self):
-        """Publish cached state to DDS (fast, no hardware access)"""
+        """Publish cached state to G1 Dex1 DDS format (fast, no hardware access)"""
         try:
-            current_q = self.ezgripper_to_dex1(self.cached_position_pct)
-            current_tau = self.cached_effort_pct / 10.0
+            # Create motor state for Dex1 hand
+            motor_state = HGMotorState_()
+            motor_state.id = self.motor_id
+            motor_state.q = self.ezgripper_to_dex1(self.cached_position_pct)
+            motor_state.dq = 0.0
+            motor_state.ddq = 0.0
+            motor_state.tau_est = 0.0
+            motor_state.q_raw = motor_state.q
+            motor_state.dq_raw = 0.0
+            motor_state.ddq_raw = 0.0
+            motor_state.temperature = 25.0
+            motor_state.motor_error = 0
             
-            # Create motor state
-            motor_state = MotorState_(
-                mode=0,
-                q=current_q,
-                dq=0.0,
-                ddq=0.0,
-                tau_est=current_tau,
-                q_raw=current_q,
-                dq_raw=0.0,
-                ddq_raw=0.0,
-                temperature=25,
-                lost=0,
-                reserve=[0, 0]
-            )
-            
-            motor_states = MotorStates_(states=[motor_state])
+            # Create HandState_ message (placeholder for other fields)
+            hand_state = HGHandState_()
+            hand_state.motor_state = [motor_state]
+            hand_state.press_sensor_state = []  # No pressure sensors
+            hand_state.imu_state = None  # No IMU
+            hand_state.power_v = 12.0
+            hand_state.power_a = self.cached_effort_pct * 0.1
+            hand_state.system_v = 12.0
             
             # Publish
-            self.state_writer.write(motor_states)
+            self.state_writer.write(hand_state)
             
         except Exception as e:
             self.logger.error(f"State publish failed: {e}")
