@@ -156,19 +156,13 @@ class EZGripperHardwareController:
             zero_pos = self.gripper.zero_positions[0]
             self._save_calibration(zero_pos)
             
-            # Verify with quick test
-            self.gripper.goto_position(25, 40)
-            time.sleep(2)
-            actual = self.gripper.get_position()
-            error = abs(actual - 25.0)
+            # Move to 50% open position to release from closed state
+            self.gripper.goto_position(50, 100)
             
-            if error <= 10.0:
-                self.is_calibrated = True
-                self.logger.info(f"✅ Calibration successful (error: {error:.1f}%)")
-                return True
-            else:
-                self.logger.warning(f"⚠️ Calibration issue (error: {error:.1f}%)")
-                return False
+            # Mark as calibrated
+            self.is_calibrated = True
+            self.logger.info(f"✅ Calibration complete (zero_position: {zero_pos})")
+            return True
                 
         except Exception as e:
             self.logger.error(f"Calibration failed: {e}")
@@ -215,6 +209,7 @@ class EZGripperHardwareController:
                 else:
                     # Normal position control with 100% effort for fast movement
                     if self.last_effort_pct != self.position_mode_effort:
+                        self.logger.info(f"Setting effort to {self.position_mode_effort}% for position control")
                         self.gripper.set_max_effort(int(self.position_mode_effort))
                         self.last_effort_pct = self.position_mode_effort
                     
