@@ -81,7 +81,7 @@ def test_movement_patterns(gripper):
         start_current = read_current(gripper.servos[0])
         
         # Send command
-        gripper.goto_position(target_pos, 100)
+        gripper.move_with_torque_management(target_pos, 100)
         
         # Monitor current during movement
         current_samples = []
@@ -103,14 +103,14 @@ def test_movement_patterns(gripper):
     
     # Test 2: Slow closing
     print("\n\nTest 2: Slow closing from 100% to 0% (step by step)")
-    gripper.goto_position(100, 100)  # Ensure fully open
+    gripper.move_with_torque_management(100, 100)  # Ensure fully open
     time.sleep(2)
     
     for target_pos in range(100, -1, -5):
         print(f"Moving to {target_pos}%...")
         
         start_current = read_current(gripper.servos[0])
-        gripper.goto_position(target_pos, 100)
+        gripper.move_with_torque_management(target_pos, 100)
         
         # Quick sample
         time.sleep(0.3)
@@ -128,7 +128,7 @@ def test_movement_patterns(gripper):
     
     for pos in test_positions:
         print(f"\nHolding at {pos}%...")
-        gripper.goto_position(pos, 100)
+        gripper.move_with_torque_management(pos, 100)
         time.sleep(2)  # Let it settle
         
         # Sample holding current
@@ -145,7 +145,7 @@ def test_movement_patterns(gripper):
     
     # Test 4: Continuous high load detection
     print("\n\nTest 4: Continuous high load detection")
-    gripper.goto_position(50, 100)
+    gripper.move_with_torque_management(50, 100)
     time.sleep(1)
     
     high_load_count = 0
@@ -155,7 +155,7 @@ def test_movement_patterns(gripper):
         print(f"\nSmall move to {target}%...")
         
         start_current = read_current(gripper.servos[0])
-        gripper.goto_position(target, 100)
+        gripper.move_with_torque_management(target, 100)
         
         time.sleep(0.2)
         peak_current = read_current(gripper.servos[0])

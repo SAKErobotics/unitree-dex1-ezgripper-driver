@@ -1,0 +1,422 @@
+Connecting to gripper...
+Connected. Initial position: 100.0%
+
+=== CURRENT CHARACTERIZATION TEST ===
+
+
+=== GRIPPER CALIBRATION ===
+Running calibration to find true closed position...
+calibrating: test_gripper
+calibration done
+Calibration complete!
+Zero position: 2965
+Current position after calibration: 0.0%
+Test 1: Fast closing from 100% to 0%
+
+Moving to 100%...
+goto_position(100, 100): servo position 2500
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Start current: 353
+  Peak current: 88
+  Avg current: 34.7
+  Actual position: 24.0%
+  Current pattern: [88, 29, 34, 34, 23, 23, 29, 29, 29, 29]
+
+Moving to 80%...
+goto_position(80, 100): servo position 2000
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Start current: 29
+  Peak current: 106
+  Avg current: 34.2
+  Actual position: 72.0%
+  Current pattern: [106, 29, 23, 23, 23, 23, 23, 29, 29, 34]
+
+Moving to 60%...
+goto_position(60, 100): servo position 1500
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Start current: 16
+  Peak current: 75
+  Avg current: 68.3
+  Actual position: 68.0%
+  Current pattern: [59, 69, 64, 64, 64, 75, 75, 75, 69, 69]
+
+Moving to 40%...
+goto_position(40, 100): servo position 1000
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Start current: 75
+  Peak current: 81
+  Avg current: 72.2
+  Actual position: 51.0%
+  Current pattern: [47, 75, 69, 81, 75, 75, 75, 75, 75, 75]
+
+Moving to 20%...
+goto_position(20, 100): servo position 500
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Start current: 75
+  Peak current: 81
+  Avg current: 77.6
+  Actual position: 31.0%
+  Current pattern: [71, 75, 81, 75, 81, 75, 81, 75, 81, 81]
+
+Moving to 0%...
+goto_position(0, 100): servo position 0
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Start current: 81
+  Peak current: 657
+  Avg current: 324.9
+  Actual position: 0.0%
+  Current pattern: [657, 321, 289, 283, 284, 283, 283, 283, 283, 283]
+
+
+Test 2: Slow closing from 100% to 0% (step by step)
+goto_position(100, 100): servo position 2500
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+Moving to 100%...
+goto_position(100, 100): servo position 2500
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 29 → 23, Position: 48.0%
+Moving to 95%...
+goto_position(95, 100): servo position 2375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 23 → 29, Position: 63.0%
+Moving to 90%...
+goto_position(90, 100): servo position 2250
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 29 → 29, Position: 79.0%
+Moving to 85%...
+goto_position(85, 100): servo position 2125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 34 → 40, Position: 85.0%
+Moving to 80%...
+goto_position(80, 100): servo position 2000
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 40 → 64, Position: 80.0%
+Moving to 75%...
+goto_position(75, 100): servo position 1875
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 64 → 61, Position: 75.0%
+Moving to 70%...
+goto_position(70, 100): servo position 1750
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 47 → 69, Position: 71.0%
+Moving to 65%...
+goto_position(65, 100): servo position 1625
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 81 → 75, Position: 66.0%
+Moving to 60%...
+goto_position(60, 100): servo position 1500
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 75 → 75, Position: 61.0%
+Moving to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 69 → 81, Position: 56.0%
+Moving to 50%...
+goto_position(50, 100): servo position 1250
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 75 → 75, Position: 51.0%
+Moving to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 75 → 75, Position: 46.0%
+Moving to 40%...
+goto_position(40, 100): servo position 1000
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 81 → 81, Position: 41.0%
+Moving to 35%...
+goto_position(35, 100): servo position 875
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 81 → 81, Position: 36.0%
+Moving to 30%...
+goto_position(30, 100): servo position 750
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 81 → 81, Position: 31.0%
+Moving to 25%...
+goto_position(25, 100): servo position 625
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 75 → 81, Position: 26.0%
+Moving to 20%...
+goto_position(20, 100): servo position 500
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 81 → 75, Position: 21.0%
+Moving to 15%...
+goto_position(15, 100): servo position 375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 75 → 81, Position: 17.0%
+Moving to 10%...
+goto_position(10, 100): servo position 250
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 81 → 87, Position: 12.0%
+Moving to 5%...
+goto_position(5, 100): servo position 125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 87 → 104, Position: 8.0%
+Moving to 0%...
+goto_position(0, 100): servo position 0
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Current: 104 → 285, Position: 0.0%
+
+
+Test 3: Hold current at different positions
+
+Holding at 0%...
+goto_position(0, 100): servo position 0
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Hold current: 283.8, Actual: 0.0%
+
+Holding at 25%...
+goto_position(25, 100): servo position 625
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Hold current: 9.6, Actual: 25.0%
+
+Holding at 50%...
+goto_position(50, 100): servo position 1250
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Hold current: 9.6, Actual: 50.0%
+
+Holding at 75%...
+goto_position(75, 100): servo position 1875
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Hold current: 12.8, Actual: 75.0%
+
+Holding at 100%...
+goto_position(100, 100): servo position 2500
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Hold current: 16.0, Actual: 100.0%
+
+
+Test 4: Continuous high load detection
+goto_position(50, 100): servo position 1250
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 58 → 69
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 69 → 69
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 75 → 81
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 81 → 8
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 8 → 75
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 75 → 23
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 29 → 75
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 69 → 29
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 23 → 69
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 69 → 29
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 29 → 69
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 69 → 23
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 23 → 75
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 69 → 29
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 29 → 75
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 69 → 29
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 23 → 69
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 69 → 29
+  Normal load (below threshold)
+
+Small move to 45%...
+goto_position(45, 100): servo position 1125
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 29 → 69
+  Normal load (below threshold)
+
+Small move to 55%...
+goto_position(55, 100): servo position 1375
+set_max_effort(100): moving torque: 800, goal torque: 800
+set_max_effort(13): moving torque: 104, goal torque: 104
+goto_position done
+  Initial current: 69 → 29
+  Normal load (below threshold)
+
+Summary: 0 high load events detected out of 20 movements
+
+=== CHARACTERIZATION COMPLETE ===

@@ -59,13 +59,13 @@ def test_gripper(device: str, side: str, iterations: int = 3):
             
             # Open
             logger.info("Step 2: Opening gripper...")
-            gripper.goto_position(100.0, 50.0)
+            gripper.move_with_torque_management(100.0, 50.0)
             logger.info("Waiting 2 seconds...")
             time.sleep(2)
             
             # Close
             logger.info("Step 3: Closing gripper...")
-            gripper.goto_position(0.0, 50.0)
+            gripper.move_with_torque_management(0.0, 50.0)
             logger.info("Waiting 2 seconds...")
             time.sleep(2)
             
@@ -75,7 +75,7 @@ def test_gripper(device: str, side: str, iterations: int = 3):
         logger.info("="*60)
         logger.info(f"Final Position: 50% open")
         logger.info("="*60)
-        gripper.goto_position(50.0, 30.0)
+        gripper.move_with_torque_management(50.0, 30.0)
         logger.info(f"{side.upper()} gripper test complete - at 50%")
         
         return True

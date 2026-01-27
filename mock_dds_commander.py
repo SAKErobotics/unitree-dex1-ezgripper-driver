@@ -67,8 +67,11 @@ class MockDDSCommander:
                 # Period = full cycle time, so half period = open to close
                 phase = (elapsed % self.period) / self.period  # 0 to 1
                 
-                # Sine wave: 0 -> 1 -> 0 (smooth acceleration/deceleration)
-                normalized = (1 - math.cos(phase * 2 * math.pi)) / 2
+                # Linear motion: 0 -> 1 -> 0 (constant speed)
+                if phase < 0.5:
+                    normalized = phase * 2  # 0 to 1 (opening)
+                else:
+                    normalized = 2 - phase * 2  # 1 to 0 (closing)
                 
                 # Map to Dex1 range
                 q = self.DEX1_CLOSE + normalized * (self.DEX1_OPEN - self.DEX1_CLOSE)

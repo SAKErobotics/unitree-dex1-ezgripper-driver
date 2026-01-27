@@ -158,7 +158,7 @@ class EZGripperDriverWithQueue:
         
         try:
             # Move to relaxed position
-            self.gripper.goto_position(50.0, 30.0)
+            self.gripper.move_with_torque_management(50.0, 30.0)
             time.sleep(2)
             
             # Perform calibration
@@ -168,7 +168,7 @@ class EZGripperDriverWithQueue:
             self._save_calibration()
             
             # Verify with quick test
-            self.gripper.goto_position(25.0, 40.0)
+            self.gripper.move_with_torque_management(25.0, 40.0)
             time.sleep(2)
             actual = self.gripper.get_position()
             error = abs(actual - 25.0)
@@ -265,7 +265,7 @@ class EZGripperDriverWithQueue:
             self.current_command = cmd
             
             # Execute command
-            self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+            self.gripper.move_with_torque_management(cmd.position_pct, cmd.effort_pct)
             
             # Update state
             self.current_position_pct = cmd.position_pct
@@ -359,7 +359,7 @@ class EZGripperDriverWithQueue:
         self.logger.info("Shutting down hardware...")
         self.running = False
         if self.gripper:
-            self.gripper.goto_position(50.0, 30.0)
+            self.gripper.move_with_torque_management(50.0, 30.0)
             time.sleep(1)
 
 

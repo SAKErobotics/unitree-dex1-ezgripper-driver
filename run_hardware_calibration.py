@@ -18,7 +18,7 @@ print(f"✅ Connected, current position: {gripper.get_position():.1f}%")
 
 # Move to relaxed position first
 print("\n2. Moving to relaxed position (50%)...")
-gripper.goto_position(50.0, 30.0)
+gripper.move_with_torque_management(50.0, 30.0)
 time.sleep(2)
 print(f"✅ At relaxed position: {gripper.get_position():.1f}%")
 
@@ -34,26 +34,27 @@ print(f"✅ Calibration complete")
 print("\n4. Verifying calibration...")
 
 print("   Testing 0% (closed)...")
-gripper.goto_position(0.0, 40.0)
-time.sleep(2)
+gripper.move_with_torque_management(0.0, 40.0)
+gripper.move_with_torque_management(50.0, 40.0)
+gripper.move_with_torque_management(100.0, 40.0)
 pos_0 = gripper.get_position()
 print(f"   Position at 0%: {pos_0:.1f}%")
 
 print("   Testing 50% (mid)...")
-gripper.goto_position(50.0, 40.0)
+gripper.move_with_torque_management(50.0, 40.0)
 time.sleep(2)
 pos_50 = gripper.get_position()
 print(f"   Position at 50%: {pos_50:.1f}%")
 
 print("   Testing 100% (open)...")
-gripper.goto_position(100.0, 40.0)
+gripper.move_with_torque_management(100.0, 40.0)
 time.sleep(2)
 pos_100 = gripper.get_position()
 print(f"   Position at 100%: {pos_100:.1f}%")
 
 # Return to neutral
 print("\n5. Returning to neutral position...")
-gripper.goto_position(50.0, 30.0)
+gripper.move_with_torque_management(50.0, 30.0)
 time.sleep(1)
 
 # Release

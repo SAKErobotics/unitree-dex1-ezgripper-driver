@@ -308,7 +308,7 @@ class CorrectedEZGripperDriver:
             self.save_calibration(zero_pos)
             
             # Verify with quick test
-            self.gripper.goto_position(25, 40)
+            self.gripper.move_with_torque_management(25, 40)
             time.sleep(2)
             actual = self.gripper.get_position()
             error = abs(actual - 25.0)
@@ -495,7 +495,7 @@ class CorrectedEZGripperDriver:
         self.logger.info("Shutting down hardware...")
         self.running = False
         if self.gripper:
-            self.gripper.goto_position(50.0, 30.0)
+            self.gripper.move_with_torque_management(50.0, 30.0)
             time.sleep(1)
 
 

@@ -184,9 +184,10 @@ class Gripper:
             positions.append(self.get_position(i))
         return positions
 
-    def goto_position(self, position, closing_torque, \
+    def move_with_torque_management(self, position, closing_torque, \
             use_percentages = True, gripper_module = 'dual_gen1'):
-        # Using the 0-100% range allows the user to define the definition of where the gap is measured.
+        # High-level movement with torque management - NOT a simple goto command
+        # This function manages torque and may affect position reference
         # position: 0..100, 0 - close, 100 - open
         # closing_torque: 0..100
 
@@ -216,7 +217,7 @@ class Gripper:
                     self.OPEN_QUAD_POS, self.CLOSE_QUAD_POS, 100, 0)
 
         servo_position = self.scale(position, self.GRIP_MAX)
-        print("goto_position(%d, %d): servo position %d"%(position, closing_torque, servo_position))
+        print("move_with_torque_management(%d, %d): servo position %d"%(position, closing_torque, servo_position))
         self.set_max_effort(closing_torque)  # essentially sets velocity of movement, but also sets max_effort for initial half second of grasp.
 
         if position == 0:
@@ -228,14 +229,15 @@ class Gripper:
         # This does not provide continuous grasping torque.
         holding_torque = min(self.TORQUE_HOLD, closing_torque)
         self.set_max_effort(holding_torque)
-        print("goto_position done")
+        print("move_with_torque_management done")
 
+    
     def release(self):
         for servo in self.servos:
             set_torque_mode(servo, False)
 
     def open(self):
-        self.goto_position(100, 100)
+        self.move_with_torque_management(100, 100)
 
     def get_temperatures(self):
         temperatures = []

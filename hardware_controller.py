@@ -47,10 +47,10 @@ class EZGripperHardwareController:
         self.is_calibrated = False
         
         # Cached state
-        self.current_position_pct = 50.0  # Actual gripper position (updated when entering torque mode)
+        self.current_position_pct = 50.0  # Cached position for reporting
         self.current_effort_pct = 30.0
         self.last_effort_pct = None  # Track to avoid redundant set_max_effort
-        self.actual_gripper_position = 50.0  # Track actual physical position
+        self.expected_position_pct = 50.0  # Expected NO-LOAD position based on commands (never corrupted by measurements)
         
         # Hybrid control state
         self.control_mode = 'position'  # 'position' or 'torque'
@@ -169,15 +169,15 @@ class EZGripperHardwareController:
             self._save_calibration(zero_pos)
             
             # Move to 50% open position to release from closed state
-            self.gripper.goto_position(50, 100)
+            self.gripper.move_with_torque_management(50, 100)
             
             # goto_position reduces effort to TORQUE_HOLD (13%) at the end, so reset to 100%
             self.gripper.set_max_effort(100)
             self.last_effort_pct = 100
             
-            # Initialize actual position tracking
-            self.actual_gripper_position = 50.0
+            # Initialize cached state and expected position from calibration
             self.current_position_pct = 50.0
+            self.expected_position_pct = 50.0  # Establish foundational NO-LOAD position at calibration
             
             # Mark as calibrated
             self.is_calibrated = True
@@ -213,8 +213,11 @@ class EZGripperHardwareController:
             # Detect if commanded position is changing relative to ACTUAL position
             # This is critical - we compare against where the gripper actually is, not where we commanded it
             # Closing = position_pct DECREASING (going toward 0%), Opening = position_pct INCREASING (going toward 100%)
-            is_closing = position_pct < self.actual_gripper_position - 1.0  # 1% hysteresis - actively closing
-            is_opening = position_pct > self.actual_gripper_position + 1.0  # 1% hysteresis - actively opening
+            
+            # Sacred NO-LOAD relationships are NEVER reset - differences provide information, not corruption
+            
+            is_closing = position_pct < self.expected_position_pct - 1.0  # 1% hysteresis - actively closing
+            is_opening = position_pct > self.expected_position_pct + 1.0  # 1% hysteresis - actively opening
             
             # Mode switching logic
             if self.control_mode == 'position':
@@ -228,7 +231,7 @@ class EZGripperHardwareController:
                     # Read actual servo position where resistance was detected
                     actual_pos = self.gripper.get_position()
                     self.torque_mode_entry_position = actual_pos
-                    self.actual_gripper_position = actual_pos
+                    # DON'T update expected_position_pct - keep tracking commanded positions
                     self.logger.info(f"Torque mode: resistance detected at {actual_pos:.1f}%")
                 else:
                     # Normal position control with 100% effort
@@ -239,10 +242,12 @@ class EZGripperHardwareController:
                     
                     self.gripper._goto_position(servo_pos)
                     
+                    # Position tracking handled at end of function (line 302)
+                    
             elif self.control_mode == 'torque':
                 # In torque mode: hold for 0.5s then return to position
                 # Exit immediately if commanded position is more open than entry position
-                entry_pos = self.torque_mode_entry_position if self.torque_mode_entry_position else self.actual_gripper_position
+                entry_pos = self.torque_mode_entry_position if self.torque_mode_entry_position else self.expected_position_pct
                 is_more_open_than_entry = position_pct > entry_pos + 1.0  # 1% hysteresis
                 
                 if is_more_open_than_entry:
@@ -264,9 +269,10 @@ class EZGripperHardwareController:
                     self.gripper._goto_position(servo_pos)
                     
                 elif self.torque_mode_start_time and (time.time() - self.torque_mode_start_time) > self.torque_pulse_duration:
-                    # 0.5s timeout - switch back to position mode at current actual position
-                    # We already read the actual position when we entered torque mode
-                    hold_pos = self.actual_gripper_position
+                    # 0.5s timeout - switch back to position mode
+                    # NEVER update expected_position_pct - it's decision-making data, not measurement data
+                    # expected_position_pct continues tracking commanded positions
+                    hold_pos = self.gripper.get_position()
                     self.logger.info(f"Torque pulse complete ({self.torque_pulse_duration}s), switching to POSITION mode at {hold_pos:.1f}%")
                     self.control_mode = 'position'
                     self.resistance_detected = False
@@ -278,8 +284,9 @@ class EZGripperHardwareController:
                     for servo in self.gripper.servos:
                         set_torque_mode(servo, False)
                     
-                    # Command position mode at current actual position
-                    self.gripper.goto_position(int(hold_pos), 100)
+                    # Command position mode at current actual position (use _goto_position to avoid recalibration)
+                    servo_pos = self.gripper.scale(int(hold_pos), self.gripper.GRIP_MAX)
+                    self.gripper._goto_position(servo_pos)
                     self.last_effort_pct = 100
                     
                 else:
@@ -289,10 +296,10 @@ class EZGripperHardwareController:
             # Position tracking is deterministic based on commands after calibration
             # Never reset position tracking - it follows command sequence
             if self.control_mode == 'position':
-                self.actual_gripper_position = position_pct  # Track command sequence deterministically
+                self.expected_position_pct = position_pct  # Track command sequence deterministically
             
             # Update cached state
-            self.current_position_pct = self.actual_gripper_position
+            self.current_position_pct = self.expected_position_pct
             self.current_effort_pct = effort_pct
             
             # Comprehensive logging - track complete command flow
@@ -318,7 +325,7 @@ class EZGripperHardwareController:
                 control_action = f"HOLDING (torque mode, entry={self.torque_mode_entry_position:.1f}%)"
             
             # Log complete flow
-            self.logger.info(f"INPUT: {cmd_type} | TRACKED: {self.actual_gripper_position:.1f}% | {control_action} | SERVO: pos={servo_pos}+{zero_pos}={servo_pos+zero_pos}, effort={self.last_effort_pct}%, current={avg_current:.0f}")
+            self.logger.info(f"INPUT: {cmd_type} | TRACKED: {self.expected_position_pct:.1f}% | {control_action} | SERVO: pos={servo_pos}+{zero_pos}={servo_pos+zero_pos}, effort={self.last_effort_pct}%, current={avg_current:.0f}")
             
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
@@ -391,7 +398,7 @@ class EZGripperHardwareController:
         self.logger.info("Shutting down hardware...")
         try:
             if self.gripper:
-                self.gripper.goto_position(50, 30)
+                self.gripper.move_with_torque_management(50, 30)
                 time.sleep(1)
         except Exception as e:
             self.logger.error(f"Shutdown failed: {e}")
