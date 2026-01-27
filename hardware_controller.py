@@ -16,7 +16,7 @@ import os
 from typing import Optional
 
 from libezgripper import create_connection, Gripper
-from libezgripper.lib_robotis import set_torque_mode
+from libezgripper.ezgripper_base import set_torque_mode
 
 
 class EZGripperHardwareController:
