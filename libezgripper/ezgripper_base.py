@@ -61,7 +61,7 @@ def remap(x, in_min, in_max, out_min, out_max):
 class Gripper:
 
     GRIP_MAX = 2500 # maximum open position for grippers
-    TORQUE_MAX = 800 # maximum torque - MX-64=500, MX-106=350
+    TORQUE_MAX = 1023 # maximum torque - full Dynamixel range (was 800)
     TORQUE_HOLD = 13 # This is percentage of TORQUE_MAX. In absolute units: holding torque - MX-64=100, MX-106=80
 
     OPEN_DUAL_GEN1_POS = 1.5707
