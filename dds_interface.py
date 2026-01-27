@@ -166,27 +166,42 @@ class Dex1DDSInterface:
     def publish_state(self):
         """Publish cached state to G1 Dex1 DDS format (fast, no hardware access)"""
         try:
-            # Create motor state for Dex1 hand
-            motor_state = HGMotorState_()
-            motor_state.id = self.motor_id
-            motor_state.q = self.ezgripper_to_dex1(self.cached_position_pct)
-            motor_state.dq = 0.0
-            motor_state.ddq = 0.0
-            motor_state.tau_est = 0.0
-            motor_state.q_raw = motor_state.q
-            motor_state.dq_raw = 0.0
-            motor_state.ddq_raw = 0.0
-            motor_state.temperature = 25.0
-            motor_state.motor_error = 0
+            # Create motor state for Dex1 hand (all required fields)
+            motor_state = HGMotorState_(
+                mode=0,  # Position mode
+                q=self.ezgripper_to_dex1(self.cached_position_pct),
+                dq=0.0,
+                ddq=0.0,
+                tau_est=0.0,
+                temperature=[25, 25],  # Array of 2 int16
+                vol=12.0,  # Voltage
+                sensor=[0, 0],  # Array of 2 uint32
+                motorstate=0,  # Motor state flags
+                reserve=[0, 0, 0, 0]  # Array of 4 uint32
+            )
             
-            # Create HandState_ message (placeholder for other fields)
-            hand_state = HGHandState_()
-            hand_state.motor_state = [motor_state]
-            hand_state.press_sensor_state = []  # No pressure sensors
-            hand_state.imu_state = None  # No IMU
-            hand_state.power_v = 12.0
-            hand_state.power_a = self.cached_effort_pct * 0.1
-            hand_state.system_v = 12.0
+            # Create HandState_ message with all required fields
+            # Need to create a minimal IMU state (required field, cannot be None)
+            from unitree_sdk2py.idl.unitree_hg.msg.dds_ import IMUState_
+            imu_state = IMUState_(
+                quaternion=[0.0, 0.0, 0.0, 1.0],
+                gyroscope=[0.0, 0.0, 0.0],
+                accelerometer=[0.0, 0.0, -9.81],
+                rpy=[0.0, 0.0, 0.0],
+                temperature=25
+            )
+            
+            hand_state = HGHandState_(
+                motor_state=[motor_state],
+                press_sensor_state=[],  # Empty sequence for no pressure sensors
+                imu_state=imu_state,
+                power_v=12.0,
+                power_a=self.cached_effort_pct * 0.1,
+                system_v=12.0,
+                device_v=12.0,
+                error=[0, 0],
+                reserve=[0, 0]
+            )
             
             # Publish
             self.state_writer.write(hand_state)
