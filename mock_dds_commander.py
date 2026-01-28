@@ -67,60 +67,73 @@ class MockDDSCommander:
         self.logger.info(f"Motor ID: {self.motor_id}")
     
     def run(self):
-        """Run 3-phase oscillation pattern"""
-        self.logger.info("Starting 3-phase pattern: smooth(10s) -> random jumps(5s) -> instant point-to-point(5s)")
+        """Run 3-phase oscillation pattern with initial calibration"""
+        self.logger.info("Starting pattern: calibration(5s) -> smooth(10s) -> random jumps(5s) -> instant point-to-point(5s)")
         
         start_time = time.time()
         last_phase2_jump = -1
         last_phase3_jump = -1
+        calibration_done = False
         
         try:
             while True:
                 elapsed = time.time() - start_time
                 
-                # Total cycle: 20 seconds (10s + 5s + 5s)
-                cycle_time = elapsed % 20.0
-                
-                # Phase 1: Smooth oscillation (0-10s)
-                if cycle_time < 10.0:
-                    phase = cycle_time / 10.0  # 0 to 1
-                    if phase < 0.5:
-                        normalized = phase * 2  # 0 to 1 (opening)
-                    else:
-                        normalized = 2 - phase * 2  # 1 to 0 (closing)
-                    
-                    if int(cycle_time) != int(cycle_time - 0.02):  # Log phase transitions
-                        self.logger.info(f"PHASE 1: Smooth oscillation ({cycle_time:.1f}s)")
-                
-                # Phase 2: Random jumps every second (10-15s) - NEW RANDOM EACH TIME
-                elif cycle_time < 15.0:
-                    phase2_time = cycle_time - 10.0
-                    jump_index = int(phase2_time)  # 0-4
-                    
-                    # Generate new random position for each jump (no seed)
-                    if jump_index != last_phase2_jump:
-                        self.phase2_position = random.uniform(0.0, 1.0)
-                        last_phase2_jump = jump_index
-                        self.logger.info(f"PHASE 2: Random jump #{jump_index+1} -> {self.phase2_position*100:.1f}%")
-                    
-                    normalized = self.phase2_position  # Hold at position until next jump
-                
-                # Phase 3: Instant point-to-point jumps (15-20s)
+                # Calibration phase: First 5 seconds only (runs once)
+                if elapsed < 5.0:
+                    # Full close for calibration
+                    normalized = 0.0
+                    if not calibration_done:
+                        self.logger.info("CALIBRATION: Closing to 0% for 5 seconds...")
+                        calibration_done = True
+                    cycle_time = 0  # Keep cycle_time at 0 during calibration
                 else:
-                    phase3_time = cycle_time - 15.0
-                    jump_index = int(phase3_time)  # 0-4
+                    # Adjust elapsed time to account for calibration
+                    adjusted_elapsed = elapsed - 5.0
                     
-                    # Generate new random position for each jump - INSTANT, NO SMOOTH MOVEMENT
-                    if jump_index != last_phase3_jump:
-                        self.phase3_position = random.uniform(0.0, 1.0)
-                        last_phase3_jump = jump_index
-                        self.logger.info(f"PHASE 3: Instant jump #{jump_index+1} -> {self.phase3_position*100:.1f}%")
+                    # Total cycle: 20 seconds (10s + 5s + 5s) after calibration
+                    cycle_time = adjusted_elapsed % 20.0
                     
-                    normalized = self.phase3_position  # Hold at position until next jump
+                    # Phase 1: Smooth oscillation (0-10s)
+                    if cycle_time < 10.0:
+                        phase = cycle_time / 10.0  # 0 to 1
+                        if phase < 0.5:
+                            normalized = phase * 2  # 0 to 1 (opening)
+                        else:
+                            normalized = 2 - phase * 2  # 1 to 0 (closing)
+                        
+                        if int(cycle_time) != int(cycle_time - 0.02):  # Log phase transitions
+                            self.logger.info(f"PHASE 1: Smooth oscillation ({cycle_time:.1f}s)")
                     
-                    # Reset for next cycle
-                    if cycle_time >= 19.9:
-                        last_phase3_jump = -1
+                    # Phase 2: Random jumps every second (10-15s) - NEW RANDOM EACH TIME
+                    elif cycle_time < 15.0:
+                        phase2_time = cycle_time - 10.0
+                        jump_index = int(phase2_time)  # 0-4
+                        
+                        # Generate new random position for each jump (no seed)
+                        if jump_index != last_phase2_jump:
+                            self.phase2_position = random.uniform(0.0, 1.0)
+                            last_phase2_jump = jump_index
+                            self.logger.info(f"PHASE 2: Random jump #{jump_index+1} -> {self.phase2_position*100:.1f}%")
+                        
+                        normalized = self.phase2_position  # Hold at position until next jump
+                    
+                    # Phase 3: Instant point-to-point jumps (15-20s)
+                    else:
+                        phase3_time = cycle_time - 15.0
+                        jump_index = int(phase3_time)  # 0-4
+                        
+                        # Generate new random position for each jump - INSTANT, NO SMOOTH MOVEMENT
+                        if jump_index != last_phase3_jump:
+                            self.phase3_position = random.uniform(0.0, 1.0)
+                            last_phase3_jump = jump_index
+                            self.logger.info(f"PHASE 3: Instant jump #{jump_index+1} -> {self.phase3_position*100:.1f}%")
+                        
+                        normalized = self.phase3_position  # Hold at position until next jump
+                        
+                        # Reset for next cycle
+                        if cycle_time >= 19.9:
+                            last_phase3_jump = -1
                 
                 # Map to Dex1 range
                 q = self.DEX1_CLOSE + normalized * (self.DEX1_OPEN - self.DEX1_CLOSE)
