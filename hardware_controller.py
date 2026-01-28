@@ -65,6 +65,20 @@ class EZGripperHardwareController:
         self.torque_mode_start_time = None  # Track when torque mode started
         self.torque_mode_entry_position = None  # Track position when entering torque mode
         self.torque_pulse_duration = 0.5  # Hold in torque for 0.5s then back-off
+        
+        # Command-proportional torque scaling parameters
+        # TODO: Characterize force curves for seamless transition
+        # - Position mode: Linear (PWM-based) - measure force vs closure
+        # - Torque mode: Non-linear - characterize torque vs force relationship
+        # - Find crossover point where curves match for smooth transition
+        self.torque_light_touch = 250  # Light touch baseline (24% - gentle initial contact)
+        self.torque_max_hold = 800  # Maximum torque when fully pinched (78%)
+        self.torque_scaling_range = 20.0  # % range for scaling (20% pinch = full torque)
+        self.torque_entry_current = 0  # Current reading when entering torque mode
+        
+        # Future: Force curve characterization data (to be populated from tests)
+        # self.position_force_curve = []  # [(closure_pct, force_units), ...]
+        # self.torque_force_curve = []    # [(torque_units, force_units), ...]
         self.backoff_mode_timeout = 5.0  # Exit backoff after 5s if no opening command
         self.last_mode_switch_time = 0  # Track last mode switch for cooldown
         self.mode_switch_cooldown = 0.5  # Cooldown period after mode switch to prevent rapid cycling
@@ -244,21 +258,22 @@ class EZGripperHardwareController:
                 
                 if position_pct < 65.0 and (high_current or at_zero_and_closing) and not cooldown_active:
                     self.logger.debug(f"Resistance detection trigger: is_closing={is_closing}, current={current}, avg_current={avg_current}, threshold={self.current_threshold}")
-                    self.logger.info(f"Resistance detected (instant={current}, avg={avg_current}) at pos={position_pct:.1f}%, switching to TORQUE mode")
+                    self.logger.info(f"Resistance detected (instant={current}, avg={avg_current}) at pos={position_pct:.1f}%, switching to TORQUE mode with proportional scaling")
                     self.resistance_detected = True
                     self.control_mode = 'torque'
                     self.torque_mode_start_time = time.time()
+                    self.torque_entry_current = current  # Store current for characterization
                     
                     # Use commanded position as entry reference to prevent manual interference
                     # Actual position can change if user manually holds gripper open
                     self.torque_mode_entry_position = position_pct
                     # DON'T update expected_position_pct - keep tracking commanded positions
-                    self.logger.info(f"Torque mode: resistance detected at commanded position {position_pct:.1f}%")
+                    self.logger.info(f"Torque mode: resistance detected at commanded position {position_pct:.1f}%, current={current}, enabling proportional torque")
                     
-                    # Enable torque mode on servo and set holding torque
+                    # Enable torque mode on servo and set proportional holding torque
                     for servo in self.gripper.servos:
                         set_torque_mode(servo, True)
-                    self._set_holding_torque()
+                    self._set_holding_torque(position_pct)
                 else:
                     # Check if resistance detection was blocked by position threshold
                     if is_closing and position_pct >= 65.0 and (current > self.current_threshold or avg_current > self.current_threshold):
@@ -322,16 +337,12 @@ class EZGripperHardwareController:
                         self.last_effort_pct = self.backoff_torque_current
                     else:
                         # Timeout not reached yet, continue holding in torque mode
+                        # Update torque proportionally based on current pinch amount
+                        # This allows user to increase grip force by pinching more
                         self.logger.debug(f"Continuing torque mode: {time_in_torque:.2f}s elapsed, {self.torque_pulse_duration - time_in_torque:.2f}s remaining")
-                        self._set_holding_torque()
-                    
-                else:
-                    # Non-opening command received while in torque mode
-                    # IGNORE the command to prevent torque pumping
-                    # Just maintain current torque hold without reapplying commands
-                    self.logger.debug(f"Ignoring non-opening command ({position_pct:.1f}%) while in torque mode - preventing torque pumping")
-                    # EARLY RETURN - skip all remaining command processing
-                    return
+                        self._set_holding_torque(position_pct)
+                
+                # No early return - allow torque updates based on pinch changes
             
             elif self.control_mode == 'backoff_torque':
                 # In back-off torque mode: hold with 13% torque
@@ -460,13 +471,59 @@ class EZGripperHardwareController:
             return 0.0
         return sum(self.current_samples) / len(self.current_samples)
     
-    def _set_holding_torque(self):
-        """Set high torque for holding in torque mode"""
+    def _calculate_proportional_torque(self, current_position_pct: float) -> int:
+        """
+        Calculate torque proportional to pinch closure amount.
+        
+        Implements seamless transition from position mode to torque mode:
+        - At entry (light touch): Use light touch baseline (250 units / 24%)
+        - As user pinches more: Increase proportionally to max (800 units / 78%)
+        - User experience: Natural force increase as they pinch harder
+        
+        Args:
+            current_position_pct: Current commanded position (0-100%)
+            
+        Returns:
+            Torque value in units (0-1023)
+        """
+        if self.torque_mode_entry_position is None:
+            return self.torque_light_touch
+        
+        # Calculate how much user has pinched beyond entry position
+        # Negative = closing more (pinching), Positive = opening
+        pinch_delta = self.torque_mode_entry_position - current_position_pct
+        
+        # If at or opening beyond entry, use light touch baseline
+        if pinch_delta <= 0:
+            return self.torque_light_touch
+        
+        # Calculate scaling factor (0.0 to 1.0)
+        # pinch_delta of 0% = light touch, pinch_delta of scaling_range% = max torque
+        scaling_factor = min(pinch_delta / self.torque_scaling_range, 1.0)
+        
+        # Linearly interpolate from light touch to max torque
+        torque_range = self.torque_max_hold - self.torque_light_touch
+        scaled_torque = int(self.torque_light_touch + torque_range * scaling_factor)
+        
+        self.logger.debug(f"Proportional torque: entry={self.torque_mode_entry_position:.1f}%, current={current_position_pct:.1f}%, pinch_delta={pinch_delta:.1f}%, scaling={scaling_factor*100:.0f}%, torque={scaled_torque}/{self.torque_max_hold}")
+        
+        return scaled_torque
+    
+    def _set_holding_torque(self, position_pct: float):
+        """
+        Set holding torque in torque mode, proportional to pinch closure.
+        
+        Args:
+            position_pct: Current commanded position (0-100%)
+        """
         try:
+            # Calculate torque proportional to how much user has pinched
+            torque_value = self._calculate_proportional_torque(position_pct)
+            
             # In torque mode, set goal torque (address 71, 2 bytes)
             # Note: Register 34 (Torque Limit) caps the max value for register 71
             for servo in self.gripper.servos:
-                servo.write_word(71, 1024 + self.torque_hold_current)
+                servo.write_word(71, 1024 + torque_value)
         except Exception as e:
             self.logger.error(f"Failed to set holding torque: {e}")
     
