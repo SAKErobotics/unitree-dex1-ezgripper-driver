@@ -49,10 +49,9 @@ class MockDDSCommander:
         self.period = period
         self.logger = logging.getLogger(f"mock_commander_{side}")
         
-        # Phase 3 state tracking
-        self.phase3_target = None
-        self.phase3_last_update = 0
-        self.phase3_current_pos = 1.0  # Start at open
+        # Phase 2 and 3 state tracking
+        self.phase2_position = 1.0  # Current position for phase 2
+        self.phase3_position = 1.0  # Current position for phase 3
         
         # Setup DDS
         self.participant = DomainParticipant(domain)
@@ -69,10 +68,11 @@ class MockDDSCommander:
     
     def run(self):
         """Run 3-phase oscillation pattern"""
-        self.logger.info("Starting 3-phase pattern: smooth(10s) -> random jumps(5s) -> point-to-point(5s)")
+        self.logger.info("Starting 3-phase pattern: smooth(10s) -> random jumps(5s) -> instant point-to-point(5s)")
         
         start_time = time.time()
-        random.seed(42)  # Reproducible random sequence
+        last_phase2_jump = -1
+        last_phase3_jump = -1
         
         try:
             while True:
@@ -92,42 +92,35 @@ class MockDDSCommander:
                     if int(cycle_time) != int(cycle_time - 0.02):  # Log phase transitions
                         self.logger.info(f"PHASE 1: Smooth oscillation ({cycle_time:.1f}s)")
                 
-                # Phase 2: Random jumps every second (10-15s)
+                # Phase 2: Random jumps every second (10-15s) - NEW RANDOM EACH TIME
                 elif cycle_time < 15.0:
                     phase2_time = cycle_time - 10.0
                     jump_index = int(phase2_time)  # 0-4
-                    random.seed(42 + jump_index)  # Different seed per jump
-                    normalized = random.uniform(0.0, 1.0)
                     
-                    if int(phase2_time) != int(phase2_time - 0.02):  # Log jumps
-                        self.logger.info(f"PHASE 2: Random jump #{jump_index+1} -> {normalized*100:.1f}%")
+                    # Generate new random position for each jump (no seed)
+                    if jump_index != last_phase2_jump:
+                        self.phase2_position = random.uniform(0.0, 1.0)
+                        last_phase2_jump = jump_index
+                        self.logger.info(f"PHASE 2: Random jump #{jump_index+1} -> {self.phase2_position*100:.1f}%")
+                    
+                    normalized = self.phase2_position  # Hold at position until next jump
                 
-                # Phase 3: Point-to-point movement (15-20s)
+                # Phase 3: Instant point-to-point jumps (15-20s)
                 else:
                     phase3_time = cycle_time - 15.0
+                    jump_index = int(phase3_time)  # 0-4
                     
-                    # Check if we need a new target (every ~1 second or when close to target)
-                    if self.phase3_target is None or abs(self.phase3_current_pos - self.phase3_target) < 0.05:
-                        if time.time() - self.phase3_last_update > 0.5:  # Min 0.5s between targets
-                            self.phase3_target = random.uniform(0.0, 1.0)
-                            self.phase3_last_update = time.time()
-                            self.logger.info(f"PHASE 3: New target -> {self.phase3_target*100:.1f}%")
+                    # Generate new random position for each jump - INSTANT, NO SMOOTH MOVEMENT
+                    if jump_index != last_phase3_jump:
+                        self.phase3_position = random.uniform(0.0, 1.0)
+                        last_phase3_jump = jump_index
+                        self.logger.info(f"PHASE 3: Instant jump #{jump_index+1} -> {self.phase3_position*100:.1f}%")
                     
-                    # Move towards target smoothly
-                    if self.phase3_target is not None:
-                        # Move at ~50%/second
-                        move_speed = 0.5 * 0.02  # 50% per second * 0.02s update
-                        if self.phase3_current_pos < self.phase3_target:
-                            self.phase3_current_pos = min(self.phase3_current_pos + move_speed, self.phase3_target)
-                        else:
-                            self.phase3_current_pos = max(self.phase3_current_pos - move_speed, self.phase3_target)
-                    
-                    normalized = self.phase3_current_pos
+                    normalized = self.phase3_position  # Hold at position until next jump
                     
                     # Reset for next cycle
                     if cycle_time >= 19.9:
-                        self.phase3_target = None
-                        self.phase3_current_pos = 1.0  # Reset to open
+                        last_phase3_jump = -1
                 
                 # Map to Dex1 range
                 q = self.DEX1_CLOSE + normalized * (self.DEX1_OPEN - self.DEX1_CLOSE)
