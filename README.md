@@ -15,33 +15,37 @@ pip install -r requirements.txt
 # 2. Connect grippers to USB ports
 # (physically connect EZGrippers to G1 USB ports)
 
-# 3. Start left gripper driver (auto-discovers on first run)
-python3 ezgripper_dds_driver.py --side left
+# 3. Start left gripper driver (auto-calibrates at startup)
+python3 ezgripper_dds_driver.py --side left --dev /dev/ttyUSB0
 
-# Follow prompts to verify left/right mapping
+# Driver will automatically:
+# - Detect serial number
+# - Calibrate using position control (100% effort)
+# - Start control thread (30 Hz) and state thread (200 Hz)
 
-# 4. Calibrate left gripper
-python3 ezgripper_dds_driver.py --side left --calibrate
+# 4. Start right gripper driver
+python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 
-# 5. Start right gripper driver
-python3 ezgripper_dds_driver.py --side right
-
-# 6. Calibrate right gripper
-python3 ezgripper_dds_driver.py --side right --calibrate
-
-# 7. Start both drivers for normal operation
-# Terminal 1:
-python3 ezgripper_dds_driver.py --side left
-
-# Terminal 2:
-python3 ezgripper_dds_driver.py --side right
+# 5. Both drivers now running with:
+# - Automatic calibration at startup
+# - 200 Hz state publishing (predictive model)
+# - 30 Hz command execution
+# - 3 Hz actual position reads
 ```
 
 **That's it!** The driver auto-discovers devices, guides you through verification, and stores calibration automatically.
 
 ## Features
 
-- ✅ **DDS Interface** - Compatible with Unitree Dex1 DDS topics
+- ✅ **Multi-Threaded Architecture** - Separate control (30 Hz) and state (200 Hz) threads for optimal performance
+- ✅ **200 Hz State Publishing** - Achieves 195 Hz actual rate (97.5% of target) using predictive position model
+- ✅ **Predictive Position Model** - Smooth position feedback at 200 Hz between actual hardware reads (3 Hz)
+- ✅ **Position Control Only** - Calibration and operation use 100% effort position control (no torque mode)
+- ✅ **Automatic Calibration** - Calibrates at startup using position control for consistent force definition
+- ✅ **DDS Interface** - Compatible with Unitree Dex1-1 gripper DDS topics (`HGHandCmd_`, `HGHandState_`)
+- ✅ **Thread-Safe** - Lock-protected shared state with minimal contention
+- ✅ **Load-Resistant** - State publishing isolated from serial I/O blocking
+- ✅ **XR Compatible** - Matches Unitree XR teleoperate expectations (200 Hz bidirectional)
 - Integrated with Unitree https://github.com/unitreerobotics/xr_teleoperate
 - Unitree G1 integration kit includes; mount, cabling and software for EZGripper integration
 
@@ -222,10 +226,16 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 
 ## DDS Topics
 
-- **Left Command**: `rt/dex1/left/cmd` (MotorCmds_)
-- **Left State**: `rt/dex1/left/state` (MotorStates_)
-- **Right Command**: `rt/dex1/right/cmd` (MotorCmds_)
-- **Right State**: `rt/dex1/right/state` (MotorStates_)
+- **Left Command**: `rt/dex1/left/cmd` (HGHandCmd_)
+- **Left State**: `rt/dex1/left/state` (HGHandState_)
+- **Right Command**: `rt/dex1/right/cmd` (HGHandCmd_)
+- **Right State**: `rt/dex1/right/state` (HGHandState_)
+
+**Message Types:**
+- Uses official Unitree Dex1-1 gripper message types from `unitree_sdk2py`
+- Command rate: 200 Hz (from XR teleoperate)
+- State publishing rate: 200 Hz (195 Hz actual with predictive model)
+- Actual position reads: 3 Hz (synced with predicted position)
 
 ## Position Mapping
 
@@ -235,17 +245,76 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 
 ## Architecture
 
+### Multi-Threaded Design
+
 ```
-XR Teleoperate → Dex1 DDS Topics → EZGripper DDS Driver → libezgripper → Hardware
+XR Teleoperate (200 Hz) → DDS Topics → EZGripper DDS Driver → libezgripper → Hardware
+                                              ↓
+                                    ┌─────────┴─────────┐
+                                    │                   │
+                            Control Thread      State Thread
+                              (30 Hz)            (200 Hz)
+                                    │                   │
+                        ┌───────────┴──────┐   ┌────────┴────────┐
+                        │                  │   │                 │
+                   Commands          Actual   Predictive    Publish
+                   Execute          Position  Position      State
+                   (Serial)         Read      Model         (DDS)
+                                   (3 Hz)
 ```
+
+**Control Thread (30 Hz):**
+- Receives DDS commands
+- Executes position commands via serial (100% effort)
+- Reads actual position every 10 cycles (3 Hz)
+- Syncs predicted position with actual measurements
+
+**State Thread (200 Hz):**
+- Runs predictive position estimator
+- Updates predicted position using movement model (952.43 %/sec)
+- Publishes state to DDS at 200 Hz
+- Independent of serial I/O blocking
+- Uses absolute time scheduling for precise timing
+
+**Predictive Model:**
+- Interpolates position between actual reads
+- Constraints: never overshoot, never reverse direction
+- Achieves 195 Hz actual publishing rate (97.5% of target)
+- Thread-safe with lock-protected shared state
 
 ## Testing
 
-The `test_gripper.py` script provides automated testing for both grippers. This is useful for:
+### Test Files
 
-- Verifying correct left/right mapping
-- Testing calibration and basic movements
-- Debugging gripper issues
+**`test_3phase_pattern.py`** - 3-phase gripper test pattern using unified DDS interface:
+```bash
+python3 test_3phase_pattern.py --side left --rate 200
+```
+Tests gripper through three phases:
+- Phase 0: Calibration (close to 0%)
+- Phase 1: Smooth sine wave oscillation (0% → 100% → 0%)
+- Phase 2: Random jumps every second
+- Phase 3: Instant point-to-point jumps
+
+**`test_movement_timing.py`** - Calibrate gripper movement speed:
+```bash
+python3 test_movement_timing.py --side left --cycles 3
+```
+Measures actual gripper movement speed by testing multiple ranges (20-80%, etc.) and calculates parameters for predictive model.
+
+**`test_overhead_characterization.py`** - Characterize system overhead:
+```bash
+python3 test_overhead_characterization.py --side left --trials 3
+```
+Separates fixed overhead (DDS latency, command processing) from actual gripper movement speed by testing multiple distance ranges.
+
+**`dex1_hand_interface.py`** - Unified DDS interface abstraction:
+- Clean Python API for controlling Dex1-1 grippers
+- Methods: `set_position()`, `open()`, `close()`, `get_state()`
+- Handles all DDS message creation and topic management
+- Used by all test scripts for consistent interface
+
+**`test_gripper.py`** - Legacy automated testing for both grippers:
 
 ### Usage
 
