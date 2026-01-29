@@ -50,11 +50,9 @@ class ThreePhaseTest:
         """
         t = elapsed % self.PHASE_DURATION
         
-        if t < 5.0:
-            return (0, "Calibration")
-        elif t < 15.0:
+        if t < 10.0:
             return (1, "Smooth oscillation")
-        elif t < 20.0:
+        elif t < 15.0:
             return (2, "Random jumps")
         else:
             return (3, "Instant jumps")
@@ -69,27 +67,23 @@ class ThreePhaseTest:
         t = elapsed % self.PHASE_DURATION
         phase, _ = self.get_phase(elapsed)
         
-        if phase == 0:
-            # Phase 0: Calibration - close gripper
-            return 0.0
-        
-        elif phase == 1:
+        if phase == 1:
             # Phase 1: Smooth oscillation (sine wave)
             # 10 second period: 0% -> 100% -> 0%
-            phase_time = t - 5.0
+            phase_time = t  # Start at t=0
             normalized = (math.sin(2 * math.pi * phase_time / 10.0) + 1.0) / 2.0
             return normalized * 100.0
         
         elif phase == 2:
             # Phase 2: Random jumps every second
-            phase_time = t - 15.0
+            phase_time = t - 10.0
             jump_index = int(phase_time)
             random.seed(jump_index + 1000)  # Consistent random sequence
             return random.uniform(0.0, 100.0)
         
         else:
             # Phase 3: Instant point-to-point jumps
-            phase_time = t - 20.0
+            phase_time = t - 15.0
             jump_index = int(phase_time)
             random.seed(jump_index + 2000)  # Different random sequence
             return random.uniform(0.0, 100.0)
