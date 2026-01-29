@@ -17,8 +17,8 @@ import os
 import json
 from dataclasses import dataclass
 
-# Set CYCLONEDDS_HOME before importing cyclonedds
-os.environ['CYCLONEDDS_HOME'] = '/opt/cyclonedds-0.10.2'
+# CycloneDDS will auto-detect library location
+# os.environ['CYCLONEDDS_HOME'] = '/usr/lib/x86_64-linux-gnu'
 
 from cyclonedds.domain import DomainParticipant
 from cyclonedds.topic import Topic
@@ -26,9 +26,10 @@ from cyclonedds.sub import DataReader
 from cyclonedds.pub import DataWriter
 from cyclonedds.qos import Qos, Policy
 
-# Import unitree_sdk2py message types (which work with cyclonedds 0.10.2)
+# Import unitree_sdk2py message types for Dex1 hand
 sys.path.insert(0, '/home/kavi/CascadeProjects/unitree_sdk2_python')
-from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmd_, MotorCmds_, MotorState_, MotorStates_
+from unitree_sdk2py.idl.default import HGHandCmd_, HGMotorCmd_, HGHandState_, HGMotorState_
+from unitree_sdk2py.idl.unitree_hg.msg.dds_ import IMUState_, PressSensorState_
 
 # Minimal libezgripper imports - only what we use
 from libezgripper import create_connection, Gripper
@@ -180,25 +181,37 @@ class CorrectedEZGripperDriver:
         self.last_cmd_time = time.time()
         self.target_position_pct = 50.0
         
+        # Predictive state for 200 Hz publishing
+        self.predicted_position_pct = 50.0  # Predicted position (published at 200 Hz)
+        self.actual_position_pct = 50.0     # Last known actual position (read at 5 Hz)
+        self.commanded_position_pct = 50.0  # Latest commanded position
+        self.movement_speed = 952.43        # Measured gripper speed (%/sec)
+        self.last_predict_time = time.time()
+        
         # Latest command (single-threaded, no queue needed)
         self.latest_command = None
         self.command_count = 0
-        self.status_read_interval = 10  # Read status every N command cycles
+        self.status_read_interval = 40  # Read actual position every 40 cycles (5 Hz at 200 Hz loop)
         
-        # Control loop
+        # Control loop at 200 Hz
         self.running = True
+        self.loop_rate_hz = 200.0
+        self.loop_period = 1.0 / self.loop_rate_hz  # 5ms
         self.last_status_time = 0
-        self.status_publish_interval = 0.5  # Publish status at 2Hz
         
         # Initialize
         self._initialize_hardware()
         self._load_calibration()
         self._setup_dds()
         
+        # Auto-calibrate at startup
+        self.logger.info("Running automatic calibration at startup...")
+        self.calibrate()
+        
         self.logger.info(f"Corrected EZGripper driver ready: {side} side")
     
     def _initialize_hardware(self):
-        """Initialize hardware connection"""
+        """Initialize hardware connection and detect serial number"""
         self.logger.info(f"Connecting to EZGripper on {self.device}")
         
         try:
@@ -209,40 +222,32 @@ class CorrectedEZGripperDriver:
             test_pos = self.gripper.get_position()
             self.logger.info(f"Hardware connected: position {test_pos:.1f}%")
             
+            # Read serial number from hardware
+            self.serial_number = self._get_serial_number()
+            self.logger.info(f"Detected serial number: {self.serial_number}")
+            
+            # Update device config with current device mapping
+            self._update_device_config()
+            
         except Exception as e:
             self.logger.error(f"Hardware connection failed: {e}")
             raise
     
-    def _load_calibration(self):
-        """Load calibration offset from device config using serial number"""
-        config_file = '/tmp/ezgripper_device_config.json'
-        
+    def _get_serial_number(self):
+        """Get serial number from connected device"""
         try:
-            if os.path.exists(config_file):
-                with open(config_file, 'r') as f:
-                    config = json.load(f)
-                
-                # Get serial number for this side
-                serial_key = f"{self.side}_serial"
-                if serial_key in config and config[serial_key] != 'unknown':
-                    serial = config[serial_key]
-                    
-                    # Get calibration offset for this serial number
-                    if 'calibration' in config and serial in config['calibration']:
-                        self.calibration_offset = config['calibration'][serial]
-                        self.gripper.zero_positions[0] = self.calibration_offset
-                        self.is_calibrated = True
-                        self.logger.info(f"Loaded calibration offset for {serial}: {self.calibration_offset}")
-                        return
+            import serial.tools.list_ports
+            ports = serial.tools.list_ports.comports()
+            for port in ports:
+                if port.device == self.device:
+                    return port.serial_number if port.serial_number else 'unknown'
+            return 'unknown'
         except Exception as e:
-            self.logger.warning(f"Failed to load calibration: {e}")
-        
-        # No calibration found - auto-calibrate
-        self.logger.info("No calibration found, running auto-calibration...")
-        self.calibrate()
+            self.logger.warning(f"Failed to read serial number: {e}")
+            return 'unknown'
     
-    def save_calibration(self, offset: float):
-        """Save calibration offset to device config using serial number"""
+    def _update_device_config(self):
+        """Update device config with current device and serial number mapping"""
         config_file = '/tmp/ezgripper_device_config.json'
         
         try:
@@ -252,25 +257,75 @@ class CorrectedEZGripperDriver:
                 with open(config_file, 'r') as f:
                     config = json.load(f)
             
-            # Get serial number for this side
-            serial_key = f"{self.side}_serial"
-            if serial_key in config and config[serial_key] != 'unknown':
-                serial = config[serial_key]
+            # Update device and serial mapping for this side
+            config[self.side] = self.device
+            config[f"{self.side}_serial"] = self.serial_number
+            
+            # Initialize calibration dict if needed
+            if 'calibration' not in config:
+                config['calibration'] = {}
+            
+            # Write back
+            with open(config_file, 'w') as f:
+                json.dump(config, f, indent=2)
+            
+            self.logger.info(f"Updated device config: {self.side} -> {self.device} (serial: {self.serial_number})")
+            
+        except Exception as e:
+            self.logger.warning(f"Failed to update device config: {e}")
+    
+    def _load_calibration(self):
+        """Load calibration offset from device config using serial number from hardware"""
+        config_file = '/tmp/ezgripper_device_config.json'
+        
+        try:
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    config = json.load(f)
                 
+                # Use serial number read from hardware (not from config)
+                if self.serial_number and self.serial_number != 'unknown':
+                    # Get calibration offset for this serial number
+                    if 'calibration' in config and self.serial_number in config['calibration']:
+                        self.calibration_offset = config['calibration'][self.serial_number]
+                        self.gripper.zero_positions[0] = self.calibration_offset
+                        self.is_calibrated = True
+                        self.logger.info(f"Loaded calibration offset for {self.serial_number}: {self.calibration_offset}")
+                        return
+        except Exception as e:
+            self.logger.warning(f"Failed to load calibration: {e}")
+        
+        # No calibration found - auto-calibrate
+        self.logger.info("No calibration found, running auto-calibration...")
+        self.calibrate()
+    
+    def save_calibration(self, offset: float):
+        """Save calibration offset to device config using serial number from hardware"""
+        config_file = '/tmp/ezgripper_device_config.json'
+        
+        try:
+            # Load existing config
+            config = {}
+            if os.path.exists(config_file):
+                with open(config_file, 'r') as f:
+                    config = json.load(f)
+            
+            # Use serial number read from hardware
+            if self.serial_number and self.serial_number != 'unknown':
                 # Initialize calibration dict if needed
                 if 'calibration' not in config:
                     config['calibration'] = {}
                 
                 # Save offset for this serial number
-                config['calibration'][serial] = offset
+                config['calibration'][self.serial_number] = offset
                 
                 # Write back
                 with open(config_file, 'w') as f:
                     json.dump(config, f, indent=2)
                 
-                self.logger.info(f"Saved calibration offset for {serial}: {offset}")
+                self.logger.info(f"Saved calibration offset for {self.serial_number}: {offset}")
             else:
-                self.logger.error(f"Cannot save calibration - no serial number for {self.side}")
+                self.logger.error(f"Cannot save calibration - no serial number detected")
             
         except Exception as e:
             self.logger.error(f"Failed to save calibration: {e}")
@@ -286,8 +341,8 @@ class CorrectedEZGripperDriver:
         state_topic_name = f"rt/dex1/{self.side}/state"
         
         # Create topics
-        self.cmd_topic = Topic(self.participant, cmd_topic_name, MotorCmds_)
-        self.state_topic = Topic(self.participant, state_topic_name, MotorStates_)
+        self.cmd_topic = Topic(self.participant, cmd_topic_name, HGHandCmd_)
+        self.state_topic = Topic(self.participant, state_topic_name, HGHandState_)
         
         # Create reader/writer
         self.cmd_reader = DataReader(self.participant, self.cmd_topic)
@@ -342,13 +397,10 @@ class CorrectedEZGripperDriver:
         """
         Convert Dex1 torque to gripper effort
         
-        KEY: Cap at 50% to reduce peak power consumption
-        This is NOT about spring force - it's about power management
-        
-        FIXED for preliminary XR Teleoperate compatibility: always use 50% effort
+        Use 100% effort for position mode commands to ensure fast, responsive movement
         """
-        # Fixed 50% effort for preliminary XR Teleoperate configuration
-        return 50.0
+        # Use 100% effort for position mode
+        return 100.0
     
     def get_appropriate_effort(self, position_pct: float) -> float:
         """Get appropriate effort for different positions"""
@@ -363,16 +415,19 @@ class CorrectedEZGripperDriver:
             samples = self.cmd_reader.take(N=10)  # Take up to 10 samples
             
             if samples:
+                self.logger.debug(f"Received {len(samples)} DDS samples")
                 # Keep only the latest command
                 latest_sample = samples[-1]
                 
-                if latest_sample and hasattr(latest_sample, 'cmds') and latest_sample.cmds and len(latest_sample.cmds) > 0:
-                    motor_cmd = latest_sample.cmds[0]
+                if latest_sample and hasattr(latest_sample, 'motor_cmd') and latest_sample.motor_cmd and len(latest_sample.motor_cmd) > 0:
+                    motor_cmd = latest_sample.motor_cmd[0]
                     
                     # Convert Dex1 command to gripper parameters
                     target_position = self.dex1_to_ezgripper(motor_cmd.q)
-                    requested_effort = self.tau_to_effort_pct(motor_cmd.tau)
-                    actual_effort = min(requested_effort, self.get_appropriate_effort(target_position))
+                    
+                    # Position commands ALWAYS use 100% effort
+                    # Force control happens after contact via torque mode transition
+                    actual_effort = 100.0
                     
                     # Store latest command
                     self.latest_command = GripperCommand(
@@ -382,6 +437,9 @@ class CorrectedEZGripperDriver:
                         q_radians=motor_cmd.q,
                         tau=motor_cmd.tau
                     )
+                    self.logger.debug(f"Command received: q={motor_cmd.q:.3f} rad -> {target_position:.1f}%")
+                else:
+                    self.logger.debug(f"Sample has no motor_cmd data")
         
         except Exception as e:
             self.logger.error(f"Command receive failed: {e}")
@@ -404,7 +462,7 @@ class CorrectedEZGripperDriver:
             
             # Update state
             self.target_position_pct = cmd.position_pct
-            self.current_position_pct = cmd.position_pct
+            self.commanded_position_pct = cmd.position_pct  # Update commanded position for prediction
             self.current_effort_pct = cmd.effort_pct
             
             # Increment command counter
@@ -423,47 +481,88 @@ class CorrectedEZGripperDriver:
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
     
+    def update_predicted_position(self):
+        """Update predicted position with constraints (no overshoot, no reverse direction)"""
+        current_time = time.time()
+        dt = current_time - self.last_predict_time
+        self.last_predict_time = current_time
+        
+        # Calculate maximum position change based on gripper speed
+        max_delta = self.movement_speed * dt  # %/sec * seconds = %
+        
+        # Calculate error between commanded and predicted position
+        position_error = self.commanded_position_pct - self.predicted_position_pct
+        
+        # Constraint 1: Never overshoot commanded position
+        if abs(position_error) <= max_delta:
+            # Close enough - snap to commanded position
+            self.predicted_position_pct = self.commanded_position_pct
+        else:
+            # Move toward commanded position at maximum speed
+            # Constraint 2: Never move opposite to commanded direction
+            direction = 1.0 if position_error > 0 else -1.0
+            self.predicted_position_pct += direction * max_delta
+    
     def publish_state(self):
-        """Publish current gripper state periodically (single-threaded)"""
+        """Publish predicted gripper state at 200 Hz with actual position updates at 5 Hz"""
         current_time = time.time()
         
-        # Only publish at specified interval (2Hz)
-        if current_time - self.last_status_time < self.status_publish_interval:
-            return
-        
         try:
-            # Read position every N command cycles to avoid blocking commands
+            # Read actual position every 40 cycles (5 Hz at 200 Hz loop)
             if self.command_count % self.status_read_interval == 0:
-                actual_position = self.gripper.get_position()
-                self.current_position_pct = actual_position
+                self.actual_position_pct = self.gripper.get_position()
+                # Sync predicted position with actual position
+                self.predicted_position_pct = self.actual_position_pct
             
-            # Convert to Dex1 units
-            current_q = self.ezgripper_to_dex1(self.current_position_pct)
+            # Update predicted position based on commanded position and movement speed
+            self.update_predicted_position()
+            
+            # Convert predicted position to Dex1 units for publishing
+            current_q = self.ezgripper_to_dex1(self.predicted_position_pct)
             current_tau = self.current_effort_pct / 10.0
             
-            # Create motor state
-            motor_state = MotorState_(
+            # Create motor state (only q and tau_est are real, rest are defaults)
+            motor_state = HGMotorState_(
                 mode=0,
                 q=current_q,
                 dq=0.0,
                 ddq=0.0,
                 tau_est=current_tau,
-                q_raw=current_q,
-                dq_raw=0.0,
-                ddq_raw=0.0,
-                temperature=25,
-                lost=0,
+                temperature=[0, 0],
+                vol=0.0,
+                sensor=[0, 0],
+                motorstate=0,
+                reserve=[0, 0, 0, 0]
+            )
+            motor_state.id = 1 if self.side == 'left' else 2
+            
+            # Create default IMU state (all zeros - no IMU sensor)
+            imu_state = IMUState_(
+                quaternion=[0.0, 0.0, 0.0, 0.0],
+                gyroscope=[0.0, 0.0, 0.0],
+                accelerometer=[0.0, 0.0, 0.0],
+                rpy=[0.0, 0.0, 0.0],
+                temperature=0
+            )
+            
+            hand_state = HGHandState_(
+                motor_state=[motor_state],
+                press_sensor_state=[],  # No pressure sensors on Dex1-1
+                imu_state=imu_state,
+                power_v=0.0,
+                power_a=0.0,
+                system_v=0.0,
+                device_v=0.0,
+                error=[0, 0],
                 reserve=[0, 0]
             )
             
-            motor_states = MotorStates_(states=[motor_state])
-            
-            # Publish state
-            self.state_writer.write(motor_states)
-            self.last_status_time = current_time
+            # Publish state at 50 Hz (every loop)
+            self.state_writer.write(hand_state)
+            self.last_status_time = current_time  # Track for logging/debugging
             
         except Exception as e:
-            self.logger.error(f"Status publish failed: {e}")
+            self.logger.error(f"State publishing failed: {e}")
     
     def run(self):
         """Main single-threaded control loop"""
@@ -480,8 +579,8 @@ class CorrectedEZGripperDriver:
                 # Priority 3: Publish status periodically (non-blocking)
                 self.publish_state()
                 
-                # Minimal sleep to prevent CPU spinning (50Hz loop = 20ms)
-                time.sleep(0.02)
+                # Sleep to maintain 200 Hz loop rate (5ms period)
+                time.sleep(self.loop_period)
                 
         except KeyboardInterrupt:
             self.logger.info("Shutting down corrected EZGripper driver...")

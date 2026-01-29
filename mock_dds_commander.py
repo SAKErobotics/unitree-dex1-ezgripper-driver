@@ -163,8 +163,8 @@ class MockDDSCommander:
                     pct = normalized * 100
                     self.logger.info(f"Command: q={q:.3f} rad ({pct:.1f}%)")
                 
-                # Publish at 50Hz
-                time.sleep(0.02)
+                # Publish at 200Hz (match G1 XR teleoperate rate)
+                time.sleep(0.005)
                 
         except KeyboardInterrupt:
             self.logger.info("Shutting down mock commander...")
