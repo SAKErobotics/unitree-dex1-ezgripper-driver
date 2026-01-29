@@ -447,14 +447,25 @@ class EZGripperHardwareController:
         return self.current_effort_pct
     
     def _read_current(self) -> float:
-        """Read current from servo (load)"""
+        """
+        Read actual motor current from servo.
+        
+        MX-64 Protocol 1.0: Register 68 (Current)
+        Formula: I = (4.5mA) * (CURRENT - 2048)
+        - Idle state (no current): value = 2048
+        - Positive current flow: value > 2048
+        - Negative current flow: value < 2048
+        
+        Returns:
+            Current magnitude in mA (absolute value)
+        """
         try:
-            # Read present load (address 40, 2 bytes) - same as characterization test
-            load = self.gripper.servos[0].read_word(40)
-            # Convert load to current-like value (0-2047, direction bit in 10th bit)
-            if load > 1023:
-                load = load - 1024  # Remove direction bit for magnitude
-            return load
+            # Read present current (address 68, 2 bytes)
+            current_raw = self.gripper.servos[0].read_word(68)
+            # Convert using MX-64 formula: I = 4.5mA * (CURRENT - 2048)
+            current_ma = int(4.5 * (current_raw - 2048))
+            # Return absolute value for magnitude comparison
+            return abs(current_ma)
         except Exception as e:
             self.logger.debug(f"Failed to read current: {e}")
             return 0.0
