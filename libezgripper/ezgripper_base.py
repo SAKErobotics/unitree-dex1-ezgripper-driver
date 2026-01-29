@@ -107,35 +107,33 @@ class Gripper:
         print("calibrating: " + self.name)
 
         for servo in self.servos:
-            servo.write_address(6, [255,15,255,15] )   # 1) "Multi-Turn" - ON
-            servo.write_word(34, 500)                  # 2) "Torque Limit" to 500 (or so)
+            servo.write_address(6, [255,15,255,15])    # 1) "Multi-Turn" - ON
+            servo.write_word(34, 1023)                 # 2) "Torque Limit" to max (100% effort)
             servo.write_address(24, [0])               # 3) "Torque Enable" to OFF
-            servo.write_address(70, [1])               # 4) Set "Goal Torque Mode" to ON
-            servo.write_word(71, 1024 + 300)           # 5) Set "Goal Torque" Direction to CW and Value 300 - firm close to hard stop
+            servo.write_address(70, [0])               # 4) Set "Goal Torque Mode" to OFF (use position control)
+            servo.write_address(24, [1])               # 5) "Torque Enable" to ON
+            servo.write_word(30, -10000)               # 6) Command large negative position to close
 
-        time.sleep(4.0)                               # 6) give it time to stop
+        time.sleep(3.0)                                # 7) Wait for gripper to reach hard stop and stall
 
         for i in range(len(self.servos)):
             servo = self.servos[i]
-            servo.write_word(71, 1024 + 150)           # 7) Reduce to 150 units - firm but less stress
-            time.sleep(0.5)                            # 8) Brief settle time
-            servo.write_word(20, 0)                    # 9) set "Multi turn offset" to 0
-            self.zero_positions[i] = servo.read_word_signed(36) # 10) read current position at 150-unit pressure
+            servo.write_word(20, 0)                    # 8) Set "Multi turn offset" to 0
+            self.zero_positions[i] = servo.read_word_signed(36) # 9) Read stalled position as zero point
 
         print("calibration done")
 
     def set_max_effort(self, max_effort):
-        # sets torque for moving to position (moving_torque) and for torque only mode (torque_mode_max_effort)
+        # sets torque limit for position control mode only
         # range 0-100% (0-100) - this range is in 0-100 whole numbers so that it can be used where Newton force is expected
         # max dynamixel torque is 0-1023(unitless)
 
-        torque_mode_max_effort = moving_torque = self.scale(max_effort, self.TORQUE_MAX)
+        moving_torque = self.scale(max_effort, self.TORQUE_MAX)
 
-        print("set_max_effort(%d): moving torque: %d, goal torque: %d"%(
-                    max_effort, moving_torque, torque_mode_max_effort))
+        print("set_max_effort(%d): moving torque: %d (position control only)"%(
+                    max_effort, moving_torque))
         for servo in self.servos:
-            servo.write_word(34, moving_torque) # torque for moving to position,and due to Dynamixel architecture, this also limits max value for register 71 below
-            servo.write_word(71, 1024+torque_mode_max_effort) # torque mode of closing gripper
+            servo.write_word(34, moving_torque) # torque limit for position control mode
 
     def _goto_position(self, position):
         for servo in self.servos:

@@ -15,6 +15,7 @@ import logging
 import sys
 import os
 import json
+import threading
 from dataclasses import dataclass
 
 # CycloneDDS will auto-detect library location
@@ -188,16 +189,22 @@ class CorrectedEZGripperDriver:
         self.movement_speed = 952.43        # Measured gripper speed (%/sec)
         self.last_predict_time = time.time()
         
-        # Latest command (single-threaded, no queue needed)
+        # Monitoring for verification
+        self.state_publish_count = 0
+        self.last_monitor_time = time.time()
+        self.monitor_interval = 5.0  # Report every 5 seconds
+        
+        # Latest command (thread-safe)
         self.latest_command = None
         self.command_count = 0
-        self.status_read_interval = 40  # Read actual position every 40 cycles (5 Hz at 200 Hz loop)
+        self.control_loop_rate = 30.0  # Control thread at 30 Hz (limited by serial)
+        self.state_loop_rate = 200.0   # State thread at 200 Hz (predictive)
         
-        # Control loop at 200 Hz
+        # Thread control
         self.running = True
-        self.loop_rate_hz = 200.0
-        self.loop_period = 1.0 / self.loop_rate_hz  # 5ms
-        self.last_status_time = 0
+        self.state_lock = threading.Lock()  # Protects shared state variables
+        self.control_thread = None
+        self.state_thread = None
         
         # Initialize
         self._initialize_hardware()
@@ -362,9 +369,11 @@ class CorrectedEZGripperDriver:
             zero_pos = self.gripper.zero_positions[0]
             self.save_calibration(zero_pos)
             
-            # Verify with quick test
-            self.gripper.move_with_torque_management(25, 40)
-            time.sleep(2)
+            # Verify with quick test using position control only
+            self.gripper.set_max_effort(100)  # 100% effort for consistency
+            target_pos = self.gripper.scale(25, self.gripper.GRIP_MAX)
+            self.gripper._goto_position(target_pos)
+            time.sleep(1)
             actual = self.gripper.get_position()
             error = abs(actual - 25.0)
             
@@ -460,10 +469,11 @@ class CorrectedEZGripperDriver:
             # Send position command (only 1 serial write instead of 3)
             self.gripper._goto_position(self.gripper.scale(int(cmd.position_pct), self.gripper.GRIP_MAX))
             
-            # Update state
-            self.target_position_pct = cmd.position_pct
-            self.commanded_position_pct = cmd.position_pct  # Update commanded position for prediction
-            self.current_effort_pct = cmd.effort_pct
+            # Update state (thread-safe)
+            with self.state_lock:
+                self.target_position_pct = cmd.position_pct
+                self.commanded_position_pct = cmd.position_pct  # Update commanded position for prediction
+                self.current_effort_pct = cmd.effort_pct
             
             # Increment command counter
             self.command_count += 1
@@ -482,44 +492,46 @@ class CorrectedEZGripperDriver:
             self.logger.error(f"Command execution failed: {e}")
     
     def update_predicted_position(self):
-        """Update predicted position with constraints (no overshoot, no reverse direction)"""
+        """Update predicted position with constraints (no overshoot, no reverse direction) - thread-safe"""
         current_time = time.time()
         dt = current_time - self.last_predict_time
         self.last_predict_time = current_time
         
-        # Calculate maximum position change based on gripper speed
-        max_delta = self.movement_speed * dt  # %/sec * seconds = %
-        
-        # Calculate error between commanded and predicted position
-        position_error = self.commanded_position_pct - self.predicted_position_pct
-        
-        # Constraint 1: Never overshoot commanded position
-        if abs(position_error) <= max_delta:
-            # Close enough - snap to commanded position
-            self.predicted_position_pct = self.commanded_position_pct
-        else:
-            # Move toward commanded position at maximum speed
-            # Constraint 2: Never move opposite to commanded direction
-            direction = 1.0 if position_error > 0 else -1.0
-            self.predicted_position_pct += direction * max_delta
+        with self.state_lock:
+            # Calculate maximum position change based on gripper speed
+            max_delta = self.movement_speed * dt  # %/sec * seconds = %
+            
+            # Calculate error between commanded and predicted position
+            position_error = self.commanded_position_pct - self.predicted_position_pct
+            
+            # Constraint 1: Never overshoot commanded position
+            if abs(position_error) <= max_delta:
+                # Close enough - snap to commanded position
+                self.predicted_position_pct = self.commanded_position_pct
+            else:
+                # Move toward commanded position at maximum speed
+                # Constraint 2: Never move opposite to commanded direction
+                direction = 1.0 if position_error > 0 else -1.0
+                self.predicted_position_pct += direction * max_delta
     
     def publish_state(self):
-        """Publish predicted gripper state at 200 Hz with actual position updates at 5 Hz"""
+        """Publish predicted gripper state at 200 Hz (called from state thread)"""
         current_time = time.time()
         
         try:
-            # Read actual position every 40 cycles (5 Hz at 200 Hz loop)
-            if self.command_count % self.status_read_interval == 0:
-                self.actual_position_pct = self.gripper.get_position()
-                # Sync predicted position with actual position
-                self.predicted_position_pct = self.actual_position_pct
-            
             # Update predicted position based on commanded position and movement speed
             self.update_predicted_position()
             
+            # Read shared state with lock
+            with self.state_lock:
+                predicted_pos = self.predicted_position_pct
+                actual_pos = self.actual_position_pct
+                commanded_pos = self.commanded_position_pct
+                effort = self.current_effort_pct
+            
             # Convert predicted position to Dex1 units for publishing
-            current_q = self.ezgripper_to_dex1(self.predicted_position_pct)
-            current_tau = self.current_effort_pct / 10.0
+            current_q = self.ezgripper_to_dex1(predicted_pos)
+            current_tau = effort / 10.0
             
             # Create motor state (only q and tau_est are real, rest are defaults)
             motor_state = HGMotorState_(
@@ -557,37 +569,107 @@ class CorrectedEZGripperDriver:
                 reserve=[0, 0]
             )
             
-            # Publish state at 50 Hz (every loop)
+            # Publish state at 200 Hz (every loop)
             self.state_writer.write(hand_state)
-            self.last_status_time = current_time  # Track for logging/debugging
+            self.last_status_time = current_time
+            self.state_publish_count += 1
+            
+            # Monitor and report every 5 seconds
+            if current_time - self.last_monitor_time >= self.monitor_interval:
+                elapsed = current_time - self.last_monitor_time
+                actual_rate = self.state_publish_count / elapsed
+                position_error = abs(predicted_pos - commanded_pos)
+                tracking_error = abs(predicted_pos - actual_pos)
+                
+                self.logger.info(f"📊 Monitor: State={actual_rate:.1f}Hz | Cmd={commanded_pos:.1f}% | Pred={predicted_pos:.1f}% | Actual={actual_pos:.1f}% | Err={position_error:.1f}% | Track={tracking_error:.1f}%")
+                
+                self.state_publish_count = 0
+                self.last_monitor_time = current_time
             
         except Exception as e:
             self.logger.error(f"State publishing failed: {e}")
     
-    def run(self):
-        """Main single-threaded control loop"""
-        self.logger.info("Starting corrected EZGripper driver (single-threaded)...")
+    def control_loop(self):
+        """Control thread: Receive commands and execute at 30 Hz (limited by serial)"""
+        self.logger.info("Starting control thread at 30 Hz...")
+        period = 1.0 / self.control_loop_rate
+        next_cycle = time.time()
         
         try:
             while self.running:
-                # Priority 1: Receive latest command
+                # Receive and execute commands
                 self.receive_commands()
-                
-                # Priority 2: Execute command immediately
                 self.execute_command()
                 
-                # Priority 3: Publish status periodically (non-blocking)
+                # Read actual position periodically (every 10 cycles = 3 Hz)
+                if self.command_count % 10 == 0:
+                    with self.state_lock:
+                        self.actual_position_pct = self.gripper.get_position()
+                        # Sync predicted position with actual
+                        self.predicted_position_pct = self.actual_position_pct
+                
+                # Absolute time scheduling to prevent drift
+                next_cycle += period
+                sleep_time = next_cycle - time.time()
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                else:
+                    # Missed deadline - reset to current time
+                    next_cycle = time.time()
+                    
+        except Exception as e:
+            self.logger.error(f"Control thread error: {e}")
+        finally:
+            self.logger.info("Control thread stopped")
+    
+    def state_loop(self):
+        """State thread: Publish predicted position at 200 Hz"""
+        self.logger.info("Starting state thread at 200 Hz...")
+        period = 1.0 / self.state_loop_rate
+        next_cycle = time.time()
+        
+        try:
+            while self.running:
+                # Update predicted position and publish state
                 self.publish_state()
                 
-                # Sleep to maintain 200 Hz loop rate (5ms period)
-                time.sleep(self.loop_period)
-                
+                # Absolute time scheduling for precise 200 Hz
+                next_cycle += period
+                sleep_time = next_cycle - time.time()
+                if sleep_time > 0:
+                    time.sleep(sleep_time)
+                else:
+                    # Missed deadline - reset
+                    next_cycle = time.time()
+                    
+        except Exception as e:
+            self.logger.error(f"State thread error: {e}")
+        finally:
+            self.logger.info("State thread stopped")
+    
+    def run(self):
+        """Start multi-threaded driver with control and state threads"""
+        self.logger.info("Starting multi-threaded EZGripper driver...")
+        self.logger.info("  Control thread: 30 Hz (commands + actual position)")
+        self.logger.info("  State thread: 200 Hz (predicted position publishing)")
+        
+        # Start threads
+        self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
+        self.state_thread = threading.Thread(target=self.state_loop, daemon=True, name="State")
+        
+        self.control_thread.start()
+        self.state_thread.start()
+        
+        try:
+            # Main thread waits for keyboard interrupt
+            while self.running:
+                time.sleep(0.1)
         except KeyboardInterrupt:
             self.logger.info("Shutting down corrected EZGripper driver...")
-        except Exception as e:
-            self.logger.error(f"Driver error: {e}")
         finally:
             self.running = False
+            self.control_thread.join(timeout=2.0)
+            self.state_thread.join(timeout=2.0)
     
     def shutdown(self):
         """Clean shutdown"""
