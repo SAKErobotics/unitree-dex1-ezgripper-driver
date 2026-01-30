@@ -96,7 +96,7 @@ class EZGripperHardwareController:
         self.logger.info(f"Connecting to EZGripper on {self.device}")
         
         try:
-            self.connection = create_connection(dev_name=self.device, baudrate=57600)
+            self.connection = create_connection(dev_name=self.device, baudrate=1000000)  # 1 Mbps
             self.gripper = Gripper(self.connection, f'ezgripper_{self.side}', [1])
             
             # Test connection

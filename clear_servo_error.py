@@ -13,7 +13,7 @@ def clear_servo_errors(device="/dev/ttyUSB0"):
     print(f"Connecting to {device}...")
     
     try:
-        connection = create_connection(dev_name=device, baudrate=57600)
+        connection = create_connection(dev_name=device, baudrate=1000000)  # 1 Mbps
         
         # Create servo object with error handling disabled temporarily
         from libezgripper.lib_robotis import Robotis_Servo
