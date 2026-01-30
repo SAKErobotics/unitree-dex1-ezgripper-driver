@@ -1,0 +1,283 @@
+{
+  "$schema": "http://json-schema.org/draft-07/schema#",
+  "title": "EZGripper Configuration Schema",
+  "description": "Configuration schema for EZGripper driver with Protocol 2.0 Dynamixel servos",
+  "type": "object",
+  "required": ["servo", "gripper", "communication"],
+  "properties": {
+    "servo": {
+      "type": "object",
+      "description": "Servo hardware configuration",
+      "required": ["model", "current_limits", "temperature", "registers"],
+      "properties": {
+        "model": {
+          "type": "string",
+          "description": "Servo model (MX-64, XM540, etc.)",
+          "enum": ["MX-64", "XM540"]
+        },
+        "current_limits": {
+          "type": "object",
+          "description": "Current limits in units (Protocol 2.0)",
+          "required": ["holding", "movement", "max", "hardware_max"],
+          "properties": {
+            "holding": {
+              "type": "integer",
+              "description": "Holding current (13% of max, safe for continuous use)",
+              "minimum": 0,
+              "maximum": 2047
+            },
+            "movement": {
+              "type": "integer",
+              "description": "Movement current (30% of max, for active grasping)",
+              "minimum": 0,
+              "maximum": 2047
+            },
+            "max": {
+              "type": "integer",
+              "description": "Software-enforced maximum current (70% of hardware max)",
+              "minimum": 0,
+              "maximum": 2047
+            },
+            "hardware_max": {
+              "type": "integer",
+              "description": "Hardware maximum current capability",
+              "minimum": 0,
+              "maximum": 2047
+            }
+          }
+        },
+        "temperature": {
+          "type": "object",
+          "description": "Temperature thresholds in Celsius",
+          "required": ["warning", "advisory", "shutdown", "hardware_max"],
+          "properties": {
+            "warning": {
+              "type": "integer",
+              "description": "Warning threshold - start monitoring closely",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "advisory": {
+              "type": "integer",
+              "description": "Advisory threshold - approaching limit",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "shutdown": {
+              "type": "integer",
+              "description": "Software shutdown threshold",
+              "minimum": 0,
+              "maximum": 100
+            },
+            "hardware_max": {
+              "type": "integer",
+              "description": "Hardware maximum temperature",
+              "minimum": 0,
+              "maximum": 100
+            }
+          }
+        },
+        "registers": {
+          "type": "object",
+          "description": "Dynamixel Protocol 2.0 register addresses",
+          "required": ["operating_mode", "torque_enable", "current_limit", "goal_position", "present_position", "present_temperature", "present_current", "hardware_error"],
+          "properties": {
+            "operating_mode": {"type": "integer", "minimum": 0, "maximum": 255},
+            "torque_enable": {"type": "integer", "minimum": 0, "maximum": 255},
+            "current_limit": {"type": "integer", "minimum": 0, "maximum": 255},
+            "goal_position": {"type": "integer", "minimum": 0, "maximum": 255},
+            "present_position": {"type": "integer", "minimum": 0, "maximum": 255},
+            "present_temperature": {"type": "integer", "minimum": 0, "maximum": 255},
+            "present_current": {"type": "integer", "minimum": 0, "maximum": 255},
+            "present_voltage": {"type": "integer", "minimum": 0, "maximum": 255},
+            "hardware_error": {"type": "integer", "minimum": 0, "maximum": 255},
+            "homing_offset": {"type": "integer", "minimum": 0, "maximum": 255},
+            "velocity_limit": {"type": "integer", "minimum": 0, "maximum": 255},
+            "temperature_limit": {"type": "integer", "minimum": 0, "maximum": 255}
+          }
+        }
+      }
+    },
+    "gripper": {
+      "type": "object",
+      "description": "Gripper mechanical configuration",
+      "required": ["grip_max", "position_scaling", "dex1_mapping"],
+      "properties": {
+        "grip_max": {
+          "type": "integer",
+          "description": "Maximum position range in servo units",
+          "minimum": 0
+        },
+        "position_scaling": {
+          "type": "object",
+          "description": "Input to output position scaling",
+          "required": ["input_range", "output_range"],
+          "properties": {
+            "input_range": {
+              "type": "array",
+              "description": "Input range [min, max]",
+              "items": {"type": "number"},
+              "minItems": 2,
+              "maxItems": 2
+            },
+            "output_range": {
+              "type": "array",
+              "description": "Output range [min, max]",
+              "items": {"type": "number"},
+              "minItems": 2,
+              "maxItems": 2
+            }
+          }
+        },
+        "dex1_mapping": {
+          "type": "object",
+          "description": "Mapping to Dex1 hand radians",
+          "required": ["open_radians", "close_radians"],
+          "properties": {
+            "open_radians": {"type": "number"},
+            "close_radians": {"type": "number"}
+          }
+        },
+        "calibration": {
+          "type": "object",
+          "description": "Calibration parameters",
+          "properties": {
+            "current": {
+              "type": "integer",
+              "description": "Current to use during calibration",
+              "minimum": 0
+            },
+            "position": {
+              "type": "integer",
+              "description": "Position to command for finding zero"
+            },
+            "timeout": {
+              "type": "number",
+              "description": "Timeout in seconds",
+              "minimum": 0
+            },
+            "auto_on_init": {
+              "type": "boolean",
+              "description": "Auto-calibrate on initialization"
+            }
+          }
+        }
+      }
+    },
+    "wave_following": {
+      "type": "object",
+      "description": "Wave-following control algorithm parameters",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "history_window": {
+          "type": "integer",
+          "description": "Number of commands to analyze",
+          "minimum": 1
+        },
+        "variance_threshold": {
+          "type": "number",
+          "description": "Variance below this = steady state",
+          "minimum": 0
+        },
+        "position_tolerance": {
+          "type": "number",
+          "description": "Position tolerance for 'at goal'",
+          "minimum": 0
+        },
+        "mode_switch_delay": {
+          "type": "number",
+          "description": "Delay before switching modes (seconds)",
+          "minimum": 0
+        }
+      }
+    },
+    "health_interface": {
+      "type": "object",
+      "description": "Health monitoring DDS interface",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "topic": {"type": "string"},
+        "rate_hz": {
+          "type": "number",
+          "description": "Publication rate in Hz",
+          "minimum": 0
+        },
+        "qos_reliability": {
+          "type": "string",
+          "enum": ["RELIABLE", "BEST_EFFORT"]
+        },
+        "qos_durability": {
+          "type": "string",
+          "enum": ["VOLATILE", "TRANSIENT_LOCAL"]
+        }
+      }
+    },
+    "error_management": {
+      "type": "object",
+      "description": "Error detection and handling",
+      "properties": {
+        "auto_recovery": {"type": "boolean"},
+        "max_attempts": {
+          "type": "integer",
+          "minimum": 0
+        },
+        "use_reboot": {"type": "boolean"},
+        "retry_delay": {
+          "type": "number",
+          "minimum": 0
+        }
+      }
+    },
+    "communication": {
+      "type": "object",
+      "description": "Serial communication parameters",
+      "required": ["device", "baudrate", "protocol_version", "servo_id"],
+      "properties": {
+        "device": {
+          "type": "string",
+          "description": "Serial device path"
+        },
+        "baudrate": {
+          "type": "integer",
+          "description": "Communication baudrate",
+          "enum": [57600, 115200, 1000000, 2000000, 3000000, 4000000]
+        },
+        "protocol_version": {
+          "type": "number",
+          "description": "Dynamixel protocol version",
+          "enum": [1.0, 2.0]
+        },
+        "servo_id": {
+          "type": "integer",
+          "description": "Servo ID",
+          "minimum": 0,
+          "maximum": 252
+        },
+        "timeout": {
+          "type": "number",
+          "description": "Communication timeout (seconds)",
+          "minimum": 0
+        }
+      }
+    },
+    "logging": {
+      "type": "object",
+      "description": "Logging configuration",
+      "properties": {
+        "enabled": {"type": "boolean"},
+        "level": {
+          "type": "string",
+          "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+        },
+        "log_errors": {"type": "boolean"},
+        "log_temperature": {"type": "boolean"},
+        "log_current": {"type": "boolean"},
+        "log_file": {"type": "string"},
+        "max_log_size_mb": {
+          "type": "integer",
+          "minimum": 1
+        }
+      }
+    }
+  }
+}

@@ -32,9 +32,9 @@
 ##
 
 from .lib_robotis import create_connection, Robotis_Servo
+from .config import Config
 import time
 import logging
-from .error_manager import create_error_manager
 
 
 def set_torque_mode(servo, val):
@@ -68,59 +68,19 @@ def remap(x, in_min, in_max, out_min, out_max):
             (in_max - in_min) + out_min
 
 class Gripper:
+    """Gripper control with configuration-based parameters"""
 
-    GRIP_MAX = 2500 # maximum open position for grippers
-    TORQUE_MAX = 1023 # maximum torque - full Dynamixel range (was 800)
-    TORQUE_HOLD = 13 # This is percentage of TORQUE_MAX. In absolute units: holding torque - MX-64=100, MX-106=80
-
-    OPEN_DUAL_GEN1_POS = 1.5707
-    CLOSE_DUAL_GEN1_POS = -0.27
-
-    OPEN_DUAL_GEN2_POS = 0.0
-    CLOSE_DUAL_GEN2_POS = 1.94
-
-    OPEN_DUAL_GEN2_SINGLE_MOUNT_POS = -1.5707
-    CLOSE_DUAL_GEN2_SINGLE_MOUNT_POS = 0.27
-
-    OPEN_DUAL_GEN2_TRIPLE_MOUNT_POS = -1.5707
-    CLOSE_DUAL_GEN2_TRIPLE_MOUNT_POS = 0.27
-
-    OPEN_QUAD_POS = 1.5707
-    CLOSE_QUAD_POS = -0.27
-
-    MIN_SIMULATED_EFFORT = 0.0
-    MAX_SIMULATED_EFFORT = 1.0
-
-    def __init__(self, connection, name, servo_ids, enable_error_manager=True):
+    def __init__(self, connection, name, servo_ids, config: Config):
         self.name = name
+        self.config = config
         self.servos = [Robotis_Servo( connection, servo_id ) for servo_id in servo_ids]
-        
-        # Initialize error managers for each servo
-        self.error_managers = []
-        if enable_error_manager:
-            for servo in self.servos:
-                try:
-                    error_mgr = create_error_manager(servo, auto_recover=True, max_recovery_attempts=3)
-                    self.error_managers.append(error_mgr)
-                    
-                    # Check and clear any existing errors
-                    error_code, description, severity = error_mgr.check_hardware_errors()
-                    if error_code is not None and error_code != 0:
-                        logging.warning(f"Servo {servo.servo_id}: {description} - attempting recovery")
-                        if error_mgr.attempt_recovery(error_code):
-                            logging.info(f"Servo {servo.servo_id}: Recovery successful")
-                        else:
-                            logging.error(f"Servo {servo.servo_id}: Recovery failed - manual intervention may be required")
-                except Exception as e:
-                    logging.error(f"Failed to initialize error manager for servo {servo.servo_id}: {e}")
-                    # Continue without error manager for this servo
         
         # Protocol 2.0: Set operating mode (must disable torque first)
         for servo in self.servos:
-            servo.write_address(64, [0])  # Disable torque
+            servo.write_address(config.reg_torque_enable, [0])  # Disable torque
             time.sleep(0.05)
-            servo.ensure_byte_set(11, 3)  # Operating Mode = 3 (Position Control)
-            servo.write_address(64, [1])  # Re-enable torque
+            servo.ensure_byte_set(config.reg_operating_mode, 3)  # Operating Mode = 3 (Position Control)
+            servo.write_address(config.reg_torque_enable, [1])  # Re-enable torque
             time.sleep(0.05)
         self.zero_positions = [0] * len(self.servos)
 
@@ -143,43 +103,42 @@ class Gripper:
 
         for servo in self.servos:
             # Protocol 2.0 registers - must disable torque before changing operating mode:
-            servo.write_address(64, [0])               # 1) "Torque Enable" to OFF
-            time.sleep(0.1)                            # Wait for torque to disable
-            servo.write_address(11, [4])               # 2) "Operating Mode" = 4 (Extended Position Control for multi-turn)
-            servo.write_word(38, 1941)                 # 3) "Current Limit" to max (6521.76 mA)
-            servo.write_address(64, [1])               # 4) "Torque Enable" to ON
-            time.sleep(0.1)                            # Wait for torque to enable
-            servo.write_word(116, -10000)              # 5) "Goal Position" - large negative to close
+            servo.write_address(self.config.reg_torque_enable, [0])
+            time.sleep(0.1)
+            servo.write_address(self.config.reg_operating_mode, [4])  # Extended Position Control
+            servo.write_word(self.config.reg_current_limit, self.config.calibration_current)
+            servo.write_address(self.config.reg_torque_enable, [1])
+            time.sleep(0.1)
+            servo.write_word(self.config.reg_goal_position, self.config.calibration_position)
 
-        time.sleep(3.0)                                # 6) Wait for gripper to reach hard stop and stall
+        time.sleep(self.config.calibration_timeout)
 
         for i in range(len(self.servos)):
             servo = self.servos[i]
-            servo.write_address(64, [0])               # Disable torque to set homing offset
+            servo.write_address(self.config.reg_torque_enable, [0])
             time.sleep(0.1)
-            servo.write_word(20, 0)                    # 7) "Homing Offset" to 0
-            self.zero_positions[i] = servo.read_word_signed(132) # 8) Read "Present Position" as zero point
-            servo.write_address(64, [1])               # Re-enable torque
+            servo.write_word(self.config.reg_homing_offset, 0)
+            self.zero_positions[i] = servo.read_word_signed(self.config.reg_present_position)
+            servo.write_address(self.config.reg_torque_enable, [1])
             time.sleep(0.1)
 
         print("calibration done")
 
     def set_max_effort(self, max_effort):
-        # Protocol 2.0: Use Current Limit (register 38) instead of Torque Limit
+        # Protocol 2.0: Use Current Limit instead of Torque Limit
         # range 0-100% (0-100)
-        # max current limit is 1941 (6521.76 mA)
 
-        moving_current = self.scale(max_effort, 1941)
+        moving_current = self.scale(max_effort, self.config.max_current)
 
         print("set_max_effort(%d): current limit: %d (position control)"%(max_effort, moving_current))
         for servo in self.servos:
-            servo.write_word(38, moving_current) # Current Limit for position control mode
+            servo.write_word(self.config.reg_current_limit, moving_current)
 
     def _goto_position(self, position):
         for servo in self.servos:
             set_torque_mode(servo, False)
         for i in range(len(self.servos)):
-            self.servos[i].write_word(116, self.zero_positions[i] + position)  # Protocol 2.0: Goal Position = 116
+            self.servos[i].write_word(self.config.reg_goal_position, self.zero_positions[i] + position)
         # wait_for_stop removed for non-blocking teleoperation control
 
     def _close_with_torque(self):
@@ -190,30 +149,13 @@ class Gripper:
     def get_position(self, servo_num=0, \
             use_percentages = True, gripper_module = 'dual_gen1'):
 
-        servo_position = self.servos[servo_num].read_word_signed(132) - self.zero_positions[servo_num]  # Protocol 2.0: Present Position = 132
-        current_position = self.down_scale(servo_position, self.GRIP_MAX)
+        servo_position = self.servos[servo_num].read_word_signed(self.config.reg_present_position) - self.zero_positions[servo_num]
+        current_position = self.down_scale(servo_position, self.config.grip_max)
 
         if not use_percentages:
-
-            if gripper_module == 'dual_gen1':
-                current_position = remap(current_position, \
-                    100.0, 0.0, self.OPEN_DUAL_GEN1_POS, self.CLOSE_DUAL_GEN1_POS)
-
-            elif gripper_module == 'dual_gen2':
-                current_position = remap(current_position, \
-                    100.0, 0.0, self.OPEN_DUAL_GEN2_POS, self.CLOSE_DUAL_GEN2_POS)
-
-            elif gripper_module == 'dual_gen2_single_mount':
-                current_position = remap(current_position, \
-                    100.0, 0.0, self.OPEN_DUAL_GEN2_SINGLE_MOUNT_POS, self.CLOSE_DUAL_GEN2_SINGLE_MOUNT_POS)
-
-            elif gripper_module == 'dual_gen2_triple_mount':
-                current_position = remap(current_position, \
-                    100.0, 0.0, self.OPEN_DUAL_GEN2_TRIPLE_MOUNT_POS, self.CLOSE_DUAL_GEN2_TRIPLE_MOUNT_POS)
-
-            elif gripper_module == 'quad':
-                current_position = remap(current_position, \
-                    100.0, 0.0, self.OPEN_QUAD_POS, self.CLOSE_QUAD_POS)
+            # Use Dex1 mapping from config
+            current_position = remap(current_position, \
+                100.0, 0.0, self.config.dex1_open_radians, self.config.dex1_close_radians)
 
         return current_position
 
@@ -231,42 +173,22 @@ class Gripper:
         # closing_torque: 0..100
 
         if not use_percentages:
+            # Convert from Dex1 radians to percentage
+            position = remap(position, \
+                self.config.dex1_open_radians, self.config.dex1_close_radians, 100, 0)
 
-            closing_torque = remap(closing_torque, \
-                self.MIN_SIMULATED_EFFORT, self.MAX_SIMULATED_EFFORT, 0, 100)
-
-            if gripper_module == 'dual_gen1':
-                position = remap(position, \
-                    self.OPEN_DUAL_GEN1_POS, self.CLOSE_DUAL_GEN1_POS, 100, 0)
-
-            elif gripper_module == 'dual_gen2':
-                position = remap(position, \
-                    self.OPEN_DUAL_GEN2_POS, self.CLOSE_DUAL_GEN2_POS, 100, 0)
-
-            elif gripper_module == 'dual_gen2_single_mount':
-                position = remap(position, \
-                    self.OPEN_DUAL_GEN2_SINGLE_MOUNT_POS, self.CLOSE_DUAL_GEN2_SINGLE_MOUNT_POS, 100, 0)
-
-            elif gripper_module == 'dual_gen2_triple_mount':
-                position = remap(position, \
-                    self.OPEN_DUAL_GEN2_TRIPLE_MOUNT_POS, self.CLOSE_DUAL_GEN2_TRIPLE_MOUNT_POS, 100, 0)
-
-            elif gripper_module == 'quad':
-                position = remap(position, \
-                    self.OPEN_QUAD_POS, self.CLOSE_QUAD_POS, 100, 0)
-
-        servo_position = self.scale(position, self.GRIP_MAX)
+        servo_position = self.scale(position, self.config.grip_max)
         print("move_with_torque_management(%d, %d): servo position %d"%(position, closing_torque, servo_position))
-        self.set_max_effort(closing_torque)  # essentially sets velocity of movement, but also sets max_effort for initial half second of grasp.
+        self.set_max_effort(closing_torque)
 
         if position == 0:
             self._close_with_torque()
         else:
             self._goto_position(servo_position)
 
-        # Sets torque to keep gripper in position, but does not apply torque if there is no load.
-        # This does not provide continuous grasping torque.
-        holding_torque = min(self.TORQUE_HOLD, closing_torque)
+        # Use holding current from config (13%)
+        holding_current_pct = int(self.config.holding_current * 100 / self.config.max_current)
+        holding_torque = min(holding_current_pct, closing_torque)
         self.set_max_effort(holding_torque)
         print("move_with_torque_management done")
 

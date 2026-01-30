@@ -1,0 +1,85 @@
+{
+  "$schema": "./config_schema.json",
+  "servo": {
+    "model": "MX-64",
+    "current_limits": {
+      "holding": 252,
+      "movement": 583,
+      "max": 1359,
+      "hardware_max": 1941
+    },
+    "temperature": {
+      "warning": 60,
+      "advisory": 70,
+      "shutdown": 75,
+      "hardware_max": 80
+    },
+    "registers": {
+      "operating_mode": 11,
+      "torque_enable": 64,
+      "current_limit": 38,
+      "goal_position": 116,
+      "present_position": 132,
+      "present_temperature": 146,
+      "present_current": 126,
+      "present_voltage": 144,
+      "hardware_error": 70,
+      "homing_offset": 20,
+      "velocity_limit": 44,
+      "temperature_limit": 31
+    }
+  },
+  "gripper": {
+    "grip_max": 2500,
+    "position_scaling": {
+      "input_range": [0, 100],
+      "output_range": [0, 100]
+    },
+    "dex1_mapping": {
+      "open_radians": 0.0,
+      "close_radians": 1.94
+    },
+    "calibration": {
+      "current": 1359,
+      "position": -10000,
+      "timeout": 3.0,
+      "auto_on_init": false
+    }
+  },
+  "wave_following": {
+    "enabled": true,
+    "history_window": 10,
+    "variance_threshold": 2.0,
+    "position_tolerance": 5,
+    "mode_switch_delay": 0.5
+  },
+  "health_interface": {
+    "enabled": true,
+    "topic": "rt/gripper/health",
+    "rate_hz": 10,
+    "qos_reliability": "RELIABLE",
+    "qos_durability": "VOLATILE"
+  },
+  "error_management": {
+    "auto_recovery": true,
+    "max_attempts": 3,
+    "use_reboot": true,
+    "retry_delay": 1.0
+  },
+  "communication": {
+    "device": "/dev/ttyUSB0",
+    "baudrate": 1000000,
+    "protocol_version": 2.0,
+    "servo_id": 1,
+    "timeout": 0.5
+  },
+  "logging": {
+    "enabled": true,
+    "level": "INFO",
+    "log_errors": true,
+    "log_temperature": true,
+    "log_current": false,
+    "log_file": "/var/log/ezgripper.log",
+    "max_log_size_mb": 100
+  }
+}
