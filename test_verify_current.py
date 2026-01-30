@@ -11,7 +11,7 @@ from libezgripper import create_connection, Gripper
 
 def read_actual_current(servo):
     """Read actual motor current from servo"""
-    current_raw = servo.read_word(68)
+    current_raw = servo.read_word(126)  # Protocol 2.0: Present Current
     if current_raw > 32767:
         current_ma = current_raw - 65536
     else:
@@ -40,7 +40,7 @@ def test_current_vs_effort(device="/dev/ttyUSB0"):
     
     # Release
     print("\nReleasing gripper...")
-    servo.write_address(70, [0])
+    servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control
     time.sleep(2.0)
     
     # Test position: 15% (should be pressing against itself)
@@ -58,13 +58,13 @@ def test_current_vs_effort(device="/dev/ttyUSB0"):
     
     for effort in effort_levels:
         # Release first
-        servo.write_address(70, [0])
+        servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control
         time.sleep(2.0)
         
         # Set effort and command position
         torque_limit = gripper.scale(effort, gripper.TORQUE_MAX)
-        servo.write_word(34, torque_limit)
-        servo.write_word(30, test_position)
+        servo.write_word(38,  # Protocol 2.0: Current Limit torque_limit)
+        servo.write_word(116,  # Protocol 2.0: Goal Position test_position)
         
         # Wait for position to stabilize
         time.sleep(1.5)
@@ -84,7 +84,7 @@ def test_current_vs_effort(device="/dev/ttyUSB0"):
         avg_current = sum(currents) / len(currents)
         
         # Read load
-        load = servo.read_word(40)
+        load = servo.read_word(126)  # Protocol 2.0: Present Current (was Load)
         
         print(f"{effort}%{'':<9} {actual_pos:<12} {avg_current:<15.1f} {load:<10}")
         print(f"{'':12} Samples: {currents}")

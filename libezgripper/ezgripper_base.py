@@ -33,6 +33,8 @@
 
 from .lib_robotis import create_connection, Robotis_Servo
 import time
+import logging
+from .error_manager import create_error_manager
 
 
 def set_torque_mode(servo, val):
@@ -89,11 +91,37 @@ class Gripper:
     MIN_SIMULATED_EFFORT = 0.0
     MAX_SIMULATED_EFFORT = 1.0
 
-    def __init__(self, connection, name, servo_ids):
+    def __init__(self, connection, name, servo_ids, enable_error_manager=True):
         self.name = name
         self.servos = [Robotis_Servo( connection, servo_id ) for servo_id in servo_ids]
+        
+        # Initialize error managers for each servo
+        self.error_managers = []
+        if enable_error_manager:
+            for servo in self.servos:
+                try:
+                    error_mgr = create_error_manager(servo, auto_recover=True, max_recovery_attempts=3)
+                    self.error_managers.append(error_mgr)
+                    
+                    # Check and clear any existing errors
+                    error_code, description, severity = error_mgr.check_hardware_errors()
+                    if error_code is not None and error_code != 0:
+                        logging.warning(f"Servo {servo.servo_id}: {description} - attempting recovery")
+                        if error_mgr.attempt_recovery(error_code):
+                            logging.info(f"Servo {servo.servo_id}: Recovery successful")
+                        else:
+                            logging.error(f"Servo {servo.servo_id}: Recovery failed - manual intervention may be required")
+                except Exception as e:
+                    logging.error(f"Failed to initialize error manager for servo {servo.servo_id}: {e}")
+                    # Continue without error manager for this servo
+        
+        # Protocol 2.0: Set operating mode (must disable torque first)
         for servo in self.servos:
-            servo.ensure_byte_set(22, 1) # Make sure 'Resolution divider' is set to 1
+            servo.write_address(64, [0])  # Disable torque
+            time.sleep(0.05)
+            servo.ensure_byte_set(11, 3)  # Operating Mode = 3 (Position Control)
+            servo.write_address(64, [1])  # Re-enable torque
+            time.sleep(0.05)
         self.zero_positions = [0] * len(self.servos)
 
     def scale(self, n, to_max):
@@ -114,39 +142,44 @@ class Gripper:
         print("calibrating: " + self.name)
 
         for servo in self.servos:
-            servo.write_address(6, [255,15,255,15])    # 1) "Multi-Turn" - ON
-            servo.write_word(34, 1023)                 # 2) "Torque Limit" to max (100% effort)
-            servo.write_address(24, [0])               # 3) "Torque Enable" to OFF
-            servo.write_address(70, [0])               # 4) Set "Goal Torque Mode" to OFF (use position control)
-            servo.write_address(24, [1])               # 5) "Torque Enable" to ON
-            servo.write_word(30, -10000)               # 6) Command large negative position to close
+            # Protocol 2.0 registers - must disable torque before changing operating mode:
+            servo.write_address(64, [0])               # 1) "Torque Enable" to OFF
+            time.sleep(0.1)                            # Wait for torque to disable
+            servo.write_address(11, [4])               # 2) "Operating Mode" = 4 (Extended Position Control for multi-turn)
+            servo.write_word(38, 1941)                 # 3) "Current Limit" to max (6521.76 mA)
+            servo.write_address(64, [1])               # 4) "Torque Enable" to ON
+            time.sleep(0.1)                            # Wait for torque to enable
+            servo.write_word(116, -10000)              # 5) "Goal Position" - large negative to close
 
-        time.sleep(3.0)                                # 7) Wait for gripper to reach hard stop and stall
+        time.sleep(3.0)                                # 6) Wait for gripper to reach hard stop and stall
 
         for i in range(len(self.servos)):
             servo = self.servos[i]
-            servo.write_word(20, 0)                    # 8) Set "Multi turn offset" to 0
-            self.zero_positions[i] = servo.read_word_signed(36) # 9) Read stalled position as zero point
+            servo.write_address(64, [0])               # Disable torque to set homing offset
+            time.sleep(0.1)
+            servo.write_word(20, 0)                    # 7) "Homing Offset" to 0
+            self.zero_positions[i] = servo.read_word_signed(132) # 8) Read "Present Position" as zero point
+            servo.write_address(64, [1])               # Re-enable torque
+            time.sleep(0.1)
 
         print("calibration done")
 
     def set_max_effort(self, max_effort):
-        # sets torque limit for position control mode only
-        # range 0-100% (0-100) - this range is in 0-100 whole numbers so that it can be used where Newton force is expected
-        # max dynamixel torque is 0-1023(unitless)
+        # Protocol 2.0: Use Current Limit (register 38) instead of Torque Limit
+        # range 0-100% (0-100)
+        # max current limit is 1941 (6521.76 mA)
 
-        moving_torque = self.scale(max_effort, self.TORQUE_MAX)
+        moving_current = self.scale(max_effort, 1941)
 
-        print("set_max_effort(%d): moving torque: %d (position control only)"%(
-                    max_effort, moving_torque))
+        print("set_max_effort(%d): current limit: %d (position control)"%(max_effort, moving_current))
         for servo in self.servos:
-            servo.write_word(34, moving_torque) # torque limit for position control mode
+            servo.write_word(38, moving_current) # Current Limit for position control mode
 
     def _goto_position(self, position):
         for servo in self.servos:
             set_torque_mode(servo, False)
         for i in range(len(self.servos)):
-            self.servos[i].write_word(30, self.zero_positions[i] + position)
+            self.servos[i].write_word(116, self.zero_positions[i] + position)  # Protocol 2.0: Goal Position = 116
         # wait_for_stop removed for non-blocking teleoperation control
 
     def _close_with_torque(self):
@@ -157,7 +190,7 @@ class Gripper:
     def get_position(self, servo_num=0, \
             use_percentages = True, gripper_module = 'dual_gen1'):
 
-        servo_position = self.servos[servo_num].read_word_signed(36) - self.zero_positions[servo_num]
+        servo_position = self.servos[servo_num].read_word_signed(132) - self.zero_positions[servo_num]  # Protocol 2.0: Present Position = 132
         current_position = self.down_scale(servo_position, self.GRIP_MAX)
 
         if not use_percentages:

@@ -17,7 +17,7 @@ from libezgripper import create_connection, Gripper
 
 def read_actual_current(servo):
     """Read actual motor current from servo"""
-    current_raw = servo.read_word(68)
+    current_raw = servo.read_word(126)  # Protocol 2.0: Present Current
     
     # Convert to signed value
     if current_raw > 32767:
@@ -54,7 +54,7 @@ def test_simple_positions(device="/dev/ttyUSB0"):
     
     # Step 2: Release (springs open gripper)
     print("\nStep 2: Releasing gripper (disabling torque mode)...")
-    servo.write_address(70, [0])  # Disable torque mode
+    servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
     time.sleep(2.0)
     pos_after_release = servo.read_word_signed(36)
     print(f"  Position after release: {pos_after_release}")
@@ -78,9 +78,9 @@ def test_simple_positions(device="/dev/ttyUSB0"):
         # Move to position with 100% effort
         target_position = gripper.scale(pos_pct, gripper.GRIP_MAX)
         print(f"Moving to {pos_pct}% open with 100% effort...")
-        servo.write_address(70, [0])  # Disable torque mode
-        servo.write_word(34, 1023)    # 100% effort
-        servo.write_word(30, target_position)
+        servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
+        servo.write_word(38,  # Protocol 2.0: Current Limit 1023)    # 100% effort
+        servo.write_word(116,  # Protocol 2.0: Goal Position target_position)
         
         # Wait 2 seconds for stabilization
         print(f"Waiting 2 seconds for stabilization...")
@@ -92,7 +92,7 @@ def test_simple_positions(device="/dev/ttyUSB0"):
         
         # Read position and load
         actual_position = servo.read_word_signed(36)
-        load = servo.read_word(40)
+        load = servo.read_word(126)  # Protocol 2.0: Present Current (was Load)
         
         # Convert load to signed value
         if load >= 1024:
@@ -109,7 +109,7 @@ def test_simple_positions(device="/dev/ttyUSB0"):
         
         # Release
         print(f"\nReleasing gripper (disabling torque mode)...")
-        servo.write_address(70, [0])
+        servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control
         time.sleep(2.0)
     
     print(f"\n{'='*70}")

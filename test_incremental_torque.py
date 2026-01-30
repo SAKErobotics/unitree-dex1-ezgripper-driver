@@ -13,10 +13,10 @@ def read_actual_current(servo):
     """
     Read actual motor current from servo
     
-    MX-64 Protocol 1.0: Register 68 (Current)
+    MX-64 Protocol 2.0: Register 126 (Current)
     Formula: I = (4.5mA) * (CURRENT - 2048)
     """
-    current_raw = servo.read_word(68)
+    current_raw = servo.read_word(126)  # Protocol 2.0: Present Current
     # Convert using MX-64 formula: I = 4.5mA * (CURRENT - 2048)
     current_ma = int(4.5 * (current_raw - 2048))
     return current_ma
@@ -73,14 +73,14 @@ def test_incremental_torque(device="/dev/ttyUSB0"):
     
     # Set initial torque limit
     torque_limit = gripper.scale(initial_torque, gripper.TORQUE_MAX)
-    servo.write_word(34, torque_limit)
+    servo.write_word(38,  # Protocol 2.0: Current Limit torque_limit)
     
     # Enable torque mode
-    servo.write_address(70, [1])
+    servo.write_address(11, [0])  # Protocol 2.0: Operating Mode = Current Control
     
     # Set goal torque (1024 + value for CW/closing direction)
     goal_torque = 1024 + torque_limit
-    servo.write_word(71, goal_torque)
+    servo.write_word(102,  # Protocol 2.0: Goal Current goal_torque)
     
     print(f"Waiting for position to stabilize (10 consecutive stable readings)...")
     final_position = wait_for_position_stable(servo, num_stable=10, tolerance=5, check_interval=0.1)
@@ -96,7 +96,7 @@ def test_incremental_torque(device="/dev/ttyUSB0"):
     avg_current = sum(currents) / len(currents)
     
     # Read load
-    load = servo.read_word(40)
+    load = servo.read_word(126)  # Protocol 2.0: Present Current (was Load)
     if load >= 1024:
         signed_load = load - 1024
     else:
@@ -134,11 +134,11 @@ def test_incremental_torque(device="/dev/ttyUSB0"):
         
         # Set new torque limit
         torque_limit = gripper.scale(current_torque, gripper.TORQUE_MAX)
-        servo.write_word(34, torque_limit)
+        servo.write_word(38,  # Protocol 2.0: Current Limit torque_limit)
         
         # Update goal torque
         goal_torque = 1024 + torque_limit
-        servo.write_word(71, goal_torque)
+        servo.write_word(102,  # Protocol 2.0: Goal Current goal_torque)
         
         # Wait 0.5s for force to adjust
         time.sleep(0.5)
@@ -153,7 +153,7 @@ def test_incremental_torque(device="/dev/ttyUSB0"):
         
         # Read position and load
         position = servo.read_word_signed(36)
-        load = servo.read_word(40)
+        load = servo.read_word(126)  # Protocol 2.0: Present Current (was Load)
         if load >= 1024:
             signed_load = load - 1024
         else:
@@ -189,7 +189,7 @@ def test_incremental_torque(device="/dev/ttyUSB0"):
     
     # Disable torque mode
     print("\nDisabling torque mode...")
-    servo.write_address(70, [0])
+    servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control
     
     print("\nTest complete!")
 

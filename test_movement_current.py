@@ -13,10 +13,10 @@ def read_actual_current(servo):
     """
     Read actual motor current from servo
     
-    MX-64 Protocol 1.0: Register 68 (Current)
+    MX-64 Protocol 2.0: Register 126 (Current)
     Formula: I = (4.5mA) * (CURRENT - 2048)
     """
-    current_raw = servo.read_word(68)
+    current_raw = servo.read_word(126)  # Protocol 2.0: Present Current
     # Convert using MX-64 formula: I = 4.5mA * (CURRENT - 2048)
     current_ma = int(4.5 * (current_raw - 2048))
     return current_ma
@@ -43,14 +43,14 @@ def test_movement_current(device="/dev/ttyUSB0"):
     
     # Release gripper
     print("\nReleasing gripper to open position...")
-    servo.write_address(70, [0])  # Disable torque mode
+    servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
     time.sleep(3.0)
     
     # Move to 100% open
     print("\nMoving to 100% open...")
     gripper.set_max_effort(100)
     open_pos = gripper.scale(100, gripper.GRIP_MAX)
-    servo.write_word(30, open_pos)
+    servo.write_word(116,  # Protocol 2.0: Goal Position open_pos)
     time.sleep(2.0)
     
     # Read idle current at 100% open
@@ -80,7 +80,7 @@ def test_movement_current(device="/dev/ttyUSB0"):
     
     # Command position to 70%
     target_pos = gripper.scale(70, gripper.GRIP_MAX)
-    servo.write_word(30, target_pos)
+    servo.write_word(116,  # Protocol 2.0: Goal Position target_pos)
     
     # Read current as fast as possible during movement
     print("\nCollecting current samples...")
@@ -168,7 +168,7 @@ def test_movement_current(device="/dev/ttyUSB0"):
     
     # Release gripper
     print("\n\nReleasing gripper...")
-    servo.write_address(70, [0])
+    servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control
     
     print("\nTest complete!")
     

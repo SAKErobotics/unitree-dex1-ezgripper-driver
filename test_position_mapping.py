@@ -34,9 +34,9 @@ def test_position_mapping(device="/dev/ttyUSB0"):
         target = gripper.scale(pct, gripper.GRIP_MAX)
         
         # Command position with 100% effort
-        servo.write_address(70, [0])  # Disable torque mode
-        servo.write_word(34, 1023)    # 100% effort
-        servo.write_word(30, zero_position + target)  # Use _goto_position logic
+        servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
+        servo.write_word(38,  # Protocol 2.0: Current Limit 1023)    # 100% effort
+        servo.write_word(116,  # Protocol 2.0: Goal Position zero_position + target)  # Use _goto_position logic
         
         # Wait for movement
         time.sleep(1.5)
@@ -54,13 +54,13 @@ def test_position_mapping(device="/dev/ttyUSB0"):
     
     # Go to 0% and measure
     target_0 = gripper.scale(0, gripper.GRIP_MAX)
-    servo.write_word(30, zero_position + target_0)
+    servo.write_word(116,  # Protocol 2.0: Goal Position zero_position + target_0)
     time.sleep(1.5)
     pos_0 = servo.read_word_signed(36)
     
     # Go to 100% and measure
     target_100 = gripper.scale(100, gripper.GRIP_MAX)
-    servo.write_word(30, zero_position + target_100)
+    servo.write_word(116,  # Protocol 2.0: Goal Position zero_position + target_100)
     time.sleep(1.5)
     pos_100 = servo.read_word_signed(36)
     

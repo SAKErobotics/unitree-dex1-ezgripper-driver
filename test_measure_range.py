@@ -40,9 +40,9 @@ def measure_gripper_range(device="/dev/ttyUSB0"):
             target_position = gripper.scale(pct, gripper.GRIP_MAX)
             
             # Move to position with 100% effort
-            servo.write_address(70, [0])  # Disable torque mode
-            servo.write_word(34, 1023)    # 100% effort
-            servo.write_word(30, target_position)
+            servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
+            servo.write_word(38,  # Protocol 2.0: Current Limit 1023)    # 100% effort
+            servo.write_word(116,  # Protocol 2.0: Goal Position target_position)
             
             # Wait for movement
             time.sleep(2.0)
@@ -59,13 +59,13 @@ def measure_gripper_range(device="/dev/ttyUSB0"):
     print("="*70)
     
     # Move to 0% and measure
-    servo.write_word(34, 1023)
-    servo.write_word(30, gripper.scale(0, gripper.GRIP_MAX))
+    servo.write_word(38,  # Protocol 2.0: Current Limit 1023)
+    servo.write_word(116,  # Protocol 2.0: Goal Position gripper.scale(0, gripper.GRIP_MAX))
     time.sleep(2.0)
     pos_0 = servo.read_word_signed(36)
     
     # Move to 100% and measure
-    servo.write_word(30, gripper.scale(100, gripper.GRIP_MAX))
+    servo.write_word(116,  # Protocol 2.0: Goal Position gripper.scale(100, gripper.GRIP_MAX))
     time.sleep(2.0)
     pos_100 = servo.read_word_signed(36)
     

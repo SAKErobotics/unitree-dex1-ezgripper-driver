@@ -29,9 +29,9 @@ def test_spring_pullback(device="/dev/ttyUSB0"):
     # Move to 20% open position with 100% effort
     print("\nMoving to 20% open position with 100% effort...")
     position_20 = gripper.scale(20, gripper.GRIP_MAX)
-    servo.write_address(70, [0])  # Disable torque mode
-    servo.write_word(34, 1023)    # 100% effort
-    servo.write_word(30, position_20)
+    servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
+    servo.write_word(38,  # Protocol 2.0: Current Limit 1023)    # 100% effort
+    servo.write_word(116,  # Protocol 2.0: Goal Position position_20)
     time.sleep(2.0)
     
     # Read position
@@ -40,7 +40,7 @@ def test_spring_pullback(device="/dev/ttyUSB0"):
     
     # Release torque (disable torque mode)
     print("\nReleasing torque (disabling torque mode)...")
-    servo.write_address(70, [0])  # Disable torque mode
+    servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
     
     # Wait and check if position changes (spring pullback)
     print("Waiting 5 seconds to check for spring pullback...")

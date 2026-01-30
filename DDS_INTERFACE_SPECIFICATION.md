@@ -481,6 +481,236 @@ This DDS interface provides **drop-in compatibility** with:
 
 ---
 
+## Software Architecture: Complete Data Flow
+
+### System Overview
+
+```
+┌─────────────────────────────────────────────────────────────────────┐
+│                    UNITREE ROBOT SYSTEM (Teleop)                    │
+│                                                                     │
+│  Publishes: rt/dex1/{left|right}/cmd (HGHandCmd)                  │
+│             QoS: RELIABLE, 30-50 Hz                                │
+│                                                                     │
+│  Subscribes: rt/dex1/{left|right}/state (HGHandState)             │
+│              QoS: BEST_EFFORT, expects 200 Hz                      │
+└─────────────────────────────────────────────────────────────────────┘
+                            ↓ DDS                    ↑ DDS
+                            ↓ (CycloneDDS)           ↑ (CycloneDDS)
+                            ↓                        ↑
+┌─────────────────────────────────────────────────────────────────────┐
+│              EZGRIPPER DDS DRIVER (ezgripper_dds_driver.py)        │
+│                                                                     │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │ DDS LAYER (Dynamixel Protocol 2.0 @ 1 Mbps)               │  │
+│  │                                                             │  │
+│  │ cmd_reader (RELIABLE):                                     │  │
+│  │   - Reads HGHandCmd.motor_cmd[0].q (radians: 0-6.28)     │  │
+│  │   - Reads HGHandCmd.motor_cmd[0].tau (effort: 0-1.0)     │  │
+│  │   - Converts q → position_pct (0-100%)                    │  │
+│  │   - Stores as GripperCommand                              │  │
+│  │                                                             │  │
+│  │ state_writer (BEST_EFFORT):                                │  │
+│  │   - Publishes HGHandState @ 200 Hz                        │  │
+│  │   - motor_state.q (predicted position in radians)         │  │
+│  │   - motor_state.tau_est (effort/10.0)                     │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                            ↓                        ↑               │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │ CONTROL LAYER (Multi-threaded)                             │  │
+│  │                                                             │  │
+│  │ Control Thread @ 30 Hz:                                    │  │
+│  │   1. receive_command() - Read DDS command                  │  │
+│  │   2. execute_command() - Send to hardware                  │  │
+│  │   3. read_actual_position() - Read from hardware (5 Hz)   │  │
+│  │                                                             │  │
+│  │ State Thread @ 200 Hz:                                     │  │
+│  │   1. update_predicted_position() - Predict motion         │  │
+│  │   2. publish_state() - Send to DDS                        │  │
+│  │                                                             │  │
+│  │ Shared State (thread-safe with lock):                      │  │
+│  │   - commanded_position_pct                                 │  │
+│  │   - predicted_position_pct (for 200 Hz publishing)        │  │
+│  │   - actual_position_pct (from hardware @ 5 Hz)            │  │
+│  │   - current_effort_pct                                     │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                            ↓                        ↑               │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │ HARDWARE ABSTRACTION (libezgripper)                        │  │
+│  │                                                             │  │
+│  │ Gripper class (ezgripper_base.py):                        │  │
+│  │   - set_max_effort(effort_pct)                            │  │
+│  │   - _goto_position(scaled_position)                       │  │
+│  │   - get_position() → position_pct                         │  │
+│  │   - calibrate() → sets zero_positions[0]                  │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+│                            ↓                        ↑               │
+│  ┌─────────────────────────────────────────────────────────────┐  │
+│  │ DYNAMIXEL PROTOCOL 2.0 LAYER (lib_robotis.py)             │  │
+│  │                                                             │  │
+│  │ Robotis_Servo class:                                       │  │
+│  │   - write_address(addr, data) → WRITE packet              │  │
+│  │   - read_address(addr, len) → READ packet                 │  │
+│  │   - write_word(addr, word) → 2-byte write                 │  │
+│  │   - read_word(addr) → 2-byte read                         │  │
+│  │                                                             │  │
+│  │ Packet Format (Protocol 2.0):                              │  │
+│  │   [0xFF, 0xFF, 0xFD, 0x00, ID, LEN_L, LEN_H,             │  │
+│  │    INST, ADDR_L, ADDR_H, DATA..., CRC_L, CRC_H]          │  │
+│  │                                                             │  │
+│  │ Key Registers (MX-64 Protocol 2.0):                       │  │
+│  │   - 11: Operating Mode (0=Current, 3=Position)            │  │
+│  │   - 64: Torque Enable (0=Off, 1=On)                       │  │
+│  │   - 70: Hardware Error Status                             │  │
+│  │   - 116: Goal Position (4 bytes)                          │  │
+│  │   - 126: Present Current (2 bytes)                        │  │
+│  │   - 132: Present Position (4 bytes)                       │  │
+│  └─────────────────────────────────────────────────────────────┘  │
+└─────────────────────────────────────────────────────────────────────┘
+                            ↓ Serial                 ↑ Serial
+                            ↓ 1 Mbps                 ↑ 1 Mbps
+                            ↓ RS-485                 ↑ RS-485
+┌─────────────────────────────────────────────────────────────────────┐
+│                    DYNAMIXEL MX-64 SERVO                            │
+│                                                                     │
+│  Dynamixel Protocol 2.0 @ 1 Mbps                                   │
+│  Control Table: Position Control Mode                              │
+│  Receives: Goal Position, Torque Enable, Operating Mode           │
+│  Reports: Present Position, Present Current, Hardware Errors      │
+└─────────────────────────────────────────────────────────────────────┘
+```
+
+### Command Path (Unitree → EZGripper)
+
+**1. Teleop publishes** `HGHandCmd` on `rt/dex1/left/cmd` (RELIABLE, ~30 Hz)
+   - `motor_cmd[0].q`: 0-6.28 radians (0=closed, 6.28=open)
+   - `motor_cmd[0].tau`: 0-1.0 (effort, currently ignored)
+
+**2. DDS Layer receives** via `cmd_reader` (RELIABLE subscriber)
+   - Converts `q` radians → `position_pct` (0-100%)
+   - Formula: `position_pct = (q / 6.28) * 100`
+
+**3. Control Thread** @ 30 Hz:
+   - `receive_command()`: Stores as `GripperCommand`
+   - `execute_command()`: 
+     - Calls `gripper.set_max_effort(effort_pct)` if changed
+     - Calls `gripper._goto_position(scaled_pos)`
+
+**4. Hardware Abstraction** (ezgripper_base.py):
+   - `_goto_position()`: Scales position to servo units
+   - Calls `servo.write_word(116, goal_position)` (Goal Position register)
+
+**5. Protocol 2.0 Layer** (lib_robotis.py):
+   - `write_word()` → `write_address(116, [pos_l, pos_h, 0, 0])`
+   - Constructs packet: `[0xFF, 0xFF, 0xFD, 0x00, 1, 9, 0, 0x03, 116, 0, pos_bytes..., CRC]`
+   - Sends via serial @ 1 Mbps with 1ms delay
+
+**6. Servo receives** and moves to goal position
+
+### State Path (EZGripper → Unitree)
+
+**1. Control Thread** @ 30 Hz (actual reads @ 5 Hz):
+   - `read_actual_position()`: Every 6th cycle
+   - Calls `gripper.get_position()` → `position_pct`
+
+**2. Hardware Abstraction**:
+   - `get_position()`: Calls `servo.read_word(132)` (Present Position)
+
+**3. Protocol 2.0 Layer**:
+   - `read_word()` → `read_address(132, 4)`
+   - Constructs READ packet: `[0xFF, 0xFF, 0xFD, 0x00, 1, 7, 0, 0x02, 132, 0, 4, 0, CRC]`
+   - Waits for response with 0.5s timeout
+   - Parses: `[0xFF, 0xFF, 0xFD, 0x00, 1, LEN, INST, ERR, DATA..., CRC]`
+
+**4. State Thread** @ 200 Hz:
+   - `update_predicted_position()`: Interpolates between actual and commanded
+   - Uses `movement_speed` (50%/sec) to predict smooth motion
+   - **Never overshoots** commanded position
+   - **Never reverses** direction
+
+**5. DDS Layer publishes** via `state_writer` (BEST_EFFORT):
+   - Converts `predicted_position_pct` → `q` radians
+   - Formula: `q = (position_pct / 100.0) * 6.28`
+   - Publishes `HGHandState` with `motor_state.q` and `motor_state.tau_est`
+
+**6. Teleop receives** state updates @ 200 Hz for smooth visualization
+
+### QoS Policy Configuration
+
+**Command Topic:**
+```python
+cmd_qos = Qos(
+    reliability=Policy.Reliability.Reliable,
+    durability=Policy.Durability.Volatile
+)
+cmd_reader = DataReader(participant, cmd_topic, qos=cmd_qos)
+```
+
+**State Topic:**
+```python
+state_qos = Qos(
+    reliability=Policy.Reliability.BestEffort,
+    durability=Policy.Durability.Volatile
+)
+state_writer = DataWriter(participant, state_topic, qos=state_qos)
+```
+
+**Rationale:**
+- **Commands (RELIABLE)**: Critical control data must not be lost
+- **State (BEST_EFFORT)**: High-frequency updates, latest data most important
+
+### Dynamixel Protocol 2.0 Packet Structure
+
+**Packet Header:**
+- `[0xFF, 0xFF, 0xFD, 0x00]` - Fixed header (4 bytes)
+
+**Packet Body:**
+- `ID` - Servo ID (1 byte)
+- `LEN_L, LEN_H` - Packet length (2 bytes, little-endian)
+- `INST` - Instruction code (1 byte)
+- `ADDR_L, ADDR_H` - Register address (2 bytes, little-endian)
+- `DATA...` - Data bytes (variable length)
+
+**Packet Footer:**
+- `CRC_L, CRC_H` - CRC-16 checksum (2 bytes, little-endian)
+
+**Key Instructions:**
+- `0x02` - READ: Read data from control table
+- `0x03` - WRITE: Write data to control table
+
+**Critical Registers (MX-64):**
+
+| Register | Size | Name | Description |
+|----------|------|------|-------------|
+| 11 | 1 byte | Operating Mode | 0=Current, 3=Position, 4=Extended Position |
+| 64 | 1 byte | Torque Enable | 0=Disabled, 1=Enabled |
+| 70 | 1 byte | Hardware Error Status | Bitmask of hardware errors |
+| 116 | 4 bytes | Goal Position | Target position (0-4095) |
+| 126 | 2 bytes | Present Current | Current motor current (signed) |
+| 132 | 4 bytes | Present Position | Actual position (0-4095) |
+
+### Timing and Performance
+
+**Communication Rates:**
+- **DDS Command Rate**: 30-50 Hz (from teleop)
+- **Serial Control Rate**: 30 Hz (limited by serial latency)
+- **Actual Position Read**: 5 Hz (every 6th control cycle)
+- **DDS State Publish**: 200 Hz (predicted, smooth for teleop)
+
+**Serial Communication:**
+- **Baudrate**: 1 Mbps (1,000,000 baud)
+- **Timeout**: 0.5 seconds for response
+- **Post-send delay**: 1ms for servo processing
+- **Port stabilization**: 100ms after open
+
+**Architecture Benefits:**
+- Provides **smooth 200 Hz state feedback** to robot
+- Works within **30 Hz serial communication constraint**
+- Predictive state prevents jitter in teleoperation
+- Thread-safe shared state for concurrent access
+
+---
+
 ## Related Documentation
 
 - [PREDICTIVE_STATE_ALGORITHM.md](./PREDICTIVE_STATE_ALGORITHM.md) - Predictive state publishing for 200 Hz feedback

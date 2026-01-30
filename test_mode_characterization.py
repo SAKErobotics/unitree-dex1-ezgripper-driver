@@ -81,7 +81,7 @@ class ModeCharacterization:
         
         # Release gripper - disable torque mode, springs open gripper naturally
         servo = self.gripper.servos[0]
-        servo.write_address(70, [0])  # Disable torque mode - springs open gripper
+        servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode - springs open gripper
         time.sleep(10.0)
         
         self.logger.info("✅ Calibration and shift complete - ready to begin characterization")
@@ -94,14 +94,14 @@ class ModeCharacterization:
             Current load value (0-2047, where 1024 = no load)
         """
         servo = self.gripper.servos[0]
-        load = servo.read_word(40)  # Register 40 = Present Load
+        load = servo.read_word(126)  # Protocol 2.0: Present Current (was Load)  # Protocol 2.0: Register 126 = Present Load
         return load
     
     def read_actual_current(self) -> int:
         """
         Read actual motor current from servo
         
-        MX-64 Protocol 1.0: Register 68 (Current)
+        MX-64 Protocol 2.0: Register 126 (Current)
         Formula: I = (4.5mA) * (CURRENT - 2048)
         - Idle state (no current): value = 2048
         - Positive current flow: value > 2048
@@ -111,7 +111,7 @@ class ModeCharacterization:
             Current in mA (signed value, positive = motor drawing current)
         """
         servo = self.gripper.servos[0]
-        current_raw = servo.read_word(68)
+        current_raw = servo.read_word(126)  # Protocol 2.0: Present Current
         
         # Convert using MX-64 formula: I = 4.5mA * (CURRENT - 2048)
         current_ma = int(4.5 * (current_raw - 2048))
@@ -207,7 +207,7 @@ class ModeCharacterization:
             (error_code, error_description)
         """
         servo = self.gripper.servos[0]
-        error = servo.read_address(18, 1)[0]  # Register 18 = Error byte
+        error = servo.read_address(70,  # Protocol 2.0: Hardware Error Status 1)[0]  # Protocol 2.0: Register 70 = Error byte
         
         error_descriptions = []
         if error & 0x01:
@@ -254,17 +254,17 @@ class ModeCharacterization:
             # Pre-position: Move to 8% open at 100% effort (gets gripper close to true zero without pressing)
             # With shifted zero, 8% is just before true zero (10%), so fingers won't press yet
             preposition = self.gripper.scale(8, self.gripper.GRIP_MAX)
-            servo.write_address(70, [0])  # Disable torque mode
-            servo.write_word(34, 1023)    # 100% effort
-            servo.write_word(30, preposition)
+            servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
+            servo.write_word(38,  # Protocol 2.0: Current Limit 1023)    # 100% effort
+            servo.write_word(116,  # Protocol 2.0: Goal Position preposition)
             time.sleep(1.0)  # Wait for gripper to reach pre-position
             
             # Now apply test effort and command 0% position
             torque_limit = self.gripper.scale(effort, self.gripper.TORQUE_MAX)
-            servo.write_word(34, torque_limit)
+            servo.write_word(38,  # Protocol 2.0: Current Limit torque_limit)
             
             # Command 0% position (tries to close 10% beyond true zero - presses against itself)
-            servo.write_word(30, close_position)
+            servo.write_word(116,  # Protocol 2.0: Goal Position close_position)
             
             # Wait for gripper position to stop changing (reached physical limit)
             final_position = self.wait_for_position_stop(max_wait=2.0, stable_threshold=5)
@@ -305,7 +305,7 @@ class ModeCharacterization:
             
             # Release gripper - disable torque mode, springs open gripper naturally
             self.logger.info(f"  Releasing gripper for 10 seconds...")
-            servo.write_address(70, [0])  # Disable torque mode - springs open gripper
+            servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode - springs open gripper
             time.sleep(10.0)
     
     def test_torque_mode(self, torque_levels: list[int]):
@@ -332,9 +332,9 @@ class ModeCharacterization:
             # Pre-position: Move to 8% open at 100% effort (gets gripper close to true zero without pressing)
             # With shifted zero, 8% is just before true zero (10%), so fingers won't press yet
             preposition = self.gripper.scale(8, self.gripper.GRIP_MAX)
-            servo.write_address(70, [0])  # Disable torque mode
-            servo.write_word(34, 1023)    # 100% effort
-            servo.write_word(30, preposition)
+            servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode
+            servo.write_word(38,  # Protocol 2.0: Current Limit 1023)    # 100% effort
+            servo.write_word(116,  # Protocol 2.0: Goal Position preposition)
             time.sleep(1.0)  # Wait for gripper to reach pre-position
             
             # Read error state before applying torque
@@ -343,14 +343,14 @@ class ModeCharacterization:
             
             # Set torque limit (register 34) - limits max value for register 71
             torque_limit = self.gripper.scale(torque, self.gripper.TORQUE_MAX)
-            servo.write_word(34, torque_limit)
+            servo.write_word(38,  # Protocol 2.0: Current Limit torque_limit)
             
             # Enable torque mode (register 70)
-            servo.write_address(70, [1])
+            servo.write_address(11, [0])  # Protocol 2.0: Operating Mode = Current Control
             
             # Set goal torque (register 71) - 1024 + value for CW direction
             goal_torque = 1024 + torque_limit
-            servo.write_word(71, goal_torque)
+            servo.write_word(102,  # Protocol 2.0: Goal Current goal_torque)
             
             # Wait for gripper position to stop changing (reached physical limit)
             final_position = self.wait_for_position_stop(max_wait=2.0, stable_threshold=5)
@@ -397,7 +397,7 @@ class ModeCharacterization:
             
             # Release gripper - disable torque mode, springs open gripper naturally
             self.logger.info(f"  Releasing gripper for 10 seconds...")
-            servo.write_address(70, [0])  # Disable torque mode - springs open gripper
+            servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control  # Disable torque mode - springs open gripper
             time.sleep(10.0)
             
             # Read error state after recovery

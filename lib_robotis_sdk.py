@@ -184,69 +184,7 @@ class Robotis_Servo:
     def process_err(self, err):
         """Process error code"""
         raise ErrorResponse(err)
-    
-    def ensure_byte_set(self, address, byte):
-        """Ensure a byte value is set at address, write if different"""
-        value = self.read_address(address)[0]
-        if value != byte:
-            print('Servo [%d]: change setting %d from %d to %d'%(self.servo_id, address, value, byte))
-            self.write_address(address, [byte])
-    
-    def ensure_word_set(self, address, word):
-        """Ensure a word value is set at address, write if different"""
-        value = self.read_word(address)
-        if value != word:
-            print('Servo [%d]: change setting %d from %d to %d (word)'%(self.servo_id, address, value, word))
-            self.write_word(address, word)
-    
-    def read_encoder(self):
-        """Read current encoder position (Present Position register 132)"""
-        data = self.read_address(132, 4)
-        position = data[0] + (data[1] << 8) + (data[2] << 16) + (data[3] << 24)
-        # Handle signed 32-bit integer
-        if position >= 2147483648:
-            position -= 4294967296
-        return position
-    
-    def read_word_signed(self, addr):
-        """Read signed word from address (handles 4-byte registers as signed)"""
-        # For Protocol 2.0, position registers are 4 bytes
-        if addr >= 100:
-            data = self.read_address(addr, 4)
-            value = data[0] + (data[1] << 8) + (data[2] << 16) + (data[3] << 24)
-            # Handle signed 32-bit integer
-            if value >= 2147483648:
-                value -= 4294967296
-        else:
-            data = self.read_address(addr, 2)
-            value = data[0] + (data[1] << 8)
-            # Handle signed 16-bit integer
-            if value >= 32768:
-                value -= 65536
-        return value
 
 def create_connection(dev_name, baudrate=1000000):
     """Create USB2Dynamixel connection"""
     return USB2Dynamixel_Device(dev_name, baudrate)
-
-def find_servos_on_all_ports(baudrate=1000000):
-    """Find servos on all available serial ports"""
-    import serial.tools.list_ports
-    
-    servos = []
-    ports = serial.tools.list_ports.comports()
-    
-    for port in ports:
-        try:
-            dyn = USB2Dynamixel_Device(port.device, baudrate)
-            # Try to ping servo IDs 1-10
-            for servo_id in range(1, 11):
-                try:
-                    servo = Robotis_Servo(dyn, servo_id)
-                    servos.append((port.device, servo_id))
-                except:
-                    pass
-        except:
-            pass
-    
-    return servos
