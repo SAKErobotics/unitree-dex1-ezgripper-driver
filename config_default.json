@@ -48,8 +48,8 @@
       "output_range": [0, 100]
     },
     "dex1_mapping": {
-      "open_radians": 0.0,
-      "close_radians": 1.94
+      "close_radians": 0.0,
+      "open_radians": 5.4
     },
     "calibration": {
       "position": -10000,
