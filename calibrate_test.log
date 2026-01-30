@@ -1,0 +1,24 @@
+2026-01-30 03:23:25,940 - ezgripper_left - INFO - Connecting to EZGripper on /dev/ttyUSB0
+2026-01-30 03:23:26,489 - ezgripper_left - INFO - Hardware connected: position 9.0%
+2026-01-30 03:23:26,493 - ezgripper_left - INFO - Detected serial number: DA1Z9T40
+2026-01-30 03:23:26,493 - ezgripper_left - INFO - Updated device config: left -> /dev/ttyUSB0 (serial: DA1Z9T40)
+2026-01-30 03:23:26,493 - ezgripper_left - INFO - Loaded calibration offset for DA1Z9T40: 2738
+2026-01-30 03:23:26,493 - ezgripper_left - INFO - Setting up DDS interfaces...
+2026-01-30 03:23:26,710 - ezgripper_left - INFO - DDS ready: rt/dex1/left/cmd → rt/dex1/left/state
+2026-01-30 03:23:26,710 - ezgripper_left - INFO - Running automatic calibration at startup...
+2026-01-30 03:23:26,710 - ezgripper_left - INFO - Starting calibration on command...
+2026-01-30 03:23:26,953 - ezgripper_left - ERROR - Calibration failed: 5
+2026-01-30 03:23:26,954 - ezgripper_left - INFO - Corrected EZGripper driver ready: left side
+2026-01-30 03:23:26,954 - ezgripper_left - INFO - Starting multi-threaded EZGripper driver...
+2026-01-30 03:23:26,954 - ezgripper_left - INFO -   Control thread: 30 Hz (commands + actual position)
+2026-01-30 03:23:26,954 - ezgripper_left - INFO -   State thread: 200 Hz (predicted position publishing)
+2026-01-30 03:23:26,954 - ezgripper_left - INFO - Starting control thread at 30 Hz...
+2026-01-30 03:23:26,954 - ezgripper_left - INFO - Starting state thread at 200 Hz...
+2026-01-30 03:23:30,945 - ezgripper_left - INFO - 📊 Monitor: State=159.6Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%
+2026-01-30 03:23:35,945 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%
+2026-01-30 03:23:40,945 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%
+2026-01-30 03:23:45,945 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%
+2026-01-30 03:23:50,945 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%
+2026-01-30 03:23:55,945 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%
+2026-01-30 03:24:00,945 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%
+2026-01-30 03:24:05,945 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%

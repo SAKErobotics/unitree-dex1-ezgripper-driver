@@ -374,6 +374,14 @@ class Gripper:
         
         print("calibration done")
 
+    def goto_position(self, position_pct, effort_pct):
+        """Go to a position with a given effort."""
+        self.set_max_effort(int(effort_pct))
+        # Invert: 0% = fully open (grip_max), 100% = fully closed (0)
+        inverted_pct = 100 - int(position_pct)
+        scaled_position = self.scale(inverted_pct, self.config.grip_max)
+        self._goto_position(scaled_position)
+
     def set_max_effort(self, max_effort):
         # Protocol 2.0: Use Goal Current (RAM) for dynamic current control
         # range 0-100% (0-100)
@@ -400,7 +408,9 @@ class Gripper:
             use_percentages = True, gripper_module = 'dual_gen1'):
 
         servo_position = self.servos[servo_num].read_word_signed(self.config.reg_present_position) - self.zero_positions[servo_num]
-        current_position = self.down_scale(servo_position, self.config.grip_max)
+        raw_pct = self.down_scale(servo_position, self.config.grip_max)
+        # Invert: raw 0 = 100% closed, raw grip_max = 0% open
+        current_position = 100 - raw_pct
 
         if not use_percentages:
             # Use Dex1 mapping from config

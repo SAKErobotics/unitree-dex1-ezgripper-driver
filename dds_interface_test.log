@@ -1,0 +1,101 @@
+2026-01-30 04:09:13,193 - ezgripper_left - INFO - Connecting to EZGripper on /dev/ttyUSB0
+2026-01-30 04:09:13,740 - ezgripper_left - INFO - Hardware connected: position 100.0%
+2026-01-30 04:09:13,744 - ezgripper_left - INFO - Detected serial number: DA1Z9T40
+2026-01-30 04:09:13,744 - ezgripper_left - INFO - Updated device config: left -> /dev/ttyUSB0 (serial: DA1Z9T40)
+2026-01-30 04:09:13,744 - ezgripper_left - INFO - Loaded calibration offset for DA1Z9T40: 2953
+2026-01-30 04:09:13,744 - ezgripper_left - INFO - Setting up DDS interfaces...
+2026-01-30 04:09:13,961 - ezgripper_left - INFO - DDS ready: rt/dex1/left/cmd → rt/dex1/left/state
+2026-01-30 04:09:13,961 - ezgripper_left - INFO - Running automatic calibration at startup...
+2026-01-30 04:09:13,961 - ezgripper_left - INFO - Starting calibration on command...
+2026-01-30 04:09:15,260 - ezgripper_left - INFO - Saved calibration offset for DA1Z9T40: 2953
+2026-01-30 04:09:15,276 - ezgripper_left - ERROR - Calibration failed: 'Gripper' object has no attribute 'GRIP_MAX'
+2026-01-30 04:09:15,276 - ezgripper_left - INFO - Corrected EZGripper driver ready: left side
+2026-01-30 04:09:15,276 - ezgripper_left - INFO - Starting multi-threaded EZGripper driver...
+2026-01-30 04:09:15,276 - ezgripper_left - INFO -   Control thread: 30 Hz (commands + actual position)
+2026-01-30 04:09:15,276 - ezgripper_left - INFO -   State thread: 200 Hz (predicted position publishing)
+2026-01-30 04:09:15,277 - ezgripper_left - INFO - Starting control thread at 30 Hz...
+2026-01-30 04:09:15,277 - ezgripper_left - INFO - Starting state thread at 200 Hz...
+2026-01-30 04:09:18,198 - ezgripper_left - INFO - 📊 Monitor: State=116.9Hz | Cmd=50.0% | Pred=50.0% | Actual=50.0% | Err=0.0% | Track=0.0%
+2026-01-30 04:09:19,438 - ezgripper_left - INFO - Command received: q=0.500 rad -> 8.0%
+2026-01-30 04:09:23,198 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:09:28,198 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:09:33,198 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:09:38,198 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:09:43,198 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:09:48,198 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:09:53,198 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:09:58,199 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:03,199 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:08,199 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:13,199 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:18,199 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:23,199 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:28,199 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:33,199 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:38,200 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:43,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:48,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:53,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:10:58,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:03,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:08,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:13,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:18,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:23,205 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:28,206 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:33,206 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:38,206 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:43,206 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:48,206 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:53,206 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:11:58,206 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:03,206 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:08,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:13,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:18,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:23,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:28,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:33,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:38,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:43,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:48,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:53,207 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:12:58,208 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:03,208 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:08,208 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:13,208 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:18,208 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:23,209 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:28,213 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:33,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:38,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:43,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:48,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:53,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:13:58,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:03,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:08,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:13,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:18,214 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:23,215 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:28,215 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:33,215 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:38,215 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:43,215 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:48,215 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:53,216 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:14:58,220 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:03,221 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:08,221 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:13,221 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:18,226 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:23,226 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:28,226 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:33,226 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:38,226 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:43,226 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:48,226 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:53,227 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:15:58,227 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:16:03,227 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%
+2026-01-30 04:16:08,227 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=8.0% | Pred=8.0% | Actual=50.0% | Err=0.0% | Track=42.0%

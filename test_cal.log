@@ -1,0 +1,37 @@
+2026-01-30 03:21:42,386 - ezgripper_left - INFO - Connecting to EZGripper on /dev/ttyUSB0
+2026-01-30 03:21:42,933 - ezgripper_left - INFO - Hardware connected: position 9.0%
+2026-01-30 03:21:42,936 - ezgripper_left - INFO - Detected serial number: DA1Z9T40
+2026-01-30 03:21:42,936 - ezgripper_left - INFO - Updated device config: left -> /dev/ttyUSB0 (serial: DA1Z9T40)
+2026-01-30 03:21:42,936 - ezgripper_left - INFO - Loaded calibration offset for DA1Z9T40: 2738
+2026-01-30 03:21:42,936 - ezgripper_left - INFO - Setting up DDS interfaces...
+2026-01-30 03:21:43,153 - ezgripper_left - INFO - DDS ready: rt/dex1/left/cmd → rt/dex1/left/state
+=== INITIAL SERVO STATE CHECK FOR corrected_left ===
+Servo 1 (ID 1):
+  Position: 228
+  Temperature: 31°C
+  Voltage: 12.3V
+  Current: 0
+  Hardware Error: 27136
+    ERROR BITS: 110101000000000
+  Clearing hardware error...
+  ERROR reading servo state: 4
+==================================================
+  Pre-init status: pos=228, temp=31°C, volt=12.3V, current=0, error=27136
+  Disabling torque for initialization...
+  Status after torque disable: error=27136
+  Checking operating mode...
+Updating operating mode: 65284 -> 4
+  Checking current limit...
+Current limit already correct: 1359
+  Re-enabling torque...
+  Final init status: error=27136
+Traceback (most recent call last):
+  File "/home/sokul/CascadeProjects/unitree-dex1-ezgripper-driver/ezgripper_dds_driver.py", line 754, in <module>
+    main()
+  File "/home/sokul/CascadeProjects/unitree-dex1-ezgripper-driver/ezgripper_dds_driver.py", line 735, in main
+    driver = CorrectedEZGripperDriver(
+             ^^^^^^^^^^^^^^^^^^^^^^^^^
+  File "/home/sokul/CascadeProjects/unitree-dex1-ezgripper-driver/ezgripper_dds_driver.py", line 211, in __init__
+    if self.gripper.config.calibration_auto_on_init:
+       ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+AttributeError: 'Config' object has no attribute 'calibration_auto_on_init'

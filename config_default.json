@@ -2,7 +2,7 @@
   "$schema": "./config_schema.json",
   "servo": {
     "model": "MX-64",
-    "operating_mode": 16,
+    "operating_mode": 4,
     "pwm_limit": 885,
     "current_limits": {
       "holding": 252,
