@@ -48,9 +48,9 @@ class ThreePhaseTest:
         self.publisher = ChannelPublisher(self.cmd_topic, MotorCmds_)
         self.publisher.Init()
         
-        # Dex1 mapping: 0% = 0.0 rad (open), 100% = 1.94 rad (closed)
-        self.open_radians = 0.0
-        self.close_radians = 1.94
+        # Dex1 mapping: 0% = 0.0 rad (closed), 100% = 1.94 rad (open)
+        self.close_radians = 0.0
+        self.open_radians = 1.94
         
         self.logger.info(f"3-phase test ready: {side} side at {rate_hz} Hz")
         self.logger.info(f"Publishing to: {self.cmd_topic}")
@@ -149,8 +149,8 @@ class ThreePhaseTest:
     def send_dds_command(self, position_pct: float):
         """Send DDS command for target position"""
         # Convert position percentage to radians
-        # 0% = open (0.0 rad), 100% = closed (1.94 rad)
-        q_radians = self.open_radians + (position_pct / 100.0) * (self.close_radians - self.open_radians)
+        # 0% = closed (0.0 rad), 100% = open (1.94 rad)
+        q_radians = self.close_radians + (position_pct / 100.0) * (self.open_radians - self.close_radians)
         
         # Create motor command
         motor_cmd = unitree_go_msg_dds__MotorCmd_()

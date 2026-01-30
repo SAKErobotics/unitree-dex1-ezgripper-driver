@@ -386,17 +386,26 @@ class CorrectedEZGripperDriver:
             return False
     
     def dex1_to_ezgripper(self, q_radians: float) -> float:
-        """Convert Dex1 position to EZGripper position"""
-        if q_radians <= 0.1:
-            return 0.0    # Close
-        elif q_radians >= 6.0:
-            return 100.0  # Open
-        else:
-            return (q_radians / (2.0 * math.pi)) * 100.0
+        """
+        Convert Dex1 position to EZGripper position
+        Dex1: 0.0 rad = closed, 1.94 rad = open
+        EZGripper: 0% = closed, 100% = open
+        """
+        # Clamp to valid range
+        q_clamped = max(0.0, min(1.94, q_radians))
+        # Linear mapping: 0.0 rad -> 0% closed, 1.94 rad -> 100% open
+        return (q_clamped / 1.94) * 100.0
     
     def ezgripper_to_dex1(self, position_pct: float) -> float:
-        """Convert EZGripper position to Dex1 position"""
-        return (position_pct / 100.0) * 2.0 * math.pi
+        """
+        Convert EZGripper position to Dex1 position
+        EZGripper: 0% = closed, 100% = open
+        Dex1: 0.0 rad = closed, 1.94 rad = open
+        """
+        # Clamp to valid range
+        pct_clamped = max(0.0, min(100.0, position_pct))
+        # Linear mapping: 0% closed -> 0.0 rad, 100% open -> 1.94 rad
+        return (pct_clamped / 100.0) * 1.94
     
     def tau_to_effort_pct(self, tau: float) -> float:
         """
