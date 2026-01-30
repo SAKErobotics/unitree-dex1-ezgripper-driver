@@ -20,6 +20,16 @@ from libezgripper import create_connection, Gripper
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
 
+# Track test results
+test_results = {
+    'config': False,
+    'wave': False,
+    'hardware': False,
+    'health': False,
+    'error': False,
+    'position': False
+}
+
 print("="*70)
 print("Refactored EZGripper System Test")
 print("="*70)
@@ -40,6 +50,7 @@ try:
     print(f"    Return delay time: {config.eeprom_return_delay_time}")
     print(f"    Status return level: {config.eeprom_status_return_level}")
     print(f"  Smart init: {config.comm_smart_init}")
+    test_results['config'] = True
 except Exception as e:
     print(f"✗ Config loading failed: {e}")
     sys.exit(1)
@@ -71,6 +82,7 @@ try:
     if final_mode == "holding":
         print(f"  ✓ Correctly switched to holding mode")
     
+    test_results['wave'] = True
 except Exception as e:
     print(f"✗ Wave controller failed: {e}")
 
@@ -87,6 +99,7 @@ try:
     gripper = Gripper(connection, 'test_gripper', [config.comm_servo_id], config)
     print("✓ Gripper created with config")
     print("  Smart EEPROM initialization completed")
+    test_results['hardware'] = True
     
     # Verify EEPROM settings
     eeprom_info = get_eeprom_info(gripper.servos[0], config)
@@ -120,6 +133,7 @@ try:
     snapshot = health.get_health_snapshot()
     print(f"  Temperature trend: {snapshot['temperature_trend']}")
     print(f"  Temperature rate: {snapshot['temperature_rate']:.2f} °C/sec")
+    test_results['health'] = True
     
     # Test 5: Error Handler
     print("\n5. Testing Error Handler")
@@ -129,6 +143,7 @@ try:
     print(f"✓ Error detection working")
     print(f"  Error code: {error_code}")
     print(f"  Description: {description}")
+    test_results['error'] = True
     
     if error_code != 0:
         print(f"  ⚠ Hardware error detected - would attempt reboot in production")
@@ -144,9 +159,10 @@ try:
     gripper.set_max_effort(30)
     
     print("✓ Position control working with config")
+    test_results['position'] = True
     
 except FileNotFoundError:
-    print(f"⚠ Device {device} not found - skipping hardware tests")
+    print(f"✗ Device {device} not found")
     print("  Run with device path as argument to test with hardware")
 except Exception as e:
     print(f"✗ Hardware test failed: {e}")
@@ -156,10 +172,62 @@ except Exception as e:
 print("\n" + "="*70)
 print("Test Summary")
 print("="*70)
-print("✓ Configuration system: PASS")
-print("✓ Wave-following controller: PASS")
-print("✓ Health monitoring: PASS (if hardware available)")
-print("✓ Error handling: PASS (if hardware available)")
-print("✓ Gripper with config: PASS (if hardware available)")
-print("\nAll refactored modules functional!")
+
+# Report actual results
+if test_results['config']:
+    print("✓ Configuration system: PASS")
+else:
+    print("✗ Configuration system: FAIL")
+
+if test_results['wave']:
+    print("✓ Wave-following controller: PASS")
+else:
+    print("✗ Wave-following controller: FAIL")
+
+if test_results['hardware']:
+    print("✓ Hardware connection: PASS")
+    if test_results['health']:
+        print("✓ Health monitoring: PASS")
+    else:
+        print("✗ Health monitoring: FAIL")
+    
+    if test_results['error']:
+        print("✓ Error handling: PASS")
+    else:
+        print("✗ Error handling: FAIL")
+    
+    if test_results['position']:
+        print("✓ Position control: PASS")
+    else:
+        print("✗ Position control: FAIL")
+else:
+    print("✗ Hardware connection: FAIL (device unavailable or busy)")
+    print("  Health monitoring: SKIPPED")
+    print("  Error handling: SKIPPED")
+    print("  Position control: SKIPPED")
+
+# Overall result
+print("\n" + "="*70)
+passed = sum(test_results.values())
+total = len(test_results)
+
+if test_results['hardware']:
+    # All tests attempted
+    if passed == total:
+        print(f"OVERALL: PASS ({passed}/{total} tests passed)")
+        sys.exit(0)
+    else:
+        print(f"OVERALL: FAIL ({passed}/{total} tests passed)")
+        sys.exit(1)
+else:
+    # Hardware tests skipped
+    software_tests = test_results['config'] and test_results['wave']
+    if software_tests:
+        print(f"OVERALL: PARTIAL ({passed}/{total} tests passed, hardware unavailable)")
+        print("Software tests passed, but hardware tests could not run.")
+        sys.exit(2)
+    else:
+        print(f"OVERALL: FAIL ({passed}/{total} tests passed)")
+        sys.exit(1)
+
 print("="*70)
