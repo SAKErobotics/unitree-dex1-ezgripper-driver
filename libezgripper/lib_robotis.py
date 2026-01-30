@@ -42,6 +42,41 @@ import sys, optparse
 import math
 import socket 
 
+# Protocol 2.0 Instructions
+INST_PING = 0x01
+INST_READ = 0x02
+INST_WRITE = 0x03
+INST_REG_WRITE = 0x04
+INST_ACTION = 0x05
+INST_FACTORY_RESET = 0x06
+INST_REBOOT = 0x08
+INST_CLEAR = 0x10
+INST_STATUS = 0x55
+INST_SYNC_READ = 0x82
+INST_SYNC_WRITE = 0x83
+INST_BULK_READ = 0x92
+INST_BULK_WRITE = 0x93
+
+class P2_Registers:
+    ID = 7
+    BAUD_RATE = 8
+    RETURN_DELAY_TIME = 9
+    OPERATING_MODE = 11
+    TORQUE_ENABLE = 64
+    HARDWARE_ERROR_STATUS = 70
+    GOAL_CURRENT = 102
+    GOAL_VELOCITY = 104
+    GOAL_POSITION = 116
+    MOVING = 122
+    PRESENT_CURRENT = 126
+    PRESENT_VELOCITY = 128
+    PRESENT_POSITION = 132
+    PRESENT_INPUT_VOLTAGE = 144
+    PRESENT_TEMPERATURE = 146
+    CURRENT_LIMIT = 38
+    MAX_POSITION_LIMIT = 48
+    MIN_POSITION_LIMIT = 52
+
 def warning(msg):
     print(msg, file=sys.stderr)
     
@@ -130,7 +165,7 @@ class Robotis_Servo():
         # ID exists on bus?
         self.servo_id = servo_id
         try:
-            self.read_address(3)
+            self.read_address(7)  # Protocol 2.0: ID at 7
         except Exception as e:
             if self.retry_count == 0:
                 raise
@@ -138,13 +173,13 @@ class Robotis_Servo():
             print("Get ID failed once, retrying")
             self.dyn.flush_input()
             try:
-                self.read_address(3)
+                self.read_address(7)  # Protocol 2.0: ID at 7
             except:
                 raise RuntimeError('lib_robotis: Error encountered.  Could not find ID (%d) on bus (%s), or USB2Dynamixel 3-way switch in wrong position.\n' %
                                    ( servo_id, self.dyn.dev_name ))
 
         # Set Return Delay time - Used to determine when next status can be requested
-        data = self.read_address( 0x05, 1)
+        data = self.read_address(9, 1)  # Protocol 2.0: Return Delay Time at 9
         self.return_delay = data[0] * 2e-6
 
         
@@ -156,36 +191,36 @@ class Robotis_Servo():
         After calling this method, simply use 'set_angvel' to command rotation.  This 
         rotation is proportional to torque according to Robotis documentation.
         '''
-        self.write_address(0x08, [0,0])
+        self.write_address(52, [0,0])  # Protocol 2.0: Min Position Limit at 52
 
     def kill_cont_turn(self):
         '''resets CCW angle limits to allow commands through 'move_angle' again
         '''
-        self.write_address(0x08, [255, 3])
+        self.write_address(52, [255, 3])  # Protocol 2.0: Min Position Limit at 52
 
     def is_moving(self):
         ''' returns True if servo is moving.
         '''
-        data = self.read_address( 0x2e, 1 )
+        data = self.read_address(122, 1)  # Protocol 2.0: Moving at 122
         return data[0] != 0
 
     def read_voltage(self):
         ''' returns voltage (Volts)
         '''
-        data = self.read_address( 0x2a, 1 )
+        data = self.read_address(144, 1)  # Protocol 2.0: Present Input Voltage at 144
         return data[0] / 10.
 
     def read_temperature(self):
         ''' returns the temperature (Celcius)
         '''
-        data = self.read_address( 0x2b, 1 )
+        data = self.read_address(146, 1)  # Protocol 2.0: Present Temperature at 146
         return data[0]
 
     def read_load(self):
         ''' number proportional to the torque applied by the servo.
             sign etc. might vary with how the servo is mounted.
         '''
-        data = self.read_address( 0x28, 2 )
+        data = self.read_address(126, 2)  # Protocol 2.0: Present Current at 126 (replaces Load)
         load = data[0] + (data[1] >> 6) * 256
         if data[1] >> 2 & 1 == 0:
             return -1.0 * load
@@ -193,7 +228,7 @@ class Robotis_Servo():
             return 1.0 * load
 
     def read_present_speed(self):
-        speed = self.read_word(38)
+        speed = self.read_word(128)  # Protocol 2.0: Present Velocity at 128
         if speed == 1024: # 1024 is zero speed clockwise
             speed = 0
         return speed
@@ -201,8 +236,10 @@ class Robotis_Servo():
     def read_encoder(self):
         ''' returns position in encoder ticks
         '''
-        data = self.read_address( 0x24, 2 )
-        enc_val = data[0] + data[1] * 256
+        data = self.read_address(132, 4)  # Protocol 2.0: Present Position at 132 (4 bytes)
+        enc_val = data[0] + data[1] * 256 + data[2] * 65536 + data[3] * 16777216
+        if enc_val >= 2147483648:
+            enc_val -= 4294967296  # Convert to signed 32-bit
         return enc_val
 
     def read_word(self, addr):
@@ -216,10 +253,10 @@ class Robotis_Servo():
         return value
 
     def enable_torque(self):
-        return self.write_address(0x18, [1])
+        return self.write_address(64, [1])  # Protocol 2.0: Torque Enable at 64
 
     def disable_torque(self):
-        return self.write_address(0x18, [0])
+        return self.write_address(64, [0])  # Protocol 2.0: Torque Enable at 64
 
     def set_angvel(self, angvel):
         ''' angvel - in rad/sec
@@ -231,15 +268,15 @@ class Robotis_Servo():
         else:
             hi,lo = angvel_enc // 256, angvel_enc % 256
         
-        return self.write_address( 0x20, [lo,hi] )
+        return self.write_address(104, [lo,hi])  # Protocol 2.0: Goal Velocity at 104
 
     def write_id(self, new_id):
         ''' changes the servo id
         '''
-        return self.write_address( 0x03, [new_id] )
+        return self.write_address(7, [new_id])  # Protocol 2.0: ID at 7
 
     def write_baudrate(self, rate):
-        return self.write_address( 0x04, [rate] )
+        return self.write_address(8, [rate])  # Protocol 2.0: Baud Rate at 8
         
     def write_word(self, addr, word):
         while word > 65535:
@@ -275,6 +312,21 @@ class Robotis_Servo():
         chksum = ( ~int(chksum) ) % 256
         return chksum
 
+    def __calc_crc(self, data):
+        """
+        Calculate CRC-16 for Protocol 2.0
+        Uses CRC-16-IBM (polynomial 0x8005)
+        """
+        crc = 0
+        for byte in data:
+            crc ^= byte
+            for _ in range(8):
+                if crc & 1:
+                    crc = (crc >> 1) ^ 0xA001
+                else:
+                    crc = crc >> 1
+        return crc & 0xFFFF
+
     def read_address(self, address, nBytes=1):
         ''' reads nBytes from address on the servo.
             returns [n1,n2 ...] (list of parameters)
@@ -298,6 +350,53 @@ class Robotis_Servo():
         msg = [ 0x03, address ] + data
         return self.send_instruction( msg, exceptionOnErrorResponse = False )
 
+    def bulk_read(self, read_list):
+        """
+        Bulk read multiple registers in one transaction (Protocol 2.0)
+        
+        Args:
+            read_list: List of (address, length) tuples
+            
+        Returns:
+            List of data arrays corresponding to each read
+        """
+        params = []
+        for addr, length in read_list:
+            params.extend([
+                addr & 0xFF,
+                (addr >> 8) & 0xFF,
+                length & 0xFF,
+                (length >> 8) & 0xFF
+            ])
+        
+        msg = [INST_BULK_READ] + params
+        data = self.send_instruction(msg)
+        
+        results = []
+        offset = 0
+        for _, length in read_list:
+            results.append(data[offset:offset+length])
+            offset += length
+        
+        return results
+
+    def bulk_write(self, write_list):
+        """
+        Bulk write multiple registers in one transaction (Protocol 2.0)
+        
+        Args:
+            write_list: List of (address, data) tuples where data is list of bytes
+        """
+        params = []
+        for addr, data in write_list:
+            params.extend([
+                addr & 0xFF,
+                (addr >> 8) & 0xFF
+            ] + data)
+        
+        msg = [INST_BULK_WRITE] + params
+        self.send_instruction(msg)
+
     def ensure_byte_set(self, address, byte):
         value = self.read_address(address)[0]
         if value != byte:
@@ -311,21 +410,25 @@ class Robotis_Servo():
             self.write_word(address, word)
     
     def send_instruction(self, instruction, exceptionOnErrorResponse = True):
-        ''' send_instruction with Retries
-        '''
-        msg = [ self.servo_id, len(instruction) + 1 ] + instruction # instruction includes the command (1 byte + parameters. length = parameters+2)
-        chksum = self.__calc_checksum( msg )
-        msg = [ 0xff, 0xff ] + msg + [chksum]
+        ''' send_instruction with Protocol 2.0 packet structure '''
+        # Protocol 2.0 packet: [0xFF, 0xFF, 0xFD, 0x00, ID, LEN_L, LEN_H, INST, PARAMS..., CRC_L, CRC_H]
+        length = len(instruction) + 3  # instruction + params + CRC(2)
+        len_l = length & 0xFF
+        len_h = (length >> 8) & 0xFF
+        
+        packet_base = [0xFF, 0xFF, 0xFD, 0x00, self.servo_id, len_l, len_h] + instruction
+        crc = self.__calc_crc(packet_base)
+        crc_l = crc & 0xFF
+        crc_h = (crc >> 8) & 0xFF
+        msg = packet_base + [crc_l, crc_h]
         
         with self.dyn.lock:
             failures = 0
             while True:
                 try:
                     self.dyn.flush_input()
-                    self.send_serial( msg )
+                    self.send_serial(msg)
                     data, err = self.receive_reply()
-                    if err & 16 != 0:
-                        raise CommunicationError("Dynamixel error 16 - sent packet checksum invalid")
                     break
                 except (CommunicationError, serial.SerialException, socket.timeout) as e:
                     failures += 1
@@ -335,7 +438,7 @@ class Robotis_Servo():
         
         if exceptionOnErrorResponse:
             if err != 0:
-                self.process_err( err )
+                self.process_err(err)
             return data
         else:
             return data, err
@@ -356,29 +459,66 @@ class Robotis_Servo():
         raise ErrorResponse(err)
 
     def receive_reply(self):
-        start_bytes_received = 0
-        while (start_bytes_received < 2):
-            one = self.dyn.read_serial( 1 )
-            if ord(one) == 0xff:
-                start_bytes_received += 1
-            else:
-                start_bytes_received = 0
-
-        servo_id = self.dyn.read_serial( 1 )
-        if ord(servo_id) != self.servo_id:
-            raise CommunicationError('lib_robotis: Incorrect servo ID received: %d, expected %d' % (ord(servo_id), self.servo_id))
-        data_len = self.dyn.read_serial( 1 )
-        err = self.dyn.read_serial( 1 )
-        data = self.dyn.read_serial( ord(data_len) - 2 )
-        chksum_in = ord(self.dyn.read_serial( 1 ))
-        chksum_calc = self.__calc_checksum_str(servo_id + data_len + err + data)
-        if chksum_calc != chksum_in:
-            raise CommunicationError('Checksum mismatch: calculated %02X, received %02X'%(chksum_calc, chksum_in))
-
+        """Receive Protocol 2.0 status packet"""
+        # Protocol 2.0 status: [0xFF, 0xFF, 0xFD, 0x00, ID, LEN_L, LEN_H, INST, ERR, PARAMS..., CRC_L, CRC_H]
+        
+        # Read header [0xFF, 0xFF, 0xFD, 0x00]
+        header = self.dyn.read_serial(4)
         if sys.version_info.major == 2:
-            return [ord(v) for v in data], ord(err)
+            header_list = [ord(b) for b in header]
         else:
-            return list(data), ord(err)
+            header_list = list(header)
+        
+        if header_list != [0xFF, 0xFF, 0xFD, 0x00]:
+            raise CommunicationError('Invalid Protocol 2.0 header')
+        
+        # Read ID
+        servo_id_byte = self.dyn.read_serial(1)
+        servo_id = ord(servo_id_byte) if sys.version_info.major == 2 else servo_id_byte[0]
+        if servo_id != self.servo_id:
+            raise CommunicationError('Incorrect servo ID: %d, expected %d' % (servo_id, self.servo_id))
+        
+        # Read length
+        len_l_byte = self.dyn.read_serial(1)
+        len_h_byte = self.dyn.read_serial(1)
+        len_l = ord(len_l_byte) if sys.version_info.major == 2 else len_l_byte[0]
+        len_h = ord(len_h_byte) if sys.version_info.major == 2 else len_h_byte[0]
+        length = len_l + (len_h << 8)
+        
+        # Read instruction
+        inst_byte = self.dyn.read_serial(1)
+        inst = ord(inst_byte) if sys.version_info.major == 2 else inst_byte[0]
+        
+        # Read error
+        err_byte = self.dyn.read_serial(1)
+        err = ord(err_byte) if sys.version_info.major == 2 else err_byte[0]
+        
+        # Read parameters (length - 4 for inst, err, crc_l, crc_h)
+        param_len = length - 4
+        if param_len > 0:
+            params = self.dyn.read_serial(param_len)
+            if sys.version_info.major == 2:
+                params_list = [ord(b) for b in params]
+            else:
+                params_list = list(params)
+        else:
+            params_list = []
+        
+        # Read CRC
+        crc_l_byte = self.dyn.read_serial(1)
+        crc_h_byte = self.dyn.read_serial(1)
+        crc_l = ord(crc_l_byte) if sys.version_info.major == 2 else crc_l_byte[0]
+        crc_h = ord(crc_h_byte) if sys.version_info.major == 2 else crc_h_byte[0]
+        crc_received = crc_l + (crc_h << 8)
+        
+        # Calculate CRC
+        packet_for_crc = [0xFF, 0xFF, 0xFD, 0x00, servo_id, len_l, len_h, inst, err] + params_list
+        crc_calc = self.__calc_crc(packet_for_crc)
+        
+        if crc_calc != crc_received:
+            raise CommunicationError('CRC mismatch: calculated %04X, received %04X' % (crc_calc, crc_received))
+        
+        return params_list, err
 
     def send_serial(self, msg):
         """ sends the command to the servo
@@ -393,13 +533,13 @@ class Robotis_Servo():
         self.dyn.send_serial( out )
 
     def check_overload_and_recover(self):
-        _, e = self.read_wordX(34)
+        _, e = self.read_wordX(38)  # Protocol 2.0: Current Limit at 38
         if e & 32 != 0:
             print("Servo %d: status code %d, will try to recover"%(self.servo_id, e))
-            self.write_wordX(71, 0)             # reset goal torque
-            self.write_addressX(70, [0])        # torque control off
-            self.write_wordX(34, 500)           # restore torque limit
-            _, e = self.read_wordX(34) # check stats
+            self.write_wordX(102, 0)            # Protocol 2.0: reset Goal Current at 102
+            self.write_addressX(11, [3])        # Protocol 2.0: Operating Mode = Position Control
+            self.write_wordX(38, 500)           # Protocol 2.0: restore Current Limit at 38
+            _, e = self.read_wordX(38) # check stats
             if e & 32 == 0:
                 print("Servo %d: recovery done, status code %d"%(self.servo_id, e))
             else:

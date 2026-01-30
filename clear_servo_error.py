@@ -26,12 +26,22 @@ def clear_servo_errors(device="/dev/ttyUSB0"):
             print(f"Initial connection failed (expected): {e}")
             print("Attempting to clear error state directly...")
             
-            # Send instruction to clear error (write 0 to register 18)
+            # Send instruction to clear error (Protocol 2.0: write 0 to register 70)
             # This is a low-level operation
             import struct
-            msg = [0xFF, 0xFF, 1, 4, 0x03, 18, 0, 0]  # Write 0 to error register
-            checksum = (~sum(msg[2:]))&0xFF
-            msg.append(checksum)
+            # Protocol 2.0 packet format
+            packet_base = [0xFF, 0xFF, 0xFD, 0x00, 1, 6, 0, 0x03, 70, 0, 0, 0]
+            # Calculate CRC-16
+            crc = 0
+            for byte in packet_base:
+                crc ^= byte
+                for _ in range(8):
+                    if crc & 1:
+                        crc = (crc >> 1) ^ 0xA001
+                    else:
+                        crc = crc >> 1
+            crc = crc & 0xFFFF
+            msg = packet_base + [crc & 0xFF, (crc >> 8) & 0xFF]
             
             connection.write(bytes(msg))
             time.sleep(0.1)
@@ -44,32 +54,35 @@ def clear_servo_errors(device="/dev/ttyUSB0"):
             servo = Robotis_Servo(connection, 1)
             print("Servo connected after error clear")
         
-        # Read current error state
-        error = servo.read_address(18, 1)[0]
+        # Read current error state (Protocol 2.0: Hardware Error Status at 70)
+        error = servo.read_address(70, 1)[0]
         print(f"Current error state: {error} (0x{error:02X})")
         
         # Disable torque mode FIRST (required before clearing error)
         print("Disabling torque mode...")
-        servo.write_address(70, [0])  # Disable torque control mode
-        servo.write_address(24, [0])  # Disable torque enable
+        servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control
+        servo.write_address(64, [0])  # Protocol 2.0: Torque Enable = 0
         time.sleep(0.1)
         
         if error != 0:
             print("Clearing error state...")
-            # Write 0 to error register (after torque disabled)
-            servo.write_address(18, [0])
+            # Write 0 to hardware error status register (after torque disabled)
+            servo.write_address(70, [0])  # Protocol 2.0: Hardware Error Status
             time.sleep(0.1)
             
             # Verify
-            error = servo.read_address(18, 1)[0]
+            error = servo.read_address(70, 1)[0]
             print(f"Error state after clear: {error} (0x{error:02X})")
         
-        # Set to safe position mode
-        print("Setting safe torque limit...")
-        servo.write_word(34, 512)  # 50% torque limit
+        # Set to safe current limit
+        print("Setting safe current limit...")
+        servo.write_word(38, 512)  # Protocol 2.0: Current Limit at 38 (50% limit)
         
-        # Read position
-        pos = servo.read_word_signed(36)
+        # Read position (Protocol 2.0: 4-byte position)
+        pos_data = servo.read_address(132, 4)
+        pos = pos_data[0] + (pos_data[1] << 8) + (pos_data[2] << 16) + (pos_data[3] << 24)
+        if pos >= 2147483648:
+            pos -= 4294967296
         print(f"Current position: {pos}")
         
         print("\nServo reset complete!")

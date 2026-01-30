@@ -36,10 +36,17 @@ import time
 
 
 def set_torque_mode(servo, val):
+    """
+    Set operating mode for Protocol 2.0
+    
+    Operating Mode values:
+    - 0: Current (Torque) Control Mode
+    - 3: Position Control Mode (default)
+    """
     if val:
-        servo.write_address(70, [1])
+        servo.write_address(11, [0])  # Protocol 2.0: Operating Mode = Current Control
     else:
-        servo.write_address(70, [0])
+        servo.write_address(11, [3])  # Protocol 2.0: Operating Mode = Position Control
 
 def wait_for_stop(servo):
     wait_start = time.time()

@@ -450,25 +450,64 @@ class EZGripperHardwareController:
         """
         Read actual motor current from servo.
         
-        MX-64 Protocol 1.0: Register 68 (Current)
+        Protocol 2.0: Register 126 (Present Current)
         Formula: I = (4.5mA) * (CURRENT - 2048)
-        - Idle state (no current): value = 2048
-        - Positive current flow: value > 2048
-        - Negative current flow: value < 2048
+        
+        TODO: Verify formula empirically - using Protocol 1 formula as baseline
         
         Returns:
             Current magnitude in mA (absolute value)
         """
         try:
-            # Read present current (address 68, 2 bytes)
-            current_raw = self.gripper.servos[0].read_word(68)
-            # Convert using MX-64 formula: I = 4.5mA * (CURRENT - 2048)
+            # Protocol 2.0: Read present current (address 126, 2 bytes)
+            current_raw = self.gripper.servos[0].read_word(126)
+            # Using Protocol 1 formula as baseline - NEEDS VERIFICATION
             current_ma = int(4.5 * (current_raw - 2048))
             # Return absolute value for magnitude comparison
             return abs(current_ma)
         except Exception as e:
             self.logger.debug(f"Failed to read current: {e}")
             return 0.0
+    
+    def read_servo_state_bulk(self) -> dict:
+        """
+        Read all servo state in one bulk read transaction (Protocol 2.0 feature)
+        
+        Returns:
+            dict with current, position, error, or None on failure
+        """
+        try:
+            servo = self.gripper.servos[0]
+            
+            # Bulk read: Current@126, Position@132, Hardware_Error@70
+            data_arrays = servo.bulk_read([
+                (126, 2),  # Present Current (2 bytes)
+                (132, 4),  # Present Position (4 bytes)
+                (70, 1),   # Hardware Error Status (1 byte)
+            ])
+            
+            # Parse current
+            current_raw = data_arrays[0][0] + (data_arrays[0][1] << 8)
+            current_ma = int(4.5 * (current_raw - 2048))  # TODO: Verify formula
+            
+            # Parse position
+            pos_bytes = data_arrays[1]
+            position = pos_bytes[0] + (pos_bytes[1] << 8) + (pos_bytes[2] << 16) + (pos_bytes[3] << 24)
+            if position >= 2147483648:
+                position -= 4294967296  # Convert to signed
+            
+            # Parse error
+            error = data_arrays[2][0]
+            
+            return {
+                'current': abs(current_ma),
+                'position': position,
+                'error': error,
+                'timestamp': time.time()
+            }
+        except Exception as e:
+            self.logger.debug(f"Failed to read servo state: {e}")
+            return None
     
     def _update_current_window(self, current: float):
         """Update rolling window of current samples"""
