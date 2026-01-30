@@ -2,6 +2,8 @@
   "$schema": "./config_schema.json",
   "servo": {
     "model": "MX-64",
+    "operating_mode": 16,
+    "pwm_limit": 885,
     "current_limits": {
       "holding": 252,
       "movement": 583,
@@ -19,6 +21,9 @@
       "torque_enable": 64,
       "current_limit": 38,
       "goal_current": 102,
+      "pwm_limit": 36,
+      "goal_pwm": 100,
+      "present_pwm": 124,
       "goal_position": 116,
       "present_position": 132,
       "present_temperature": 146,
@@ -47,10 +52,10 @@
       "close_radians": 1.94
     },
     "calibration": {
-      "current": 1359,
       "position": -10000,
-      "timeout": 3.0,
-      "auto_on_init": false
+      "pwm": 265,
+      "timeout": 0.1,
+      "auto_on_init": true
     }
   },
   "wave_following": {

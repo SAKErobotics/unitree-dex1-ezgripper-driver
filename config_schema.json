@@ -7,13 +7,26 @@
   "properties": {
     "servo": {
       "type": "object",
-      "description": "Servo hardware configuration",
-      "required": ["model", "current_limits", "temperature", "registers"],
+      "description": "Servo motor configuration",
+      "required": ["model", "operating_mode", "current_limits", "temperature", "registers"],
       "properties": {
         "model": {
           "type": "string",
-          "description": "Servo model (MX-64, XM540, etc.)",
+          "description": "Servo model identifier",
           "enum": ["MX-64", "XM540"]
+        },
+        "operating_mode": {
+          "type": "integer",
+          "description": "Operating mode: 3=Position Control, 4=Extended Position Control (multi-turn), 16=PWM Control Mode",
+          "enum": [3, 4, 16],
+          "default": 4
+        },
+        "pwm_limit": {
+          "type": "integer",
+          "description": "PWM limit (maximum duty cycle, 0-885). Only used in PWM mode (16)",
+          "minimum": 0,
+          "maximum": 885,
+          "default": 885
         },
         "current_limits": {
           "type": "object",
@@ -86,6 +99,9 @@
             "torque_enable": {"type": "integer", "minimum": 0, "maximum": 255},
             "current_limit": {"type": "integer", "minimum": 0, "maximum": 255},
             "goal_current": {"type": "integer", "minimum": 0, "maximum": 255},
+            "pwm_limit": {"type": "integer", "minimum": 0, "maximum": 255},
+            "goal_pwm": {"type": "integer", "minimum": 0, "maximum": 255},
+            "present_pwm": {"type": "integer", "minimum": 0, "maximum": 255},
             "goal_position": {"type": "integer", "minimum": 0, "maximum": 255},
             "present_position": {"type": "integer", "minimum": 0, "maximum": 255},
             "present_temperature": {"type": "integer", "minimum": 0, "maximum": 255},

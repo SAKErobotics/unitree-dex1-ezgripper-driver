@@ -251,7 +251,7 @@ class HandState_ {
 
 ---
 
-## DDS Topics
+## DDS Topics (xr_teleoperate Interface)
 
 ### Topic Naming Convention
 
@@ -267,29 +267,54 @@ Where:
 
 **Left Gripper:**
 - Topic: `rt/dex1/left/cmd`
-- Type: `HandCmd_`
+- Type: `MotorCmds_`
 - Direction: G1 XR → Gripper
-- Rate: 200 Hz
+- Rate: 200 Hz (control loop)
+- QoS: Default (ChannelPublisher handles internally)
 
 **Right Gripper:**
 - Topic: `rt/dex1/right/cmd`
-- Type: `HandCmd_`
+- Type: `MotorCmds_`
 - Direction: G1 XR → Gripper
-- Rate: 200 Hz
+- Rate: 200 Hz (control loop)
+- QoS: Default (ChannelPublisher handles internally)
 
 ### State Topics (Outgoing from Gripper)
 
 **Left Gripper:**
 - Topic: `rt/dex1/left/state`
-- Type: `HandState_`
+- Type: `MotorStates_`
 - Direction: Gripper → G1 XR
-- Rate: 200+ Hz
+- Rate: 500 Hz (subscriber polling at 0.002s)
+- QoS: Default (ChannelSubscriber handles internally)
 
 **Right Gripper:**
 - Topic: `rt/dex1/right/state`
-- Type: `HandState_`
+- Type: `MotorStates_`
 - Direction: Gripper → G1 XR
-- Rate: 200+ Hz
+- Rate: 500 Hz (subscriber polling at 0.002s)
+- QoS: Default (ChannelSubscriber handles internally)
+
+### Message Structure
+
+#### Command Message (MotorCmds_)
+```python
+# xr_teleoperate creates command like this:
+self.left_gripper_msg = MotorCmds_()
+self.left_gripper_msg.cmds = [unitree_go_msg_dds__MotorCmd_()]
+self.left_gripper_msg.cmds[0].q = position_in_radians  # Main control field
+self.left_gripper_msg.cmds[0].dq = 0.0  # Velocity
+self.left_gripper_msg.cmds[0].tau = 0.0  # Torque
+# kp, kd, mode are set but not used for basic position control
+```
+
+#### State Message (MotorStates_)
+```python
+# xr_teleoperate reads state like this:
+left_gripper_msg = self.LeftGripperState_subscriber.Read()
+position = left_gripper_msg.states[0].q  # Position in radians
+# Other fields available: tau_est, dq, temperature, etc.
+```
 
 ---
 

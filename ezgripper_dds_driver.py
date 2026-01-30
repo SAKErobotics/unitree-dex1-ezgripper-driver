@@ -21,19 +21,14 @@ from dataclasses import dataclass
 # CycloneDDS will auto-detect library location
 # os.environ['CYCLONEDDS_HOME'] = '/usr/lib/x86_64-linux-gnu'
 
-from cyclonedds.domain import DomainParticipant
-from cyclonedds.topic import Topic
-from cyclonedds.sub import DataReader
-from cyclonedds.pub import DataWriter
-from cyclonedds.qos import Qos, Policy
+from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber, ChannelFactoryInitialize
 
-# Import unitree_sdk2py message types for Dex1 hand
-sys.path.insert(0, '/home/kavi/CascadeProjects/unitree_sdk2_python')
-from unitree_sdk2py.idl.default import HGHandCmd_, HGMotorCmd_, HGHandState_, HGMotorState_
-from unitree_sdk2py.idl.unitree_hg.msg.dds_ import IMUState_, PressSensorState_
+# Import ONLY what xr_teleoperate uses for Dex1
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_, MotorStates_, MotorState_
+from unitree_sdk2py.idl.default import unitree_go_msg_dds__MotorCmd_
 
 # Minimal libezgripper imports - only what we use
-from libezgripper import create_connection, Gripper
+from libezgripper import create_connection, create_gripper
 import serial.tools.list_ports
 
 
@@ -191,6 +186,7 @@ class CorrectedEZGripperDriver:
         
         # Monitoring for verification
         self.state_publish_count = 0
+        self.state_publish_error_count = 0
         self.last_monitor_time = time.time()
         self.monitor_interval = 5.0  # Report every 5 seconds
         
@@ -211,9 +207,12 @@ class CorrectedEZGripperDriver:
         self._load_calibration()
         self._setup_dds()
         
-        # Auto-calibrate at startup
-        self.logger.info("Running automatic calibration at startup...")
-        self.calibrate()
+        # Auto-calibrate at startup if enabled
+        if self.gripper.config.calibration_auto_on_init:
+            self.logger.info("Running automatic calibration at startup...")
+            self.calibrate()
+        else:
+            self.logger.info("Auto-calibration disabled in config")
         
         self.logger.info(f"Corrected EZGripper driver ready: {side} side")
     
@@ -223,7 +222,7 @@ class CorrectedEZGripperDriver:
         
         try:
             self.connection = create_connection(dev_name=self.device, baudrate=1000000)  # 1 Mbps
-            self.gripper = Gripper(self.connection, f'corrected_{self.side}', [1])
+            self.gripper = create_gripper(self.connection, f'corrected_{self.side}', [1])
             
             # Test connection
             test_pos = self.gripper.get_position()
@@ -302,9 +301,8 @@ class CorrectedEZGripperDriver:
         except Exception as e:
             self.logger.warning(f"Failed to load calibration: {e}")
         
-        # No calibration found - auto-calibrate
-        self.logger.info("No calibration found, running auto-calibration...")
-        self.calibrate()
+        # No calibration found - will run auto-calibration
+        self.logger.info("No calibration found - will run auto-calibration")
     
     def save_calibration(self, offset: float):
         """Save calibration offset to device config using serial number from hardware"""
@@ -338,36 +336,24 @@ class CorrectedEZGripperDriver:
             self.logger.error(f"Failed to save calibration: {e}")
     
     def _setup_dds(self):
-        """Setup DDS interfaces"""
+        """Setup DDS interfaces - matches xr_teleoperate exactly"""
         self.logger.info("Setting up DDS interfaces...")
         
-        self.participant = DomainParticipant(self.domain)
+        # Initialize DDS factory - matches xr_teleoperate
+        ChannelFactoryInitialize(self.domain)  # Don't use shm:// to avoid buffer overflow
         
-        # Dex1 topics
+        # Dex1 topics - matches xr_teleoperate exactly
         cmd_topic_name = f"rt/dex1/{self.side}/cmd"
         state_topic_name = f"rt/dex1/{self.side}/state"
         
-        # Create topics
-        self.cmd_topic = Topic(self.participant, cmd_topic_name, HGHandCmd_)
-        self.state_topic = Topic(self.participant, state_topic_name, HGHandState_)
+        # Create publisher and subscriber - matches xr_teleoperate exactly
+        self.cmd_subscriber = ChannelSubscriber(cmd_topic_name, MotorCmds_)
+        self.cmd_subscriber.Init()
         
-        # QoS policies to match teleop system:
-        # - Command: RELIABLE (teleop publishes with RELIABLE)
-        # - State: BEST_EFFORT (teleop subscribes with BEST_EFFORT)
-        cmd_qos = Qos(
-            reliability=Policy.Reliability.Reliable,
-            durability=Policy.Durability.Volatile
-        )
-        state_qos = Qos(
-            reliability=Policy.Reliability.BestEffort,
-            durability=Policy.Durability.Volatile
-        )
+        self.state_publisher = ChannelPublisher(state_topic_name, MotorStates_)
+        self.state_publisher.Init()
         
-        # Create reader/writer with matching QoS
-        self.cmd_reader = DataReader(self.participant, self.cmd_topic, qos=cmd_qos)
-        self.state_writer = DataWriter(self.participant, self.state_topic, qos=state_qos)
-        
-        self.logger.info(f"DDS ready: {cmd_topic_name} (RELIABLE) → {state_topic_name} (BEST_EFFORT)")
+        self.logger.info(f"DDS ready: {cmd_topic_name} → {state_topic_name}")
     
     def calibrate(self):
         """Calibration on command - can be called by robot when needed"""
@@ -431,36 +417,32 @@ class CorrectedEZGripperDriver:
             return 50.0  # Standard effort (peak power limited)
     
     def receive_commands(self):
-        """Receive latest DDS command (non-blocking)"""
+        """Receive latest DDS command (non-blocking) - matches xr_teleoperate"""
         try:
-            samples = self.cmd_reader.take(N=10)  # Take up to 10 samples
+            # Use ChannelSubscriber.Read() like xr_teleoperate
+            cmd_msg = self.cmd_subscriber.Read()
             
-            if samples:
-                self.logger.debug(f"Received {len(samples)} DDS samples")
-                # Keep only the latest command
-                latest_sample = samples[-1]
+            if cmd_msg and hasattr(cmd_msg, 'cmds') and cmd_msg.cmds and len(cmd_msg.cmds) > 0:
+                motor_cmd = cmd_msg.cmds[0]
                 
-                if latest_sample and hasattr(latest_sample, 'motor_cmd') and latest_sample.motor_cmd and len(latest_sample.motor_cmd) > 0:
-                    motor_cmd = latest_sample.motor_cmd[0]
-                    
-                    # Convert Dex1 command to gripper parameters
-                    target_position = self.dex1_to_ezgripper(motor_cmd.q)
-                    
-                    # Position commands ALWAYS use 100% effort
-                    # Force control happens after contact via torque mode transition
-                    actual_effort = 100.0
-                    
-                    # Store latest command
-                    self.latest_command = GripperCommand(
-                        position_pct=target_position,
-                        effort_pct=actual_effort,
-                        timestamp=time.time(),
-                        q_radians=motor_cmd.q,
-                        tau=motor_cmd.tau
-                    )
-                    self.logger.debug(f"Command received: q={motor_cmd.q:.3f} rad -> {target_position:.1f}%")
-                else:
-                    self.logger.debug(f"Sample has no motor_cmd data")
+                # Convert Dex1 command to gripper parameters
+                target_position = self.dex1_to_ezgripper(motor_cmd.q)
+                
+                # Position commands ALWAYS use 100% effort
+                # Force control happens after contact via torque mode transition
+                actual_effort = 100.0
+                
+                # Store latest command
+                self.latest_command = GripperCommand(
+                    position_pct=target_position,
+                    effort_pct=actual_effort,
+                    timestamp=time.time(),
+                    q_radians=motor_cmd.q,
+                    tau=motor_cmd.tau
+                )
+                self.logger.info(f"Command received: q={motor_cmd.q:.3f} rad -> {target_position:.1f}%")
+            else:
+                self.logger.debug(f"No command data")
         
         except Exception as e:
             self.logger.error(f"Command receive failed: {e}")
@@ -473,13 +455,41 @@ class CorrectedEZGripperDriver:
         try:
             cmd = self.latest_command
             
-            # Only update effort if it changed (reduces serial writes from 3 to 1)
-            if self.last_effort_pct != cmd.effort_pct:
-                self.gripper.set_max_effort(int(cmd.effort_pct))
-                self.last_effort_pct = cmd.effort_pct
-            
-            # Send position command (only 1 serial write instead of 3)
-            self.gripper._goto_position(self.gripper.scale(int(cmd.position_pct), self.gripper.GRIP_MAX))
+            # In PWM mode (16), use proportional PWM control for position
+            if self.gripper.config.operating_mode == 16:
+                # Position control using PWM: error drives force
+                current_pos = self.gripper.get_position()
+                error = cmd.position_pct - current_pos
+                
+                # Proportional control with deadband
+                deadband = 1.0  # Stop applying force within 1% of target
+                
+                if abs(error) < deadband:
+                    pwm_command = 0  # At target, no force
+                else:
+                    # Proportional gain: PWM units per percent error
+                    kp = 10.0
+                    pwm_command = int(error * kp)
+                    
+                    # Clamp to PWM limits
+                    max_pwm = self.gripper.config.pwm_limit
+                    pwm_command = max(-max_pwm, min(max_pwm, pwm_command))
+                
+                # Send PWM command
+                self.gripper.servos[0].write_word(self.gripper.config.reg_goal_pwm, pwm_command)
+                
+                if self.command_count % 10 == 0:
+                    self.logger.debug(f"PWM position control: target={cmd.position_pct:.1f}%, current={current_pos:.1f}%, error={error:.1f}%, PWM={pwm_command}")
+            else:
+                # Position mode - use goal position
+                # Only update effort if it changed (reduces serial writes from 3 to 1)
+                if self.last_effort_pct != cmd.effort_pct:
+                    self.gripper.set_max_effort(int(cmd.effort_pct))
+                    self.last_effort_pct = cmd.effort_pct
+                
+                # Send position command (only 1 serial write instead of 3)
+                self.logger.debug(f"Moving to position {cmd.position_pct}% (scaled: {self.gripper.scale(int(cmd.position_pct), self.gripper.config.grip_max)})")
+                self.gripper._goto_position(self.gripper.scale(int(cmd.position_pct), self.gripper.config.grip_max))
             
             # Update state (thread-safe)
             with self.state_lock:
@@ -502,6 +512,9 @@ class CorrectedEZGripperDriver:
             
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")
+            self.logger.error(f"Exception type: {type(e)}")
+            import traceback
+            self.logger.error(f"Traceback: {traceback.format_exc()}")
     
     def update_predicted_position(self):
         """Update predicted position with constraints (no overshoot, no reverse direction) - thread-safe"""
@@ -545,44 +558,59 @@ class CorrectedEZGripperDriver:
             current_q = self.ezgripper_to_dex1(predicted_pos)
             current_tau = effort / 10.0
             
-            # Create motor state (only q and tau_est are real, rest are defaults)
-            motor_state = HGMotorState_(
+            # Create motor state for MotorStates_ (xr_teleoperate compatibility)
+            motor_state = MotorState_(
                 mode=0,
-                q=current_q,
+                q=actual_pos,
                 dq=0.0,
-                ddq=0.0,
+                ddq=0.0,  # Required field for MotorState_
                 tau_est=current_tau,
-                temperature=[0, 0],
-                vol=0.0,
-                sensor=[0, 0],
-                motorstate=0,
-                reserve=[0, 0, 0, 0]
-            )
-            motor_state.id = 1 if self.side == 'left' else 2
-            
-            # Create default IMU state (all zeros - no IMU sensor)
-            imu_state = IMUState_(
-                quaternion=[0.0, 0.0, 0.0, 0.0],
-                gyroscope=[0.0, 0.0, 0.0],
-                accelerometer=[0.0, 0.0, 0.0],
-                rpy=[0.0, 0.0, 0.0],
-                temperature=0
-            )
-            
-            hand_state = HGHandState_(
-                motor_state=[motor_state],
-                press_sensor_state=[],  # No pressure sensors on Dex1-1
-                imu_state=imu_state,
-                power_v=0.0,
-                power_a=0.0,
-                system_v=0.0,
-                device_v=0.0,
-                error=[0, 0],
+                q_raw=actual_pos,
+                dq_raw=0.0,
+                ddq_raw=0.0,
+                temperature=0,  # TODO: read actual temperature
+                lost=0,
                 reserve=[0, 0]
             )
             
-            # Publish state at 200 Hz (every loop)
-            self.state_writer.write(hand_state)
+            # Create MotorStates_ message
+            motor_states = MotorStates_()
+            motor_states.states = [motor_state]
+            
+            # Debug: log what we're about to publish
+            if self.state_publish_count % 100 == 0:  # Log every 100th publish to avoid spam
+                self.logger.debug(f"Publishing state: pos={actual_pos:.2f}, current={current_tau:.2f}")
+                self.logger.debug(f"motor_state type: {type(motor_state)}")
+                self.logger.debug(f"motor_states type: {type(motor_states)}")
+            
+            # Publish state at 200 Hz (every loop) - matches xr_teleoperate
+            # Write returns a tuple (status, timestamp) but we ignore it
+            try:
+                # Check if Write is still a method
+                if self.state_publish_count % 100 == 0:
+                    self.logger.debug(f"state_publisher.Write type: {type(self.state_publisher.Write)}")
+                    self.logger.debug(f"state_publisher.Write callable: {callable(self.state_publisher.Write)}")
+                    if hasattr(self.state_publisher.Write, '__name__'):
+                        self.logger.debug(f"Write method name: {self.state_publisher.Write.__name__}")
+                
+                self.logger.debug(f"About to call Write() on state_publisher")
+                result = self.state_publisher.Write(motor_states)
+                self.logger.debug(f"Write() returned: {result} (type: {type(result)})")
+            except TypeError as e:
+                if "'tuple' object is not callable" in str(e):
+                    # This is a bug in CycloneDDS library - ignore it
+                    self.state_publish_error_count += 1
+                    if self.state_publish_error_count % 100 == 1:  # Log first error and every 100th
+                        self.logger.warning(f"CycloneDDS library bug encountered (ignoring): {e}")
+                else:
+                    self.logger.error(f"State publishing failed (TypeError): {e}")
+                    import traceback
+                    self.logger.error(f"Traceback: {traceback.format_exc()}")
+            except Exception as e:
+                self.logger.error(f"State publishing failed: {e}")
+                self.logger.error(f"Exception type: {type(e)}")
+                import traceback
+                self.logger.error(f"Traceback: {traceback.format_exc()}")
             self.last_status_time = current_time
             self.state_publish_count += 1
             

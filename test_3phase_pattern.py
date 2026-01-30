@@ -6,7 +6,7 @@ Tests gripper through 3 distinct operational phases:
 2. Random jumps
 3. Instant point-to-point jumps
 
-Uses the unified Dex1HandInterface to command the gripper.
+Sends commands via DDS (simulating XR teleoperate controller).
 """
 
 import time
@@ -14,7 +14,9 @@ import random
 import logging
 import argparse
 import math
-from dex1_hand_interface import Dex1HandInterface
+from unitree_sdk2py.core.channel import ChannelPublisher, ChannelFactoryInitialize
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_
+from unitree_sdk2py.idl.default import unitree_go_msg_dds__MotorCmd_
 
 
 class ThreePhaseTest:
@@ -22,24 +24,36 @@ class ThreePhaseTest:
     
     PHASE_DURATION = 25.0  # Total cycle duration (seconds)
     
-    def __init__(self, side: str, rate_hz: float = 200.0):
+    def __init__(self, side: str, rate_hz: float = 200.0, domain: int = 1):
         """
         Initialize 3-phase test
         
         Args:
             side: 'left' or 'right'
             rate_hz: Command rate in Hz (default 200 Hz for G1 XR)
+            domain: DDS domain (default 1 for simulation)
         """
         self.side = side
         self.rate_hz = rate_hz
         self.period = 1.0 / rate_hz
+        self.domain = domain
         
         self.logger = logging.getLogger(f"3phase_test_{side}")
         
-        # Create hand interface
-        self.hand = Dex1HandInterface(side=side, rate_hz=rate_hz)
+        # Initialize DDS
+        ChannelFactoryInitialize(domain)
+        
+        # Create DDS publisher for commands
+        self.cmd_topic = f'rt/dex1/{side}/cmd'
+        self.publisher = ChannelPublisher(self.cmd_topic, MotorCmds_)
+        self.publisher.Init()
+        
+        # Dex1 mapping: 0% = 0.0 rad (open), 100% = 1.94 rad (closed)
+        self.open_radians = 0.0
+        self.close_radians = 1.94
         
         self.logger.info(f"3-phase test ready: {side} side at {rate_hz} Hz")
+        self.logger.info(f"Publishing to: {self.cmd_topic}")
     
     def get_phase(self, elapsed: float) -> tuple[int, str]:
         """
@@ -113,7 +127,7 @@ class ThreePhaseTest:
                 
                 # Calculate and send position command
                 position_pct = self.calculate_position(elapsed)
-                self.hand.set_position(position_pct)
+                self.send_dds_command(position_pct)
                 
                 # Log every command for correlation with gripper movement
                 print(f"[{elapsed:6.2f}s] Phase {phase}: Command {position_pct:5.1f}%", flush=True)
@@ -130,7 +144,33 @@ class ThreePhaseTest:
         except KeyboardInterrupt:
             self.logger.info("Shutting down 3-phase test...")
         finally:
-            self.hand.shutdown()
+            self.shutdown()
+    
+    def send_dds_command(self, position_pct: float):
+        """Send DDS command for target position"""
+        # Convert position percentage to radians
+        # 0% = open (0.0 rad), 100% = closed (1.94 rad)
+        q_radians = self.open_radians + (position_pct / 100.0) * (self.close_radians - self.open_radians)
+        
+        # Create motor command
+        motor_cmd = unitree_go_msg_dds__MotorCmd_()
+        motor_cmd.q = q_radians
+        motor_cmd.dq = 0.0
+        motor_cmd.tau = 0.0
+        motor_cmd.kp = 5.0
+        motor_cmd.kd = 0.05
+        
+        # Create motor commands message
+        motor_cmds = MotorCmds_()
+        motor_cmds.cmds = [motor_cmd]
+        
+        # Publish
+        self.publisher.Write(motor_cmds)
+    
+    def shutdown(self):
+        """Shutdown DDS publisher"""
+        self.logger.info("Closing DDS publisher...")
+        self.publisher.Close()
 
 
 def main():
@@ -140,6 +180,8 @@ def main():
                        help="Gripper side (left/right)")
     parser.add_argument("--rate", type=float, default=200.0,
                        help="Command rate in Hz (default: 200)")
+    parser.add_argument("--domain", type=int, default=1,
+                       help="DDS domain (default: 1 for simulation)")
     parser.add_argument("--log-level", default="INFO",
                        choices=["DEBUG", "INFO", "WARNING", "ERROR"])
     
@@ -152,7 +194,7 @@ def main():
     )
     
     # Run test
-    test = ThreePhaseTest(side=args.side, rate_hz=args.rate)
+    test = ThreePhaseTest(side=args.side, rate_hz=args.rate, domain=args.domain)
     test.run()
 
 

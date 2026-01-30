@@ -29,6 +29,10 @@ class Config:
         return self._config['servo']['model']
     
     @property
+    def operating_mode(self) -> int:
+        return self._config['servo']['operating_mode']
+    
+    @property
     def holding_current(self) -> int:
         return self._config['servo']['current_limits']['holding']
     
@@ -43,6 +47,10 @@ class Config:
     @property
     def hardware_max_current(self) -> int:
         return self._config['servo']['current_limits']['hardware_max']
+    
+    @property
+    def pwm_limit(self) -> int:
+        return self._config['servo'].get('pwm_limit', 885)
     
     @property
     def temp_warning(self) -> int:
@@ -76,6 +84,18 @@ class Config:
     @property
     def reg_goal_current(self) -> int:
         return self._config['servo']['registers']['goal_current']
+    
+    @property
+    def reg_pwm_limit(self) -> int:
+        return self._config['servo']['registers']['pwm_limit']
+    
+    @property
+    def reg_goal_pwm(self) -> int:
+        return self._config['servo']['registers']['goal_pwm']
+    
+    @property
+    def reg_present_pwm(self) -> int:
+        return self._config['servo']['registers']['present_pwm']
     
     @property
     def reg_goal_position(self) -> int:
@@ -154,6 +174,14 @@ class Config:
     @property
     def calibration_timeout(self) -> float:
         return self._config['gripper'].get('calibration', {}).get('timeout', 3.0)
+    
+    @property
+    def calibration_auto_on_init(self) -> bool:
+        return self._config['gripper'].get('calibration', {}).get('auto_on_init', False)
+    
+    @property
+    def calibration_pwm(self) -> int:
+        return self._config['gripper'].get('calibration', {}).get('pwm', 100)
     
     # Wave-following configuration
     @property
