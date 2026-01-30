@@ -111,6 +111,8 @@ class USB2Dynamixel_Device():
     def send_serial(self, msg):
         # It is up to the caller to acquire lock
         self.servo_dev.write( msg )
+        # Small delay for servo to process, especially at high baudrates (1 Mbps)
+        time.sleep(0.001)  # 1ms delay
 
     def flush_input(self):
         self.servo_dev.flushInput()

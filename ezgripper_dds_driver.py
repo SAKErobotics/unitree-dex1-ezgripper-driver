@@ -351,11 +351,23 @@ class CorrectedEZGripperDriver:
         self.cmd_topic = Topic(self.participant, cmd_topic_name, HGHandCmd_)
         self.state_topic = Topic(self.participant, state_topic_name, HGHandState_)
         
-        # Create reader/writer
-        self.cmd_reader = DataReader(self.participant, self.cmd_topic)
-        self.state_writer = DataWriter(self.participant, self.state_topic)
+        # QoS policies to match teleop system:
+        # - Command: RELIABLE (teleop publishes with RELIABLE)
+        # - State: BEST_EFFORT (teleop subscribes with BEST_EFFORT)
+        cmd_qos = Qos(
+            reliability=Policy.Reliability.Reliable,
+            durability=Policy.Durability.Volatile
+        )
+        state_qos = Qos(
+            reliability=Policy.Reliability.BestEffort,
+            durability=Policy.Durability.Volatile
+        )
         
-        self.logger.info(f"DDS ready: {cmd_topic_name} → {state_topic_name}")
+        # Create reader/writer with matching QoS
+        self.cmd_reader = DataReader(self.participant, self.cmd_topic, qos=cmd_qos)
+        self.state_writer = DataWriter(self.participant, self.state_topic, qos=state_qos)
+        
+        self.logger.info(f"DDS ready: {cmd_topic_name} (RELIABLE) → {state_topic_name} (BEST_EFFORT)")
     
     def calibrate(self):
         """Calibration on command - can be called by robot when needed"""
