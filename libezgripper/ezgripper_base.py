@@ -375,12 +375,26 @@ class Gripper:
         print("calibration done")
 
     def goto_position(self, position_pct, effort_pct):
-        """Go to a position with a given effort."""
+        """
+        Go to a position with a given effort.
+        
+        Args:
+            position_pct: Target position (0% = fully open, 100% = fully closed)
+            effort_pct: Effort/current limit (0-100%)
+        """
+        # Set effort/current limit
         self.set_max_effort(int(effort_pct))
+        
         # Invert: 0% = fully open (grip_max), 100% = fully closed (0)
+        # This matches the physical operation where opening increases raw position
         inverted_pct = 100 - int(position_pct)
         scaled_position = self.scale(inverted_pct, self.config.grip_max)
-        self._goto_position(scaled_position)
+        
+        # Send position command to servo
+        # Operating mode already set to Position Control during initialization
+        for i in range(len(self.servos)):
+            target_raw_pos = self.zero_positions[i] + scaled_position
+            self.servos[i].write_word(self.config.reg_goal_position, target_raw_pos)
 
     def set_max_effort(self, max_effort):
         # Protocol 2.0: Use Goal Current (RAM) for dynamic current control
@@ -394,15 +408,6 @@ class Gripper:
             # Write to Goal Current (RAM register - 2 bytes, fast, no EEPROM wear)
             data = [goal_current & 0xFF, (goal_current >> 8) & 0xFF]
             servo.write_address(self.config.reg_goal_current, data)
-
-    def _goto_position(self, position):
-        # Operating mode already set to Position Control (3) during initialization
-        # No need to call set_torque_mode - it would require torque disabled (EEPROM write)
-        for i in range(len(self.servos)):
-            self.servos[i].write_word(self.config.reg_goal_position, self.zero_positions[i] + position)
-        # wait_for_stop removed for non-blocking teleoperation control
-
-    # _close_with_torque removed - always use position control
 
     def get_position(self, servo_num=0, \
             use_percentages = True, gripper_module = 'dual_gen1'):
@@ -436,12 +441,10 @@ class Gripper:
             position = remap(position, \
                 self.config.dex1_open_radians, self.config.dex1_close_radians, 100, 0)
 
-        servo_position = self.scale(position, self.config.grip_max)
-        print("move_to_position(%d): servo position %d"%(position, servo_position))
+        print("move_to_position(%d)"%(position))
         
         # Always move at maximum current for FAST movement
-        self.set_max_effort(100)
-        self._goto_position(servo_position)
+        self.goto_position(position, 100)
         
         print("move_to_position done")
 

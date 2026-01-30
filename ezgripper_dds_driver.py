@@ -368,9 +368,7 @@ class CorrectedEZGripperDriver:
             self.save_calibration(zero_pos)
             
             # Verify with quick test using position control only
-            self.gripper.set_max_effort(100)  # 100% effort for consistency
-            target_pos = self.gripper.scale(25, self.gripper.GRIP_MAX)
-            self.gripper._goto_position(target_pos)
+            self.gripper.goto_position(25, 100)  # Move to 25% with 100% effort
             time.sleep(1)
             actual = self.gripper.get_position()
             error = abs(actual - 25.0)
@@ -481,15 +479,9 @@ class CorrectedEZGripperDriver:
                 if self.command_count % 10 == 0:
                     self.logger.debug(f"PWM position control: target={cmd.position_pct:.1f}%, current={current_pos:.1f}%, error={error:.1f}%, PWM={pwm_command}")
             else:
-                # Position mode - use goal position
-                # Only update effort if it changed (reduces serial writes from 3 to 1)
-                if self.last_effort_pct != cmd.effort_pct:
-                    self.gripper.set_max_effort(int(cmd.effort_pct))
-                    self.last_effort_pct = cmd.effort_pct
-                
-                # Send position command (only 1 serial write instead of 3)
-                self.logger.debug(f"Moving to position {cmd.position_pct}% (scaled: {self.gripper.scale(int(cmd.position_pct), self.gripper.config.grip_max)})")
-                self.gripper._goto_position(self.gripper.scale(int(cmd.position_pct), self.gripper.config.grip_max))
+                # Position mode - use the public goto_position method which handles inversion
+                self.logger.debug(f"Moving to position {cmd.position_pct}%")
+                self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
             
             # Update state (thread-safe)
             with self.state_lock:
