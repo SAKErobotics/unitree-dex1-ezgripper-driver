@@ -429,6 +429,31 @@ class Gripper:
         for i in range(len(self.servos)):
             positions.append(self.get_position(i))
         return positions
+    
+    def get_state_bulk(self):
+        """
+        Get complete servo state using bulk read (optional, faster than individual reads)
+        Returns ServoState object with position, current, load, temperature, errors
+        
+        This is OPTIONAL - only use if you need multiple values at once.
+        For position-only, use get_position() which is simpler.
+        """
+        try:
+            from .servo_state import ServoState
+            
+            # Bulk read with CORRECTED addresses (no duplicate 126)
+            data = self.servos[0].bulk_read([
+                (126, 2),  # Present Current
+                (132, 4),  # Present Position
+                (128, 2),  # Present Load (CORRECTED - was 126 in buggy version)
+                (70, 1),   # Hardware Error
+                (146, 1),  # Present Temperature
+            ])
+            
+            return ServoState.from_bulk_read(data)
+        except Exception as e:
+            # Fallback to individual read if bulk fails
+            return None
 
     def move_with_torque_management(self, position, closing_torque, \
             use_percentages = True, gripper_module = 'dual_gen1'):

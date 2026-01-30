@@ -1,0 +1,1863 @@
+2026-01-30 13:27:53,479 - root - INFO - Auto-discovered device for left: /dev/ttyUSB0
+2026-01-30 13:27:53,479 - ezgripper_left - INFO - Connecting to EZGripper on /dev/ttyUSB0
+2026-01-30 13:27:54,016 - ezgripper_left - INFO - Hardware connected: position 0.0%
+2026-01-30 13:27:54,022 - ezgripper_left - INFO - Detected serial number: DA1Z9T40
+2026-01-30 13:27:54,022 - ezgripper_left - INFO - Updated device config: left -> /dev/ttyUSB0 (serial: DA1Z9T40)
+2026-01-30 13:27:54,022 - ezgripper_left - INFO - ✓ Monitoring modules initialized
+2026-01-30 13:27:54,022 - ezgripper_left - INFO - Loaded calibration offset for DA1Z9T40: 2774
+2026-01-30 13:27:54,022 - ezgripper_left - INFO - Setting up DDS interfaces...
+2026-01-30 13:27:54,250 - ezgripper_left - INFO - DDS ready: rt/dex1/left/cmd → rt/dex1/left/state
+2026-01-30 13:27:54,250 - ezgripper_left - INFO - Running automatic calibration at startup...
+2026-01-30 13:27:54,250 - ezgripper_left - INFO - Starting calibration on command...
+2026-01-30 13:27:55,920 - ezgripper_left - INFO - Saved calibration offset for DA1Z9T40: 2773
+2026-01-30 13:27:56,960 - ezgripper_left - INFO - ✅ Calibration successful (error: 0.0%)
+2026-01-30 13:27:56,960 - ezgripper_left - INFO - Corrected EZGripper driver ready: left side
+2026-01-30 13:27:56,960 - ezgripper_left - INFO - Starting multi-threaded EZGripper driver...
+2026-01-30 13:27:56,960 - ezgripper_left - INFO -   Control thread: 30 Hz (commands + actual position)
+2026-01-30 13:27:56,960 - ezgripper_left - INFO -   State thread: 200 Hz (predicted position publishing)
+2026-01-30 13:27:56,961 - ezgripper_left - INFO - Starting control thread at 30 Hz...
+2026-01-30 13:27:56,961 - ezgripper_left - INFO - Starting state thread at 200 Hz...
+2026-01-30 13:27:56,962 - ezgripper_left - INFO - ✓ Real-time priority set to 80
+2026-01-30 13:27:57,016 - ezgripper_left - INFO - ✓ Memory locked
+2026-01-30 13:27:57,017 - ezgripper_left - INFO - Command received: q=2.097 rad -> 38.8%
+2026-01-30 13:27:57,077 - ezgripper_left - INFO - Command received: q=1.933 rad -> 35.8%
+2026-01-30 13:27:57,177 - ezgripper_left - INFO - Command received: q=1.771 rad -> 32.8%
+2026-01-30 13:27:57,277 - ezgripper_left - INFO - Command received: q=1.614 rad -> 29.9%
+2026-01-30 13:27:57,377 - ezgripper_left - INFO - Command received: q=1.461 rad -> 27.1%
+2026-01-30 13:27:57,477 - ezgripper_left - INFO - Command received: q=1.312 rad -> 24.3%
+2026-01-30 13:27:57,577 - ezgripper_left - INFO - Command received: q=1.170 rad -> 21.7%
+2026-01-30 13:27:57,677 - ezgripper_left - INFO - Command received: q=1.033 rad -> 19.1%
+2026-01-30 13:27:57,777 - ezgripper_left - INFO - Command received: q=0.903 rad -> 16.7%
+2026-01-30 13:27:57,878 - ezgripper_left - INFO - Command received: q=0.780 rad -> 14.4%
+2026-01-30 13:27:57,978 - ezgripper_left - INFO - Command received: q=0.664 rad -> 12.3%
+2026-01-30 13:27:58,078 - ezgripper_left - INFO - Command received: q=0.557 rad -> 10.3%
+2026-01-30 13:27:58,178 - ezgripper_left - INFO - Command received: q=0.458 rad -> 8.5%
+2026-01-30 13:27:58,278 - ezgripper_left - INFO - Command received: q=0.368 rad -> 6.8%
+2026-01-30 13:27:58,378 - ezgripper_left - INFO - Command received: q=0.287 rad -> 5.3%
+2026-01-30 13:27:58,478 - ezgripper_left - INFO - Command received: q=0.215 rad -> 4.0%
+2026-01-30 13:27:58,483 - ezgripper_left - INFO - 📊 Monitor: State=60.6Hz | Cmd=5.3% | Pred=5.3% | Actual=15.0% | Err=0.0% | Track=9.7%
+2026-01-30 13:27:58,578 - ezgripper_left - INFO - Command received: q=0.154 rad -> 2.8%
+2026-01-30 13:27:58,678 - ezgripper_left - INFO - Command received: q=0.102 rad -> 1.9%
+2026-01-30 13:27:58,778 - ezgripper_left - INFO - Command received: q=0.061 rad -> 1.1%
+2026-01-30 13:27:58,879 - ezgripper_left - INFO - Command received: q=0.030 rad -> 0.6%
+2026-01-30 13:27:58,979 - ezgripper_left - INFO - Command received: q=0.010 rad -> 0.2%
+2026-01-30 13:27:59,079 - ezgripper_left - INFO - Command received: q=0.001 rad -> 0.0%
+2026-01-30 13:27:59,179 - ezgripper_left - INFO - Command received: q=0.002 rad -> 0.0%
+2026-01-30 13:27:59,279 - ezgripper_left - INFO - Command received: q=0.014 rad -> 0.3%
+2026-01-30 13:27:59,379 - ezgripper_left - INFO - Command received: q=0.036 rad -> 0.7%
+2026-01-30 13:27:59,479 - ezgripper_left - INFO - Command received: q=0.069 rad -> 1.3%
+2026-01-30 13:27:59,579 - ezgripper_left - INFO - Command received: q=0.113 rad -> 2.1%
+2026-01-30 13:27:59,679 - ezgripper_left - INFO - Command received: q=0.166 rad -> 3.1%
+2026-01-30 13:27:59,780 - ezgripper_left - INFO - Command received: q=0.230 rad -> 4.3%
+2026-01-30 13:27:59,880 - ezgripper_left - INFO - Command received: q=0.303 rad -> 5.6%
+2026-01-30 13:27:59,980 - ezgripper_left - INFO - Command received: q=0.386 rad -> 7.2%
+2026-01-30 13:28:00,080 - ezgripper_left - INFO - Command received: q=0.478 rad -> 8.9%
+2026-01-30 13:28:00,113 - ezgripper_left - INFO - ⏱ Control loop: mean=96.5ms, max=112.1ms, p99=112.1ms, misses=96.88%
+2026-01-30 13:28:00,180 - ezgripper_left - INFO - Command received: q=0.579 rad -> 10.7%
+2026-01-30 13:28:00,280 - ezgripper_left - INFO - Command received: q=0.688 rad -> 12.7%
+2026-01-30 13:28:00,380 - ezgripper_left - INFO - Command received: q=0.805 rad -> 14.9%
+2026-01-30 13:28:00,480 - ezgripper_left - INFO - Command received: q=0.930 rad -> 17.2%
+2026-01-30 13:28:00,580 - ezgripper_left - INFO - Command received: q=1.062 rad -> 19.7%
+2026-01-30 13:28:00,681 - ezgripper_left - INFO - Command received: q=1.200 rad -> 22.2%
+2026-01-30 13:28:00,781 - ezgripper_left - INFO - Command received: q=1.344 rad -> 24.9%
+2026-01-30 13:28:00,881 - ezgripper_left - INFO - Command received: q=1.493 rad -> 27.7%
+2026-01-30 13:28:00,981 - ezgripper_left - INFO - Command received: q=1.648 rad -> 30.5%
+2026-01-30 13:28:01,081 - ezgripper_left - INFO - Command received: q=1.806 rad -> 33.4%
+2026-01-30 13:28:01,181 - ezgripper_left - INFO - Command received: q=1.968 rad -> 36.4%
+2026-01-30 13:28:01,281 - ezgripper_left - INFO - Command received: q=2.133 rad -> 39.5%
+2026-01-30 13:28:01,381 - ezgripper_left - INFO - Command received: q=2.300 rad -> 42.6%
+2026-01-30 13:28:01,481 - ezgripper_left - INFO - Command received: q=2.468 rad -> 45.7%
+2026-01-30 13:28:01,582 - ezgripper_left - INFO - Command received: q=2.638 rad -> 48.9%
+2026-01-30 13:28:01,682 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:01,782 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:01,882 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:01,905 - ezgripper_left - INFO - Executing: POSITION 77.7% (q=4.198, tau=0.000)
+2026-01-30 13:28:01,982 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:02,082 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:02,182 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:02,282 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:02,382 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:02,483 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:02,583 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:02,683 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:02,783 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:02,883 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:02,983 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:03,083 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:03,184 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:03,284 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:03,384 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:03,484 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:03,486 - ezgripper_left - INFO - 📊 Monitor: State=197.9Hz | Cmd=79.7% | Pred=79.7% | Actual=79.0% | Err=0.0% | Track=0.7%
+2026-01-30 13:28:03,584 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:03,684 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:03,785 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:03,885 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:03,985 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:04,085 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:04,185 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:04,285 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:04,385 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:04,485 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:04,586 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:04,686 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:04,786 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:04,886 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:04,986 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:05,086 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:05,105 - ezgripper_left - INFO - ⏱ Control loop: mean=98.5ms, max=128.1ms, p99=128.1ms, misses=98.78%
+2026-01-30 13:28:05,186 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:05,287 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:05,387 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:05,487 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:05,587 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:05,687 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:05,787 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:05,888 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:05,988 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:06,088 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:06,188 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:06,288 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:06,388 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:06,488 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:06,588 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:06,688 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:06,788 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:06,889 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:06,913 - ezgripper_left - INFO - Executing: POSITION 44.8% (q=2.422, tau=0.000)
+2026-01-30 13:28:06,989 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:07,089 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:07,189 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+=== INITIAL SERVO STATE CHECK FOR corrected_left ===
+Servo 1 (ID 1):
+  Position: 4777
+  Temperature: 41°C
+  Voltage: 12.3V
+  Current: 65525
+  Hardware Error: 27136
+    ERROR BITS: 110101000000000
+  Clearing hardware error...
+  ERROR reading servo state: 4
+==================================================
+  Pre-init status: pos=4777, temp=41°C, volt=12.2V, current=65526, error=27136
+  Disabling torque for initialization...
+  Status after torque disable: error=27136
+  Checking operating mode...
+Operating mode already correct: 4
+  Checking current limit...
+Current limit already correct: 1359
+  Re-enabling torque...
+  Final init status: error=27136
+calibrating: corrected_left
+  Pre-calibration status: pos=4777, temp=41°C, volt=12.3V, current=1, error=27136
+  Disabling torque...
+  Status after torque disable: error=27136
+  Re-enabling torque...
+  Status before movement: error=27136
+  Moving to calibration position -10000...
+  Monitoring until fingers stop moving for 0.5s...
+    Moving: 4242 (moved 288 units)
+    Moving: 3957 (moved 285 units)
+    Moving: 3674 (moved 283 units)
+    Moving: 3393 (moved 281 units)
+    Moving: 3117 (moved 276 units)
+    Moving: 2890 (moved 227 units)
+    Moving: 2792 (moved 98 units)
+    Moving: 2773 (moved 19 units)
+    Position stable: 2773 (stopped for 0.05s)
+    Position stable: 2773 (stopped for 0.10s)
+    Position stable: 2773 (stopped for 0.15s)
+    Position stable: 2773 (stopped for 0.20s)
+    Position stable: 2773 (stopped for 0.25s)
+    Position stable: 2773 (stopped for 0.30s)
+    Position stable: 2773 (stopped for 0.35s)
+    Position stable: 2773 (stopped for 0.40s)
+    Position stable: 2773 (stopped for 0.45s)
+    Position stable: 2773 (stopped for 0.50s)
+    Position stable: 2773 (stopped for 0.55s)
+  Status before reading zero position: error=27136
+  Servo 1: zero position set to 2773
+
+=== POST-CALIBRATION STATUS CHECK ===
+Servo 1:
+  Hardware Error: 27136
+    ERROR BITS: 110101000000000
+  Temperature: 42°C
+  Position: 2773
+  Current: 64110
+==================================================
+calibration done
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+2026-01-30 13:28:07,289 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:07,389 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:07,489 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:07,589 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:07,689 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:07,790 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:07,890 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:07,990 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:08,090 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:08,190 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:08,290 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:08,390 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:08,488 - ezgripper_left - INFO - 📊 Monitor: State=197.9Hz | Cmd=58.6% | Pred=58.6% | Actual=58.0% | Err=0.0% | Track=0.6%
+2026-01-30 13:28:08,490 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:08,591 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:08,691 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:08,791 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:08,891 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:08,991 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:09,091 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:09,191 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:09,291 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:09,392 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:09,492 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:09,592 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:09,692 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:09,792 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:09,892 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:09,992 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:10,092 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:10,113 - ezgripper_left - INFO - ⏱ Control loop: mean=99.1ms, max=128.1ms, p99=128.0ms, misses=99.24%
+2026-01-30 13:28:10,192 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:10,293 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:10,393 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:10,493 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:10,593 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:10,693 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:10,793 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:10,893 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:10,993 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:11,093 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:11,194 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:11,294 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:11,394 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:11,494 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:11,594 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:11,694 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:11,795 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:11,895 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:11,921 - ezgripper_left - INFO - Executing: POSITION 45.0% (q=2.432, tau=0.000)
+2026-01-30 13:28:11,995 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:12,095 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:12,195 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:12,295 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:12,395 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:12,495 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:12,595 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:12,695 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:12,796 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:12,896 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:12,996 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:13,096 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:13,196 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:13,296 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:13,397 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:13,490 - ezgripper_left - INFO - 📊 Monitor: State=197.9Hz | Cmd=55.5% | Pred=55.5% | Actual=55.0% | Err=0.0% | Track=0.5%
+2026-01-30 13:28:13,497 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:13,597 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:13,697 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:13,797 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:13,897 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:13,997 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:14,097 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:14,197 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:14,297 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:14,398 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:14,498 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:14,598 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:14,698 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:14,798 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:14,898 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:14,998 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:15,099 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:15,122 - ezgripper_left - INFO - ⏱ Control loop: mean=99.4ms, max=128.1ms, p99=128.0ms, misses=99.45%
+2026-01-30 13:28:15,199 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:15,299 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:15,399 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:15,499 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:15,599 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:15,699 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:15,800 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:15,900 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:16,000 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:16,100 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:16,200 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:16,300 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:16,400 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:16,500 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:16,601 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:16,701 - ezgripper_left - INFO - Command received: q=2.840 rad -> 52.6%
+2026-01-30 13:28:16,801 - ezgripper_left - INFO - Command received: q=3.009 rad -> 55.7%
+2026-01-30 13:28:16,901 - ezgripper_left - INFO - Command received: q=3.177 rad -> 58.8%
+2026-01-30 13:28:16,930 - ezgripper_left - INFO - Executing: POSITION 58.8% (q=3.177, tau=0.000)
+2026-01-30 13:28:17,001 - ezgripper_left - INFO - Command received: q=3.344 rad -> 61.9%
+2026-01-30 13:28:17,101 - ezgripper_left - INFO - Command received: q=3.507 rad -> 64.9%
+2026-01-30 13:28:17,201 - ezgripper_left - INFO - Command received: q=3.667 rad -> 67.9%
+2026-01-30 13:28:17,302 - ezgripper_left - INFO - Command received: q=3.824 rad -> 70.8%
+2026-01-30 13:28:17,402 - ezgripper_left - INFO - Command received: q=3.976 rad -> 73.6%
+2026-01-30 13:28:17,502 - ezgripper_left - INFO - Command received: q=4.123 rad -> 76.4%
+2026-01-30 13:28:17,602 - ezgripper_left - INFO - Command received: q=4.264 rad -> 79.0%
+2026-01-30 13:28:17,702 - ezgripper_left - INFO - Command received: q=4.400 rad -> 81.5%
+2026-01-30 13:28:17,802 - ezgripper_left - INFO - Command received: q=4.528 rad -> 83.9%
+2026-01-30 13:28:17,902 - ezgripper_left - INFO - Command received: q=4.650 rad -> 86.1%
+2026-01-30 13:28:18,002 - ezgripper_left - INFO - Command received: q=4.763 rad -> 88.2%
+2026-01-30 13:28:18,102 - ezgripper_left - INFO - Command received: q=4.869 rad -> 90.2%
+2026-01-30 13:28:18,203 - ezgripper_left - INFO - Command received: q=4.965 rad -> 92.0%
+2026-01-30 13:28:18,303 - ezgripper_left - INFO - Command received: q=5.053 rad -> 93.6%
+2026-01-30 13:28:18,403 - ezgripper_left - INFO - Command received: q=5.132 rad -> 95.0%
+2026-01-30 13:28:18,493 - ezgripper_left - INFO - 📊 Monitor: State=198.3Hz | Cmd=95.0% | Pred=95.0% | Actual=83.0% | Err=0.0% | Track=12.0%
+2026-01-30 13:28:18,503 - ezgripper_left - INFO - Command received: q=5.201 rad -> 96.3%
+2026-01-30 13:28:18,603 - ezgripper_left - INFO - Command received: q=5.260 rad -> 97.4%
+2026-01-30 13:28:18,703 - ezgripper_left - INFO - Command received: q=5.309 rad -> 98.3%
+2026-01-30 13:28:18,803 - ezgripper_left - INFO - Command received: q=5.347 rad -> 99.0%
+2026-01-30 13:28:18,903 - ezgripper_left - INFO - Command received: q=5.375 rad -> 99.5%
+2026-01-30 13:28:19,003 - ezgripper_left - INFO - Command received: q=5.393 rad -> 99.9%
+2026-01-30 13:28:19,104 - ezgripper_left - INFO - Command received: q=5.400 rad -> 100.0%
+2026-01-30 13:28:19,204 - ezgripper_left - INFO - Command received: q=5.396 rad -> 99.9%
+2026-01-30 13:28:19,304 - ezgripper_left - INFO - Command received: q=5.382 rad -> 99.7%
+2026-01-30 13:28:19,404 - ezgripper_left - INFO - Command received: q=5.357 rad -> 99.2%
+2026-01-30 13:28:19,504 - ezgripper_left - INFO - Command received: q=5.321 rad -> 98.5%
+2026-01-30 13:28:19,604 - ezgripper_left - INFO - Command received: q=5.275 rad -> 97.7%
+2026-01-30 13:28:19,704 - ezgripper_left - INFO - Command received: q=5.219 rad -> 96.6%
+2026-01-30 13:28:19,804 - ezgripper_left - INFO - Command received: q=5.153 rad -> 95.4%
+2026-01-30 13:28:19,905 - ezgripper_left - INFO - Command received: q=5.077 rad -> 94.0%
+2026-01-30 13:28:20,005 - ezgripper_left - INFO - Command received: q=4.992 rad -> 92.4%
+2026-01-30 13:28:20,105 - ezgripper_left - INFO - Command received: q=4.898 rad -> 90.7%
+2026-01-30 13:28:20,130 - ezgripper_left - INFO - ⏱ Control loop: mean=99.6ms, max=128.1ms, p99=128.0ms, misses=99.57%
+2026-01-30 13:28:20,205 - ezgripper_left - INFO - Command received: q=4.795 rad -> 88.8%
+2026-01-30 13:28:20,305 - ezgripper_left - INFO - Command received: q=4.683 rad -> 86.7%
+2026-01-30 13:28:20,405 - ezgripper_left - INFO - Command received: q=4.564 rad -> 84.5%
+2026-01-30 13:28:20,505 - ezgripper_left - INFO - Command received: q=4.438 rad -> 82.2%
+2026-01-30 13:28:20,605 - ezgripper_left - INFO - Command received: q=4.305 rad -> 79.7%
+2026-01-30 13:28:20,705 - ezgripper_left - INFO - Command received: q=4.165 rad -> 77.1%
+2026-01-30 13:28:20,805 - ezgripper_left - INFO - Command received: q=4.020 rad -> 74.4%
+2026-01-30 13:28:20,906 - ezgripper_left - INFO - Command received: q=3.869 rad -> 71.6%
+2026-01-30 13:28:21,006 - ezgripper_left - INFO - Command received: q=3.713 rad -> 68.8%
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+2026-01-30 13:28:21,106 - ezgripper_left - INFO - Command received: q=3.554 rad -> 65.8%
+2026-01-30 13:28:21,206 - ezgripper_left - INFO - Command received: q=3.391 rad -> 62.8%
+2026-01-30 13:28:21,306 - ezgripper_left - INFO - Command received: q=3.226 rad -> 59.7%
+2026-01-30 13:28:21,406 - ezgripper_left - INFO - Command received: q=3.058 rad -> 56.6%
+2026-01-30 13:28:21,506 - ezgripper_left - INFO - Command received: q=2.890 rad -> 53.5%
+2026-01-30 13:28:21,607 - ezgripper_left - INFO - Command received: q=2.720 rad -> 50.4%
+2026-01-30 13:28:21,707 - ezgripper_left - INFO - Command received: q=2.550 rad -> 47.2%
+2026-01-30 13:28:21,807 - ezgripper_left - INFO - Command received: q=2.381 rad -> 44.1%
+2026-01-30 13:28:21,907 - ezgripper_left - INFO - Command received: q=2.213 rad -> 41.0%
+2026-01-30 13:28:21,938 - ezgripper_left - INFO - Executing: POSITION 41.0% (q=2.213, tau=0.000)
+2026-01-30 13:28:22,007 - ezgripper_left - INFO - Command received: q=2.047 rad -> 37.9%
+2026-01-30 13:28:22,107 - ezgripper_left - INFO - Command received: q=1.884 rad -> 34.9%
+2026-01-30 13:28:22,207 - ezgripper_left - INFO - Command received: q=1.723 rad -> 31.9%
+2026-01-30 13:28:22,307 - ezgripper_left - INFO - Command received: q=1.567 rad -> 29.0%
+2026-01-30 13:28:22,407 - ezgripper_left - INFO - Command received: q=1.415 rad -> 26.2%
+2026-01-30 13:28:22,507 - ezgripper_left - INFO - Command received: q=1.269 rad -> 23.5%
+2026-01-30 13:28:22,608 - ezgripper_left - INFO - Command received: q=1.127 rad -> 20.9%
+2026-01-30 13:28:22,708 - ezgripper_left - INFO - Command received: q=0.993 rad -> 18.4%
+2026-01-30 13:28:22,808 - ezgripper_left - INFO - Command received: q=0.864 rad -> 16.0%
+2026-01-30 13:28:22,908 - ezgripper_left - INFO - Command received: q=0.744 rad -> 13.8%
+2026-01-30 13:28:23,008 - ezgripper_left - INFO - Command received: q=0.630 rad -> 11.7%
+2026-01-30 13:28:23,108 - ezgripper_left - INFO - Command received: q=0.526 rad -> 9.7%
+2026-01-30 13:28:23,208 - ezgripper_left - INFO - Command received: q=0.429 rad -> 7.9%
+2026-01-30 13:28:23,308 - ezgripper_left - INFO - Command received: q=0.342 rad -> 6.3%
+2026-01-30 13:28:23,409 - ezgripper_left - INFO - Command received: q=0.264 rad -> 4.9%
+2026-01-30 13:28:23,497 - ezgripper_left - INFO - 📊 Monitor: State=198.5Hz | Cmd=4.9% | Pred=4.9% | Actual=15.0% | Err=0.0% | Track=10.1%
+2026-01-30 13:28:23,509 - ezgripper_left - INFO - Command received: q=0.196 rad -> 3.6%
+2026-01-30 13:28:23,609 - ezgripper_left - INFO - Command received: q=0.137 rad -> 2.5%
+2026-01-30 13:28:23,709 - ezgripper_left - INFO - Command received: q=0.089 rad -> 1.6%
+2026-01-30 13:28:23,809 - ezgripper_left - INFO - Command received: q=0.051 rad -> 0.9%
+2026-01-30 13:28:23,909 - ezgripper_left - INFO - Command received: q=0.023 rad -> 0.4%
+2026-01-30 13:28:24,009 - ezgripper_left - INFO - Command received: q=0.006 rad -> 0.1%
+2026-01-30 13:28:24,109 - ezgripper_left - INFO - Command received: q=0.000 rad -> 0.0%
+2026-01-30 13:28:24,209 - ezgripper_left - INFO - Command received: q=0.004 rad -> 0.1%
+2026-01-30 13:28:24,310 - ezgripper_left - INFO - Command received: q=0.020 rad -> 0.4%
+2026-01-30 13:28:24,410 - ezgripper_left - INFO - Command received: q=0.045 rad -> 0.8%
+2026-01-30 13:28:24,510 - ezgripper_left - INFO - Command received: q=0.081 rad -> 1.5%
+2026-01-30 13:28:24,610 - ezgripper_left - INFO - Command received: q=0.128 rad -> 2.4%
+2026-01-30 13:28:24,710 - ezgripper_left - INFO - Command received: q=0.185 rad -> 3.4%
+2026-01-30 13:28:24,810 - ezgripper_left - INFO - Command received: q=0.251 rad -> 4.7%
+2026-01-30 13:28:24,910 - ezgripper_left - INFO - Command received: q=0.328 rad -> 6.1%
+2026-01-30 13:28:25,010 - ezgripper_left - INFO - Command received: q=0.413 rad -> 7.7%
+2026-01-30 13:28:25,111 - ezgripper_left - INFO - Command received: q=0.508 rad -> 9.4%
+2026-01-30 13:28:25,139 - ezgripper_left - INFO - ⏱ Control loop: mean=99.7ms, max=128.2ms, p99=128.0ms, misses=99.65%
+2026-01-30 13:28:25,211 - ezgripper_left - INFO - Command received: q=0.612 rad -> 11.3%
+2026-01-30 13:28:25,311 - ezgripper_left - INFO - Command received: q=0.723 rad -> 13.4%
+2026-01-30 13:28:25,411 - ezgripper_left - INFO - Command received: q=0.843 rad -> 15.6%
+2026-01-30 13:28:25,511 - ezgripper_left - INFO - Command received: q=0.970 rad -> 18.0%
+2026-01-30 13:28:25,611 - ezgripper_left - INFO - Command received: q=1.103 rad -> 20.4%
+2026-01-30 13:28:25,711 - ezgripper_left - INFO - Command received: q=1.243 rad -> 23.0%
+2026-01-30 13:28:25,811 - ezgripper_left - INFO - Command received: q=1.389 rad -> 25.7%
+2026-01-30 13:28:25,912 - ezgripper_left - INFO - Command received: q=1.540 rad -> 28.5%
+2026-01-30 13:28:26,012 - ezgripper_left - INFO - Command received: q=1.696 rad -> 31.4%
+2026-01-30 13:28:26,112 - ezgripper_left - INFO - Command received: q=1.856 rad -> 34.4%
+2026-01-30 13:28:26,213 - ezgripper_left - INFO - Command received: q=2.020 rad -> 37.4%
+2026-01-30 13:28:26,313 - ezgripper_left - INFO - Command received: q=2.185 rad -> 40.5%
+2026-01-30 13:28:26,413 - ezgripper_left - INFO - Command received: q=2.354 rad -> 43.6%
+2026-01-30 13:28:26,514 - ezgripper_left - INFO - Command received: q=2.523 rad -> 46.7%
+2026-01-30 13:28:26,614 - ezgripper_left - INFO - Command received: q=2.693 rad -> 49.9%
+2026-01-30 13:28:26,714 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:26,814 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:26,914 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:26,947 - ezgripper_left - INFO - Executing: POSITION 77.7% (q=4.198, tau=0.000)
+2026-01-30 13:28:26,963 - ezgripper_left - INFO - Command received: q=2.700 rad -> 50.0%
+2026-01-30 13:28:27,014 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:27,043 - ezgripper_left - INFO - Command received: q=2.870 rad -> 53.1%
+2026-01-30 13:28:27,115 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:27,139 - ezgripper_left - INFO - Command received: q=3.039 rad -> 56.3%
+2026-01-30 13:28:27,215 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:27,235 - ezgripper_left - INFO - Command received: q=3.207 rad -> 59.4%
+2026-01-30 13:28:27,315 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:27,347 - ezgripper_left - INFO - Command received: q=3.372 rad -> 62.4%
+2026-01-30 13:28:27,415 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:27,459 - ezgripper_left - INFO - Command received: q=3.535 rad -> 65.5%
+2026-01-30 13:28:27,515 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:27,539 - ezgripper_left - INFO - Command received: q=3.695 rad -> 68.4%
+2026-01-30 13:28:27,615 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:27,635 - ezgripper_left - INFO - Command received: q=3.851 rad -> 71.3%
+2026-01-30 13:28:27,715 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:27,747 - ezgripper_left - INFO - Command received: q=4.002 rad -> 74.1%
+2026-01-30 13:28:27,815 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:27,843 - ezgripper_left - INFO - Command received: q=4.148 rad -> 76.8%
+2026-01-30 13:28:27,916 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:27,955 - ezgripper_left - INFO - Command received: q=4.289 rad -> 79.4%
+2026-01-30 13:28:28,016 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:28,035 - ezgripper_left - INFO - Command received: q=4.423 rad -> 81.9%
+2026-01-30 13:28:28,116 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:28,147 - ezgripper_left - INFO - Command received: q=4.550 rad -> 84.3%
+2026-01-30 13:28:28,216 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:28,243 - ezgripper_left - INFO - Command received: q=4.670 rad -> 86.5%
+2026-01-30 13:28:28,316 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:28,339 - ezgripper_left - INFO - Command received: q=4.782 rad -> 88.6%
+2026-01-30 13:28:28,416 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:28,451 - ezgripper_left - INFO - Command received: q=4.886 rad -> 90.5%
+2026-01-30 13:28:28,501 - ezgripper_left - INFO - 📊 Monitor: State=196.8Hz | Cmd=90.5% | Pred=90.5% | Actual=86.0% | Err=0.0% | Track=4.5%
+2026-01-30 13:28:28,516 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:28,547 - ezgripper_left - INFO - Command received: q=4.981 rad -> 92.2%
+2026-01-30 13:28:28,616 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:28,643 - ezgripper_left - INFO - Command received: q=5.068 rad -> 93.8%
+2026-01-30 13:28:28,716 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:28,739 - ezgripper_left - INFO - Command received: q=5.144 rad -> 95.3%
+2026-01-30 13:28:28,817 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:28,835 - ezgripper_left - INFO - Command received: q=5.212 rad -> 96.5%
+2026-01-30 13:28:28,917 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:28,963 - ezgripper_left - INFO - Command received: q=5.269 rad -> 97.6%
+2026-01-30 13:28:29,017 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:29,043 - ezgripper_left - INFO - Command received: q=5.316 rad -> 98.4%
+2026-01-30 13:28:29,117 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:29,139 - ezgripper_left - INFO - Command received: q=5.353 rad -> 99.1%
+2026-01-30 13:28:29,217 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:29,236 - ezgripper_left - INFO - Command received: q=5.379 rad -> 99.6%
+2026-01-30 13:28:29,317 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:29,347 - ezgripper_left - INFO - Command received: q=5.395 rad -> 99.9%
+2026-01-30 13:28:29,417 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:29,443 - ezgripper_left - INFO - Executing: POSITION 52.1% (q=2.813, tau=0.000)
+2026-01-30 13:28:29,459 - ezgripper_left - INFO - Command received: q=5.400 rad -> 100.0%
+2026-01-30 13:28:29,517 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:29,539 - ezgripper_left - INFO - Command received: q=5.394 rad -> 99.9%
+2026-01-30 13:28:29,618 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:29,636 - ezgripper_left - INFO - Command received: q=5.378 rad -> 99.6%
+2026-01-30 13:28:29,718 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:29,747 - ezgripper_left - INFO - Command received: q=5.351 rad -> 99.1%
+2026-01-30 13:28:29,818 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:29,843 - ezgripper_left - INFO - Command received: q=5.314 rad -> 98.4%
+2026-01-30 13:28:29,918 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:29,955 - ezgripper_left - INFO - Command received: q=5.266 rad -> 97.5%
+2026-01-30 13:28:30,018 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:30,051 - ezgripper_left - INFO - Command received: q=5.208 rad -> 96.4%
+2026-01-30 13:28:30,083 - ezgripper_left - INFO - ⏱ Control loop: mean=90.9ms, max=128.2ms, p99=128.0ms, misses=90.91%
+2026-01-30 13:28:30,118 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:30,147 - ezgripper_left - INFO - Command received: q=5.140 rad -> 95.2%
+2026-01-30 13:28:30,218 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:30,243 - ezgripper_left - INFO - Command received: q=5.063 rad -> 93.8%
+2026-01-30 13:28:30,319 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:30,339 - ezgripper_left - INFO - Command received: q=4.976 rad -> 92.2%
+2026-01-30 13:28:30,419 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:30,467 - ezgripper_left - INFO - Command received: q=4.880 rad -> 90.4%
+2026-01-30 13:28:30,519 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:30,547 - ezgripper_left - INFO - Command received: q=4.776 rad -> 88.4%
+2026-01-30 13:28:30,619 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:30,643 - ezgripper_left - INFO - Command received: q=4.663 rad -> 86.4%
+2026-01-30 13:28:30,719 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:30,739 - ezgripper_left - INFO - Command received: q=4.543 rad -> 84.1%
+2026-01-30 13:28:30,819 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:30,851 - ezgripper_left - INFO - Command received: q=4.415 rad -> 81.8%
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+2026-01-30 13:28:30,919 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:30,964 - ezgripper_left - INFO - Command received: q=4.281 rad -> 79.3%
+2026-01-30 13:28:31,020 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:31,043 - ezgripper_left - INFO - Command received: q=4.140 rad -> 76.7%
+2026-01-30 13:28:31,120 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:31,139 - ezgripper_left - INFO - Command received: q=3.993 rad -> 73.9%
+2026-01-30 13:28:31,220 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:31,251 - ezgripper_left - INFO - Command received: q=3.842 rad -> 71.1%
+2026-01-30 13:28:31,320 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:31,347 - ezgripper_left - INFO - Command received: q=3.686 rad -> 68.3%
+2026-01-30 13:28:31,420 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:31,459 - ezgripper_left - INFO - Command received: q=3.526 rad -> 65.3%
+2026-01-30 13:28:31,520 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:31,539 - ezgripper_left - INFO - Command received: q=3.362 rad -> 62.3%
+2026-01-30 13:28:31,620 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:31,651 - ezgripper_left - INFO - Command received: q=3.196 rad -> 59.2%
+2026-01-30 13:28:31,720 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:31,747 - ezgripper_left - INFO - Command received: q=3.028 rad -> 56.1%
+2026-01-30 13:28:31,820 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:31,843 - ezgripper_left - INFO - Command received: q=2.859 rad -> 53.0%
+2026-01-30 13:28:31,921 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:31,939 - ezgripper_left - INFO - Executing: POSITION 44.8% (q=2.422, tau=0.000)
+2026-01-30 13:28:31,955 - ezgripper_left - INFO - Command received: q=2.690 rad -> 49.8%
+2026-01-30 13:28:32,021 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:32,051 - ezgripper_left - INFO - Command received: q=2.520 rad -> 46.7%
+2026-01-30 13:28:32,121 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:32,147 - ezgripper_left - INFO - Command received: q=2.351 rad -> 43.5%
+2026-01-30 13:28:32,221 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:32,243 - ezgripper_left - INFO - Command received: q=2.183 rad -> 40.4%
+2026-01-30 13:28:32,321 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:32,340 - ezgripper_left - INFO - Command received: q=2.017 rad -> 37.4%
+2026-01-30 13:28:32,422 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:32,468 - ezgripper_left - INFO - Command received: q=1.855 rad -> 34.3%
+2026-01-30 13:28:32,522 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:32,547 - ezgripper_left - INFO - Command received: q=1.695 rad -> 31.4%
+2026-01-30 13:28:32,622 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:32,643 - ezgripper_left - INFO - Command received: q=1.540 rad -> 28.5%
+2026-01-30 13:28:32,722 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:32,755 - ezgripper_left - INFO - Command received: q=1.389 rad -> 25.7%
+2026-01-30 13:28:32,822 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:32,851 - ezgripper_left - INFO - Command received: q=1.243 rad -> 23.0%
+2026-01-30 13:28:32,922 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:32,963 - ezgripper_left - INFO - Command received: q=1.103 rad -> 20.4%
+2026-01-30 13:28:33,022 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:33,043 - ezgripper_left - INFO - Command received: q=0.969 rad -> 17.9%
+2026-01-30 13:28:33,122 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:33,155 - ezgripper_left - INFO - Command received: q=0.842 rad -> 15.6%
+2026-01-30 13:28:33,223 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:33,251 - ezgripper_left - INFO - Command received: q=0.723 rad -> 13.4%
+2026-01-30 13:28:33,323 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:33,347 - ezgripper_left - INFO - Command received: q=0.611 rad -> 11.3%
+2026-01-30 13:28:33,423 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:33,460 - ezgripper_left - INFO - Command received: q=0.508 rad -> 9.4%
+2026-01-30 13:28:33,504 - ezgripper_left - INFO - 📊 Monitor: State=195.9Hz | Cmd=9.4% | Pred=44.4% | Actual=12.0% | Err=35.0% | Track=32.4%
+2026-01-30 13:28:33,523 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:33,555 - ezgripper_left - INFO - Command received: q=0.413 rad -> 7.6%
+2026-01-30 13:28:33,623 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:33,651 - ezgripper_left - INFO - Command received: q=0.327 rad -> 6.1%
+2026-01-30 13:28:33,723 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:33,747 - ezgripper_left - INFO - Command received: q=0.251 rad -> 4.6%
+2026-01-30 13:28:33,823 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:33,843 - ezgripper_left - INFO - Command received: q=0.184 rad -> 3.4%
+2026-01-30 13:28:33,923 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:33,972 - ezgripper_left - INFO - Command received: q=0.128 rad -> 2.4%
+2026-01-30 13:28:34,024 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:34,052 - ezgripper_left - INFO - Command received: q=0.081 rad -> 1.5%
+2026-01-30 13:28:34,124 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:34,147 - ezgripper_left - INFO - Command received: q=0.045 rad -> 0.8%
+2026-01-30 13:28:34,224 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:34,243 - ezgripper_left - INFO - Command received: q=0.019 rad -> 0.4%
+2026-01-30 13:28:34,324 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:34,356 - ezgripper_left - INFO - Command received: q=0.004 rad -> 0.1%
+2026-01-30 13:28:34,424 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:34,451 - ezgripper_left - INFO - Executing: POSITION 72.7% (q=3.928, tau=0.000)
+2026-01-30 13:28:34,467 - ezgripper_left - INFO - Command received: q=0.000 rad -> 0.0%
+2026-01-30 13:28:34,524 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:34,547 - ezgripper_left - INFO - Command received: q=0.006 rad -> 0.1%
+2026-01-30 13:28:34,625 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:34,644 - ezgripper_left - INFO - Command received: q=0.023 rad -> 0.4%
+2026-01-30 13:28:34,725 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:34,755 - ezgripper_left - INFO - Command received: q=0.051 rad -> 0.9%
+2026-01-30 13:28:34,825 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:34,851 - ezgripper_left - INFO - Command received: q=0.089 rad -> 1.6%
+2026-01-30 13:28:34,925 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:34,964 - ezgripper_left - INFO - Command received: q=0.137 rad -> 2.5%
+2026-01-30 13:28:35,025 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:35,043 - ezgripper_left - INFO - Command received: q=0.196 rad -> 3.6%
+2026-01-30 13:28:35,075 - ezgripper_left - INFO - ⏱ Control loop: mean=81.9ms, max=128.2ms, p99=128.0ms, misses=82.07%
+2026-01-30 13:28:35,125 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:35,155 - ezgripper_left - INFO - Command received: q=0.264 rad -> 4.9%
+2026-01-30 13:28:35,225 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:35,251 - ezgripper_left - INFO - Command received: q=0.342 rad -> 6.3%
+2026-01-30 13:28:35,325 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:35,347 - ezgripper_left - INFO - Command received: q=0.430 rad -> 8.0%
+2026-01-30 13:28:35,425 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:35,460 - ezgripper_left - INFO - Command received: q=0.526 rad -> 9.7%
+2026-01-30 13:28:35,526 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:35,555 - ezgripper_left - INFO - Command received: q=0.631 rad -> 11.7%
+2026-01-30 13:28:35,626 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:35,651 - ezgripper_left - INFO - Command received: q=0.744 rad -> 13.8%
+2026-01-30 13:28:35,726 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:35,747 - ezgripper_left - INFO - Command received: q=0.865 rad -> 16.0%
+2026-01-30 13:28:36,083 - ezgripper_left - INFO - Command received: q=1.269 rad -> 23.5%
+2026-01-30 13:28:36,126 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:36,149 - ezgripper_left - INFO - Command received: q=1.416 rad -> 26.2%
+2026-01-30 13:28:36,226 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:36,259 - ezgripper_left - INFO - Command received: q=1.568 rad -> 29.0%
+2026-01-30 13:28:36,327 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:36,355 - ezgripper_left - INFO - Command received: q=1.724 rad -> 31.9%
+2026-01-30 13:28:36,427 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:36,451 - ezgripper_left - INFO - Command received: q=1.884 rad -> 34.9%
+2026-01-30 13:28:36,527 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:36,547 - ezgripper_left - INFO - Command received: q=2.047 rad -> 37.9%
+2026-01-30 13:28:36,627 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:36,660 - ezgripper_left - INFO - Command received: q=2.213 rad -> 41.0%
+2026-01-30 13:28:36,727 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:36,755 - ezgripper_left - INFO - Command received: q=2.381 rad -> 44.1%
+2026-01-30 13:28:36,827 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:36,851 - ezgripper_left - INFO - Command received: q=2.551 rad -> 47.2%
+2026-01-30 13:28:36,927 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:36,947 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,028 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:37,059 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,128 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:37,156 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,187 - ezgripper_left - INFO - Executing: POSITION 77.7% (q=4.198, tau=0.000)
+2026-01-30 13:28:37,228 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:37,251 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,328 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:37,347 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,429 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:37,459 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,529 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:37,555 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,629 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:37,652 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,729 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:37,747 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,829 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:37,860 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:37,929 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:37,956 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,029 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+2026-01-30 13:28:38,052 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,129 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:38,148 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,229 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:38,260 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,329 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:38,356 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,430 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:38,452 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,506 - ezgripper_left - INFO - 📊 Monitor: State=196.1Hz | Cmd=79.7% | Pred=79.3% | Actual=74.0% | Err=0.4% | Track=5.3%
+2026-01-30 13:28:38,530 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:38,548 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,630 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:38,660 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,730 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:38,756 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,830 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:38,852 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:38,930 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:38,948 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,030 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:39,060 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,130 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:39,156 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,231 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:39,252 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,331 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:39,364 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,431 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:39,460 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,531 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:39,556 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,631 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:39,652 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,683 - ezgripper_left - INFO - Executing: POSITION 52.1% (q=2.813, tau=0.000)
+2026-01-30 13:28:39,731 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:39,764 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,831 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:39,860 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:39,931 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:39,956 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,032 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:40,052 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,084 - ezgripper_left - INFO - ⏱ Control loop: mean=76.9ms, max=334.7ms, p99=128.0ms, misses=77.96%
+2026-01-30 13:28:40,132 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:40,164 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,232 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:40,260 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,332 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:40,356 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,432 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:40,452 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,532 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:40,564 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,632 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:40,660 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,732 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:40,756 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,832 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:40,868 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:40,933 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:40,964 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,033 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:41,060 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,133 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:41,156 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,233 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:41,252 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,333 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:41,364 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,433 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:41,460 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,533 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:41,556 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,633 - ezgripper_left - INFO - Command received: q=2.726 rad -> 50.5%
+2026-01-30 13:28:41,652 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,734 - ezgripper_left - INFO - Command received: q=2.896 rad -> 53.6%
+2026-01-30 13:28:41,764 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,834 - ezgripper_left - INFO - Command received: q=3.065 rad -> 56.8%
+2026-01-30 13:28:41,860 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:41,934 - ezgripper_left - INFO - Command received: q=3.232 rad -> 59.9%
+2026-01-30 13:28:41,956 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,034 - ezgripper_left - INFO - Command received: q=3.398 rad -> 62.9%
+2026-01-30 13:28:42,052 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,134 - ezgripper_left - INFO - Command received: q=3.560 rad -> 65.9%
+2026-01-30 13:28:42,164 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,196 - ezgripper_left - INFO - Executing: POSITION 44.8% (q=2.422, tau=0.000)
+2026-01-30 13:28:42,234 - ezgripper_left - INFO - Command received: q=3.720 rad -> 68.9%
+2026-01-30 13:28:42,260 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,334 - ezgripper_left - INFO - Command received: q=3.875 rad -> 71.8%
+2026-01-30 13:28:42,356 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,435 - ezgripper_left - INFO - Command received: q=4.025 rad -> 74.5%
+2026-01-30 13:28:42,452 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,535 - ezgripper_left - INFO - Command received: q=4.171 rad -> 77.2%
+2026-01-30 13:28:42,564 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,635 - ezgripper_left - INFO - Command received: q=4.310 rad -> 79.8%
+2026-01-30 13:28:42,660 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,735 - ezgripper_left - INFO - Command received: q=4.443 rad -> 82.3%
+2026-01-30 13:28:42,756 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,835 - ezgripper_left - INFO - Command received: q=4.569 rad -> 84.6%
+2026-01-30 13:28:42,868 - ezgripper_left - INFO - Command received: q=2.422 rad -> 44.8%
+2026-01-30 13:28:42,935 - ezgripper_left - INFO - Command received: q=4.688 rad -> 86.8%
+2026-01-30 13:28:42,964 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,035 - ezgripper_left - INFO - Command received: q=4.799 rad -> 88.9%
+2026-01-30 13:28:43,060 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,135 - ezgripper_left - INFO - Command received: q=4.901 rad -> 90.8%
+2026-01-30 13:28:43,156 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,235 - ezgripper_left - INFO - Command received: q=4.995 rad -> 92.5%
+2026-01-30 13:28:43,268 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,336 - ezgripper_left - INFO - Command received: q=5.080 rad -> 94.1%
+2026-01-30 13:28:43,364 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,436 - ezgripper_left - INFO - Command received: q=5.156 rad -> 95.5%
+2026-01-30 13:28:43,460 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,509 - ezgripper_left - INFO - 📊 Monitor: State=196.1Hz | Cmd=58.6% | Pred=68.8% | Actual=62.0% | Err=10.1% | Track=6.8%
+2026-01-30 13:28:43,536 - ezgripper_left - INFO - Command received: q=5.221 rad -> 96.7%
+2026-01-30 13:28:43,556 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,636 - ezgripper_left - INFO - Command received: q=5.277 rad -> 97.7%
+2026-01-30 13:28:43,668 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,736 - ezgripper_left - INFO - Command received: q=5.323 rad -> 98.6%
+2026-01-30 13:28:43,764 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,836 - ezgripper_left - INFO - Command received: q=5.358 rad -> 99.2%
+2026-01-30 13:28:43,860 - ezgripper_left - INFO - Command received: q=3.167 rad -> 58.6%
+2026-01-30 13:28:43,936 - ezgripper_left - INFO - Command received: q=5.382 rad -> 99.7%
+2026-01-30 13:28:43,956 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,037 - ezgripper_left - INFO - Command received: q=5.396 rad -> 99.9%
+2026-01-30 13:28:44,068 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,137 - ezgripper_left - INFO - Command received: q=5.400 rad -> 100.0%
+2026-01-30 13:28:44,164 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,237 - ezgripper_left - INFO - Command received: q=5.392 rad -> 99.9%
+2026-01-30 13:28:44,260 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,337 - ezgripper_left - INFO - Command received: q=5.375 rad -> 99.5%
+2026-01-30 13:28:44,356 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,437 - ezgripper_left - INFO - Command received: q=5.346 rad -> 99.0%
+2026-01-30 13:28:44,468 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,537 - ezgripper_left - INFO - Command received: q=5.307 rad -> 98.3%
+2026-01-30 13:28:44,564 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,637 - ezgripper_left - INFO - Command received: q=5.258 rad -> 97.4%
+2026-01-30 13:28:44,660 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,692 - ezgripper_left - INFO - Executing: POSITION 72.7% (q=3.928, tau=0.000)
+2026-01-30 13:28:44,737 - ezgripper_left - INFO - Command received: q=5.198 rad -> 96.3%
+2026-01-30 13:28:44,756 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,837 - ezgripper_left - INFO - Command received: q=5.129 rad -> 95.0%
+2026-01-30 13:28:44,868 - ezgripper_left - INFO - Command received: q=3.928 rad -> 72.7%
+2026-01-30 13:28:44,937 - ezgripper_left - INFO - Command received: q=5.050 rad -> 93.5%
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+2026-01-30 13:28:44,964 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,038 - ezgripper_left - INFO - Command received: q=4.962 rad -> 91.9%
+2026-01-30 13:28:45,060 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,092 - ezgripper_left - INFO - ⏱ Control loop: mean=72.7ms, max=334.7ms, p99=128.0ms, misses=75.23%
+2026-01-30 13:28:45,138 - ezgripper_left - INFO - Command received: q=4.865 rad -> 90.1%
+2026-01-30 13:28:45,156 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,238 - ezgripper_left - INFO - Command received: q=4.759 rad -> 88.1%
+2026-01-30 13:28:45,268 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,338 - ezgripper_left - INFO - Command received: q=4.645 rad -> 86.0%
+2026-01-30 13:28:45,364 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,438 - ezgripper_left - INFO - Command received: q=4.524 rad -> 83.8%
+2026-01-30 13:28:45,460 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,538 - ezgripper_left - INFO - Command received: q=4.395 rad -> 81.4%
+2026-01-30 13:28:45,556 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,639 - ezgripper_left - INFO - Command received: q=4.259 rad -> 78.9%
+2026-01-30 13:28:45,668 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,738 - ezgripper_left - INFO - Command received: q=4.117 rad -> 76.2%
+2026-01-30 13:28:45,764 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,839 - ezgripper_left - INFO - Command received: q=3.970 rad -> 73.5%
+2026-01-30 13:28:45,860 - ezgripper_left - INFO - Command received: q=0.609 rad -> 11.3%
+2026-01-30 13:28:45,939 - ezgripper_left - INFO - Command received: q=3.818 rad -> 70.7%
+2026-01-30 13:28:45,972 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,039 - ezgripper_left - INFO - Command received: q=3.661 rad -> 67.8%
+2026-01-30 13:28:46,068 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,139 - ezgripper_left - INFO - Command received: q=3.501 rad -> 64.8%
+2026-01-30 13:28:46,164 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,239 - ezgripper_left - INFO - Command received: q=3.337 rad -> 61.8%
+2026-01-30 13:28:46,260 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,339 - ezgripper_left - INFO - Command received: q=3.171 rad -> 58.7%
+2026-01-30 13:28:46,372 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,439 - ezgripper_left - INFO - Command received: q=3.003 rad -> 55.6%
+2026-01-30 13:28:46,468 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,539 - ezgripper_left - INFO - Command received: q=2.834 rad -> 52.5%
+2026-01-30 13:28:46,564 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,639 - ezgripper_left - INFO - Command received: q=2.664 rad -> 49.3%
+2026-01-30 13:28:46,660 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,740 - ezgripper_left - INFO - Command received: q=2.494 rad -> 46.2%
+2026-01-30 13:28:46,772 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,840 - ezgripper_left - INFO - Command received: q=2.325 rad -> 43.1%
+2026-01-30 13:28:46,868 - ezgripper_left - INFO - Command received: q=2.833 rad -> 52.5%
+2026-01-30 13:28:46,940 - ezgripper_left - INFO - Command received: q=2.158 rad -> 40.0%
+2026-01-30 13:28:46,964 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,040 - ezgripper_left - INFO - Command received: q=1.993 rad -> 36.9%
+2026-01-30 13:28:47,060 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,140 - ezgripper_left - INFO - Command received: q=1.830 rad -> 33.9%
+2026-01-30 13:28:47,172 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,204 - ezgripper_left - INFO - Executing: POSITION 45.0% (q=2.432, tau=0.000)
+2026-01-30 13:28:47,240 - ezgripper_left - INFO - Command received: q=1.671 rad -> 31.0%
+2026-01-30 13:28:47,268 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,340 - ezgripper_left - INFO - Command received: q=1.516 rad -> 28.1%
+2026-01-30 13:28:47,364 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,440 - ezgripper_left - INFO - Command received: q=1.366 rad -> 25.3%
+2026-01-30 13:28:47,460 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,541 - ezgripper_left - INFO - Command received: q=1.221 rad -> 22.6%
+2026-01-30 13:28:47,572 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,641 - ezgripper_left - INFO - Command received: q=1.082 rad -> 20.0%
+2026-01-30 13:28:47,668 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,741 - ezgripper_left - INFO - Command received: q=0.949 rad -> 17.6%
+2026-01-30 13:28:47,764 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,841 - ezgripper_left - INFO - Command received: q=0.824 rad -> 15.3%
+2026-01-30 13:28:47,860 - ezgripper_left - INFO - Command received: q=2.432 rad -> 45.0%
+2026-01-30 13:28:47,941 - ezgripper_left - INFO - Command received: q=0.705 rad -> 13.1%
+2026-01-30 13:28:47,972 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,041 - ezgripper_left - INFO - Command received: q=0.595 rad -> 11.0%
+2026-01-30 13:28:48,068 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,141 - ezgripper_left - INFO - Command received: q=0.493 rad -> 9.1%
+2026-01-30 13:28:48,164 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,241 - ezgripper_left - INFO - Command received: q=0.399 rad -> 7.4%
+2026-01-30 13:28:48,260 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,341 - ezgripper_left - INFO - Command received: q=0.315 rad -> 5.8%
+2026-01-30 13:28:48,372 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,442 - ezgripper_left - INFO - Command received: q=0.240 rad -> 4.4%
+2026-01-30 13:28:48,468 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,512 - ezgripper_left - INFO - 📊 Monitor: State=195.1Hz | Cmd=55.5% | Pred=41.3% | Actual=50.0% | Err=14.2% | Track=8.7%
+2026-01-30 13:28:48,542 - ezgripper_left - INFO - Command received: q=0.175 rad -> 3.2%
+2026-01-30 13:28:48,564 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,642 - ezgripper_left - INFO - Command received: q=0.120 rad -> 2.2%
+2026-01-30 13:28:48,660 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,742 - ezgripper_left - INFO - Command received: q=0.075 rad -> 1.4%
+2026-01-30 13:28:48,772 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,842 - ezgripper_left - INFO - Command received: q=0.040 rad -> 0.7%
+2026-01-30 13:28:48,869 - ezgripper_left - INFO - Command received: q=2.996 rad -> 55.5%
+2026-01-30 13:28:48,942 - ezgripper_left - INFO - Command received: q=0.016 rad -> 0.3%
+2026-01-30 13:28:48,964 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:49,042 - ezgripper_left - INFO - Command received: q=0.003 rad -> 0.1%
+2026-01-30 13:28:49,060 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:49,143 - ezgripper_left - INFO - Command received: q=0.000 rad -> 0.0%
+2026-01-30 13:28:49,172 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:49,243 - ezgripper_left - INFO - Command received: q=0.008 rad -> 0.2%
+2026-01-30 13:28:49,268 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:49,584 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:49,643 - ezgripper_left - INFO - Command received: q=0.146 rad -> 2.7%
+2026-01-30 13:28:49,668 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:49,743 - ezgripper_left - INFO - Command received: q=0.206 rad -> 3.8%
+2026-01-30 13:28:49,764 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:49,844 - ezgripper_left - INFO - Command received: q=0.276 rad -> 5.1%
+2026-01-30 13:28:49,876 - ezgripper_left - INFO - Command received: q=1.094 rad -> 20.3%
+2026-01-30 13:28:49,944 - ezgripper_left - INFO - Command received: q=0.355 rad -> 6.6%
+2026-01-30 13:28:49,972 - ezgripper_left - INFO - Executing: POSITION 6.6% (q=0.355, tau=0.000)
+2026-01-30 13:28:49,988 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,044 - ezgripper_left - INFO - Command received: q=0.444 rad -> 8.2%
+2026-01-30 13:28:50,068 - ezgripper_left - INFO - ⏱ Control loop: mean=70.2ms, max=334.7ms, p99=128.0ms, misses=73.40%
+2026-01-30 13:28:50,069 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,144 - ezgripper_left - INFO - Command received: q=0.542 rad -> 10.0%
+2026-01-30 13:28:50,164 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,245 - ezgripper_left - INFO - Command received: q=0.648 rad -> 12.0%
+2026-01-30 13:28:50,276 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,344 - ezgripper_left - INFO - Command received: q=0.762 rad -> 14.1%
+2026-01-30 13:28:50,372 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,444 - ezgripper_left - INFO - Command received: q=0.884 rad -> 16.4%
+2026-01-30 13:28:50,485 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,544 - ezgripper_left - INFO - Command received: q=1.014 rad -> 18.8%
+2026-01-30 13:28:50,565 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,645 - ezgripper_left - INFO - Command received: q=1.150 rad -> 21.3%
+2026-01-30 13:28:50,676 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,745 - ezgripper_left - INFO - Command received: q=1.292 rad -> 23.9%
+2026-01-30 13:28:50,773 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,845 - ezgripper_left - INFO - Command received: q=1.439 rad -> 26.7%
+2026-01-30 13:28:50,868 - ezgripper_left - INFO - Command received: q=4.806 rad -> 89.0%
+2026-01-30 13:28:50,945 - ezgripper_left - INFO - Command received: q=1.592 rad -> 29.5%
+2026-01-30 13:28:50,980 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,045 - ezgripper_left - INFO - Command received: q=1.749 rad -> 32.4%
+2026-01-30 13:28:51,076 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,145 - ezgripper_left - INFO - Command received: q=1.909 rad -> 35.4%
+2026-01-30 13:28:51,173 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,245 - ezgripper_left - INFO - Command received: q=2.073 rad -> 38.4%
+2026-01-30 13:28:51,268 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,345 - ezgripper_left - INFO - Command received: q=2.239 rad -> 41.5%
+2026-01-30 13:28:51,364 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,445 - ezgripper_left - INFO - Command received: q=2.407 rad -> 44.6%
+2026-01-30 13:28:51,493 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,545 - ezgripper_left - INFO - Command received: q=2.577 rad -> 47.7%
+2026-01-30 13:28:51,572 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,646 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:51,668 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,746 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:51,764 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,846 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:51,876 - ezgripper_left - INFO - Command received: q=1.470 rad -> 27.2%
+2026-01-30 13:28:51,946 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:51,989 - ezgripper_left - INFO - Command received: q=2.749 rad -> 50.9%
+2026-01-30 13:28:52,046 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:52,069 - ezgripper_left - INFO - Command received: q=2.919 rad -> 54.0%
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+set_max_effort(100): goal current: 1359 (position control)
+2026-01-30 13:28:52,146 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:52,164 - ezgripper_left - INFO - Command received: q=3.087 rad -> 57.2%
+2026-01-30 13:28:52,247 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:52,276 - ezgripper_left - INFO - Command received: q=3.255 rad -> 60.3%
+2026-01-30 13:28:52,347 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:52,373 - ezgripper_left - INFO - Command received: q=3.420 rad -> 63.3%
+2026-01-30 13:28:52,447 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:52,468 - ezgripper_left - INFO - Executing: POSITION 77.7% (q=4.198, tau=0.000)
+2026-01-30 13:28:52,485 - ezgripper_left - INFO - Command received: q=3.582 rad -> 66.3%
+2026-01-30 13:28:52,547 - ezgripper_left - INFO - Command received: q=4.198 rad -> 77.7%
+2026-01-30 13:28:52,564 - ezgripper_left - INFO - Command received: q=3.741 rad -> 69.3%
+2026-01-30 13:28:52,647 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:52,676 - ezgripper_left - INFO - Command received: q=3.895 rad -> 72.1%
+2026-01-30 13:28:52,747 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:52,773 - ezgripper_left - INFO - Command received: q=4.045 rad -> 74.9%
+2026-01-30 13:28:52,847 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:52,868 - ezgripper_left - INFO - Command received: q=4.190 rad -> 77.6%
+2026-01-30 13:28:52,947 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:52,997 - ezgripper_left - INFO - Command received: q=4.328 rad -> 80.2%
+2026-01-30 13:28:53,048 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:53,077 - ezgripper_left - INFO - Command received: q=4.460 rad -> 82.6%
+2026-01-30 13:28:53,148 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:53,173 - ezgripper_left - INFO - Command received: q=4.586 rad -> 84.9%
+2026-01-30 13:28:53,248 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:53,269 - ezgripper_left - INFO - Command received: q=4.703 rad -> 87.1%
+2026-01-30 13:28:53,348 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:53,381 - ezgripper_left - INFO - Command received: q=4.813 rad -> 89.1%
+2026-01-30 13:28:53,448 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:53,493 - ezgripper_left - INFO - Command received: q=4.915 rad -> 91.0%
+2026-01-30 13:28:53,513 - ezgripper_left - INFO - 📊 Monitor: State=195.8Hz | Cmd=79.7% | Pred=79.7% | Actual=87.0% | Err=0.0% | Track=7.3%
+2026-01-30 13:28:53,548 - ezgripper_left - INFO - Command received: q=4.302 rad -> 79.7%
+2026-01-30 13:28:53,573 - ezgripper_left - INFO - Command received: q=5.007 rad -> 92.7%
+2026-01-30 13:28:53,648 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:53,669 - ezgripper_left - INFO - Command received: q=5.091 rad -> 94.3%
+2026-01-30 13:28:53,749 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:53,781 - ezgripper_left - INFO - Command received: q=5.165 rad -> 95.6%
+2026-01-30 13:28:53,849 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:53,877 - ezgripper_left - INFO - Command received: q=5.229 rad -> 96.8%
+2026-01-30 13:28:53,949 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:53,989 - ezgripper_left - INFO - Command received: q=5.284 rad -> 97.8%
+2026-01-30 13:28:54,049 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:54,069 - ezgripper_left - INFO - Command received: q=5.328 rad -> 98.7%
+2026-01-30 13:28:54,149 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:54,181 - ezgripper_left - INFO - Command received: q=5.362 rad -> 99.3%
+2026-01-30 13:28:54,249 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:54,277 - ezgripper_left - INFO - Command received: q=5.385 rad -> 99.7%
+2026-01-30 13:28:54,349 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:54,373 - ezgripper_left - INFO - Command received: q=5.398 rad -> 100.0%
+2026-01-30 13:28:54,449 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:54,485 - ezgripper_left - INFO - Command received: q=5.399 rad -> 100.0%
+2026-01-30 13:28:54,549 - ezgripper_left - INFO - Command received: q=2.813 rad -> 52.1%
+2026-01-30 13:28:54,581 - ezgripper_left - INFO - Command received: q=5.391 rad -> 99.8%
+2026-01-30 13:28:54,650 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:54,677 - ezgripper_left - INFO - Command received: q=5.371 rad -> 99.5%
+2026-01-30 13:28:54,750 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:54,773 - ezgripper_left - INFO - Command received: q=5.341 rad -> 98.9%
+2026-01-30 13:28:54,850 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:54,869 - ezgripper_left - INFO - Command received: q=5.301 rad -> 98.2%
+2026-01-30 13:28:54,950 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:54,980 - ezgripper_left - INFO - Executing: POSITION 49.7% (q=2.686, tau=0.000)
+2026-01-30 13:28:54,997 - ezgripper_left - INFO - Command received: q=5.250 rad -> 97.2%
+2026-01-30 13:28:55,050 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:55,077 - ezgripper_left - INFO - ⏱ Control loop: mean=67.7ms, max=334.7ms, p99=128.0ms, misses=70.66%
+2026-01-30 13:28:55,077 - ezgripper_left - INFO - Command received: q=5.190 rad -> 96.1%
+2026-01-30 13:28:55,150 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:55,173 - ezgripper_left - INFO - Command received: q=5.119 rad -> 94.8%
+2026-01-30 13:28:55,250 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:55,269 - ezgripper_left - INFO - Command received: q=5.039 rad -> 93.3%
+2026-01-30 13:28:55,350 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:55,381 - ezgripper_left - INFO - Command received: q=4.949 rad -> 91.7%
+2026-01-30 13:28:55,451 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:55,493 - ezgripper_left - INFO - Command received: q=4.851 rad -> 89.8%
+2026-01-30 13:28:55,551 - ezgripper_left - INFO - Command received: q=2.686 rad -> 49.7%
+2026-01-30 13:28:55,573 - ezgripper_left - INFO - Command received: q=4.744 rad -> 87.9%
+2026-01-30 13:28:55,651 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:55,669 - ezgripper_left - INFO - Command received: q=4.629 rad -> 85.7%
+2026-01-30 13:28:55,751 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:55,781 - ezgripper_left - INFO - Command received: q=4.506 rad -> 83.5%
+2026-01-30 13:28:56,002 - ezgripper_left - ERROR - Command execution failed: [TxRxResult] There is no status packet!
+2026-01-30 13:28:56,002 - ezgripper_left - ERROR - Exception type: <class 'libezgripper.lib_robotis.CommunicationError'>
+2026-01-30 13:28:56,004 - ezgripper_left - ERROR - Traceback: Traceback (most recent call last):
+  File "/home/sokul/CascadeProjects/unitree-dex1-ezgripper-driver/ezgripper_dds_driver.py", line 617, in execute_command
+    self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+  File "/home/sokul/CascadeProjects/unitree-dex1-ezgripper-driver/libezgripper/ezgripper_base.py", line 397, in goto_position
+    self.servos[i].write_word(self.config.reg_goal_position, target_raw_pos)
+  File "/home/sokul/CascadeProjects/unitree-dex1-ezgripper-driver/libezgripper/lib_robotis.py", line 162, in write_word
+    self.write_address(addr, data)
+  File "/home/sokul/CascadeProjects/unitree-dex1-ezgripper-driver/libezgripper/lib_robotis.py", line 131, in write_address
+    raise CommunicationError(
+libezgripper.lib_robotis.CommunicationError: [TxRxResult] There is no status packet!
+
+2026-01-30 13:28:56,004 - ezgripper_left - INFO - Command received: q=4.240 rad -> 78.5%
+2026-01-30 13:28:56,051 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:56,071 - ezgripper_left - INFO - Command received: q=4.098 rad -> 75.9%
+2026-01-30 13:28:56,151 - ezgripper_left - INFO - Command received: q=2.274 rad -> 42.1%
+2026-01-30 13:28:56,165 - ezgripper_left - ERROR - Control thread error: list index out of range
+2026-01-30 13:28:56,165 - ezgripper_left - INFO - Control thread stopped
+2026-01-30 13:28:58,513 - ezgripper_left - INFO - 📊 Monitor: State=198.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:03,517 - ezgripper_left - INFO - 📊 Monitor: State=199.9Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:08,518 - ezgripper_left - INFO - 📊 Monitor: State=199.9Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:13,523 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:18,523 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:23,524 - ezgripper_left - INFO - 📊 Monitor: State=199.7Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:28,525 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:33,525 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:38,525 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:43,525 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:48,525 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:53,525 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:29:58,525 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:03,526 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:08,526 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:13,526 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:18,526 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:23,526 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:28,526 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:33,531 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:38,531 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:43,531 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:48,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:53,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:30:58,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:03,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:08,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:13,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:18,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:23,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:28,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:33,532 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:38,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:43,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:48,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:53,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:31:58,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:03,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:08,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:13,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:18,533 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:23,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:28,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:33,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:38,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:43,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:48,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:53,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:32:58,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:03,534 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:08,535 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:13,535 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:18,535 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:23,535 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:28,535 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:33,535 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:38,535 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:43,535 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:48,536 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:53,536 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:33:58,536 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:34:03,536 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
+2026-01-30 13:34:08,536 - ezgripper_left - INFO - 📊 Monitor: State=200.0Hz | Cmd=42.1% | Pred=42.1% | Actual=89.0% | Err=0.0% | Track=46.9%
