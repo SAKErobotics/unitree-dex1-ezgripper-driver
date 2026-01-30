@@ -93,7 +93,28 @@
             "hardware_error": {"type": "integer", "minimum": 0, "maximum": 255},
             "homing_offset": {"type": "integer", "minimum": 0, "maximum": 255},
             "velocity_limit": {"type": "integer", "minimum": 0, "maximum": 255},
-            "temperature_limit": {"type": "integer", "minimum": 0, "maximum": 255}
+            "temperature_limit": {"type": "integer", "minimum": 0, "maximum": 255},
+            "return_delay_time": {"type": "integer", "minimum": 0, "maximum": 255},
+            "status_return_level": {"type": "integer", "minimum": 0, "maximum": 255}
+          }
+        },
+        "eeprom_settings": {
+          "type": "object",
+          "description": "EEPROM optimization settings for best performance",
+          "required": ["return_delay_time", "status_return_level"],
+          "properties": {
+            "return_delay_time": {
+              "type": "integer",
+              "description": "Return delay time (0 = immediate response, best performance)",
+              "minimum": 0,
+              "maximum": 254
+            },
+            "status_return_level": {
+              "type": "integer",
+              "description": "Status return level (0=none, 1=READ only, 2=all commands)",
+              "minimum": 0,
+              "maximum": 2
+            }
           }
         }
       }
@@ -257,6 +278,11 @@
           "type": "number",
           "description": "Communication timeout (seconds)",
           "minimum": 0
+        },
+        "smart_init": {
+          "type": "boolean",
+          "description": "Read servo values before writing to prevent EEPROM wear",
+          "default": true
         }
       }
     },

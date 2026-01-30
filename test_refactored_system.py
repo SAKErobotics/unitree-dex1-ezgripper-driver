@@ -15,6 +15,7 @@ from libezgripper.config import load_config
 from libezgripper.health_monitor import HealthMonitor
 from libezgripper.wave_controller import WaveController
 from libezgripper.error_handler import check_hardware_error, clear_error_via_reboot
+from libezgripper.servo_init import get_eeprom_info, verify_eeprom_settings
 from libezgripper import create_connection, Gripper
 
 logging.basicConfig(level=logging.INFO, format='%(levelname)s: %(message)s')
@@ -35,6 +36,10 @@ try:
     print(f"  Max current: {config.max_current} units")
     print(f"  Temp shutdown: {config.temp_shutdown}°C")
     print(f"  Grip max: {config.grip_max}")
+    print(f"  EEPROM settings:")
+    print(f"    Return delay time: {config.eeprom_return_delay_time}")
+    print(f"    Status return level: {config.eeprom_status_return_level}")
+    print(f"  Smart init: {config.comm_smart_init}")
 except Exception as e:
     print(f"✗ Config loading failed: {e}")
     sys.exit(1)
@@ -81,6 +86,18 @@ try:
     
     gripper = Gripper(connection, 'test_gripper', [config.comm_servo_id], config)
     print("✓ Gripper created with config")
+    print("  Smart EEPROM initialization completed")
+    
+    # Verify EEPROM settings
+    eeprom_info = get_eeprom_info(gripper.servos[0], config)
+    print(f"  Current EEPROM values:")
+    print(f"    Return delay time: {eeprom_info.get('return_delay_time', 'N/A')}")
+    print(f"    Status return level: {eeprom_info.get('status_return_level', 'N/A')}")
+    
+    if verify_eeprom_settings(gripper.servos[0], config):
+        print("  ✓ EEPROM settings verified and optimized")
+    else:
+        print("  ⚠ EEPROM settings verification failed")
     
     # Test 4: Health Monitor
     print("\n4. Testing Health Monitor")

@@ -33,6 +33,7 @@
 
 from .lib_robotis import create_connection, Robotis_Servo
 from .config import Config
+from .servo_init import smart_init_servo, log_eeprom_optimization
 import time
 import logging
 
@@ -74,6 +75,12 @@ class Gripper:
         self.name = name
         self.config = config
         self.servos = [Robotis_Servo( connection, servo_id ) for servo_id in servo_ids]
+        
+        # Smart EEPROM initialization (read before write to prevent wear)
+        if config.comm_smart_init:
+            for servo in self.servos:
+                results = smart_init_servo(servo, config)
+                log_eeprom_optimization(results)
         
         # Protocol 2.0: Set operating mode (must disable torque first)
         for servo in self.servos:

@@ -26,7 +26,13 @@
       "hardware_error": 70,
       "homing_offset": 20,
       "velocity_limit": 44,
-      "temperature_limit": 31
+      "temperature_limit": 31,
+      "return_delay_time": 5,
+      "status_return_level": 16
+    },
+    "eeprom_settings": {
+      "return_delay_time": 0,
+      "status_return_level": 1
     }
   },
   "gripper": {
@@ -71,7 +77,8 @@
     "baudrate": 1000000,
     "protocol_version": 2.0,
     "servo_id": 1,
-    "timeout": 0.5
+    "timeout": 0.5,
+    "smart_init": true
   },
   "logging": {
     "enabled": true,

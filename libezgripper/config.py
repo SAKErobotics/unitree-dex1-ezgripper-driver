@@ -101,6 +101,23 @@ class Config:
     def reg_homing_offset(self) -> int:
         return self._config['servo']['registers']['homing_offset']
     
+    @property
+    def reg_return_delay_time(self) -> int:
+        return self._config['servo']['registers']['return_delay_time']
+    
+    @property
+    def reg_status_return_level(self) -> int:
+        return self._config['servo']['registers']['status_return_level']
+    
+    # EEPROM optimization settings
+    @property
+    def eeprom_return_delay_time(self) -> int:
+        return self._config['servo']['eeprom_settings']['return_delay_time']
+    
+    @property
+    def eeprom_status_return_level(self) -> int:
+        return self._config['servo']['eeprom_settings']['status_return_level']
+    
     # Gripper configuration
     @property
     def grip_max(self) -> int:
@@ -205,6 +222,10 @@ class Config:
     @property
     def comm_timeout(self) -> float:
         return self._config['communication'].get('timeout', 0.5)
+    
+    @property
+    def comm_smart_init(self) -> bool:
+        return self._config['communication'].get('smart_init', True)
     
     # Logging configuration
     @property
