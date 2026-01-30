@@ -82,11 +82,14 @@ class Gripper:
                 results = smart_init_servo(servo, config)
                 log_eeprom_optimization(results)
         
-        # Protocol 2.0: Set operating mode (must disable torque first)
+        # Protocol 2.0: Set operating mode and current limit (must disable torque first)
+        # Current Limit is EEPROM - set ONCE during init, then use Goal Current for dynamic control
         for servo in self.servos:
             servo.write_address(config.reg_torque_enable, [0])  # Disable torque
             time.sleep(0.05)
             servo.ensure_byte_set(config.reg_operating_mode, 3)  # Operating Mode = 3 (Position Control)
+            # Set hardware current limit to max_current (EEPROM - write once)
+            servo.write_word(config.reg_current_limit, config.max_current)
             servo.write_address(config.reg_torque_enable, [1])  # Re-enable torque
             time.sleep(0.05)
         self.zero_positions = [0] * len(self.servos)
@@ -132,21 +135,17 @@ class Gripper:
         print("calibration done")
 
     def set_max_effort(self, max_effort):
-        # Protocol 2.0: Use Current Limit instead of Torque Limit
+        # Protocol 2.0: Use Goal Current (RAM) for dynamic current control
         # range 0-100% (0-100)
-        # Note: Current Limit (register 38) is EEPROM, requires torque disabled
+        # Goal Current (register 102) is RAM - can write with torque enabled, no EEPROM wear
 
-        moving_current = self.scale(max_effort, self.config.max_current)
+        goal_current = self.scale(max_effort, self.config.max_current)
 
-        print("set_max_effort(%d): current limit: %d (position control)"%(max_effort, moving_current))
+        print("set_max_effort(%d): goal current: %d (position control)"%(max_effort, goal_current))
         for servo in self.servos:
-            # Disable torque to write EEPROM register
-            servo.write_address(self.config.reg_torque_enable, [0])
-            time.sleep(0.01)
-            servo.write_word(self.config.reg_current_limit, moving_current)
-            # Re-enable torque
-            servo.write_address(self.config.reg_torque_enable, [1])
-            time.sleep(0.01)
+            # Write to Goal Current (RAM register - 2 bytes, fast, no EEPROM wear)
+            data = [goal_current & 0xFF, (goal_current >> 8) & 0xFF]
+            servo.write_address(self.config.reg_goal_current, data)
 
     def _goto_position(self, position):
         for servo in self.servos:

@@ -18,6 +18,7 @@
       "operating_mode": 11,
       "torque_enable": 64,
       "current_limit": 38,
+      "goal_current": 102,
       "goal_position": 116,
       "present_position": 132,
       "present_temperature": 146,

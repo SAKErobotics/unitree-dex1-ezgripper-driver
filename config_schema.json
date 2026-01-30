@@ -85,6 +85,7 @@
             "operating_mode": {"type": "integer", "minimum": 0, "maximum": 255},
             "torque_enable": {"type": "integer", "minimum": 0, "maximum": 255},
             "current_limit": {"type": "integer", "minimum": 0, "maximum": 255},
+            "goal_current": {"type": "integer", "minimum": 0, "maximum": 255},
             "goal_position": {"type": "integer", "minimum": 0, "maximum": 255},
             "present_position": {"type": "integer", "minimum": 0, "maximum": 255},
             "present_temperature": {"type": "integer", "minimum": 0, "maximum": 255},

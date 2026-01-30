@@ -74,6 +74,10 @@ class Config:
         return self._config['servo']['registers']['current_limit']
     
     @property
+    def reg_goal_current(self) -> int:
+        return self._config['servo']['registers']['goal_current']
+    
+    @property
     def reg_goal_position(self) -> int:
         return self._config['servo']['registers']['goal_position']
     
