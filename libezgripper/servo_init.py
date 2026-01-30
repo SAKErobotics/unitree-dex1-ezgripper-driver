@@ -27,6 +27,12 @@ def smart_init_servo(servo, config) -> Dict[str, Tuple[int, int, bool]]:
     logger = logging.getLogger(__name__)
     results = {}
     
+    # Disable torque before writing EEPROM (required for Protocol 2.0)
+    try:
+        servo.write_address(config.reg_torque_enable, [0])
+    except Exception as e:
+        logger.warning(f"Could not disable torque: {e}")
+    
     # EEPROM settings to check and update
     eeprom_settings = {
         'return_delay_time': (
@@ -71,6 +77,12 @@ def smart_init_servo(servo, config) -> Dict[str, Tuple[int, int, bool]]:
         except Exception as e:
             logger.error(f"Failed to initialize {setting_name}: {e}")
             results[setting_name] = (None, desired_value, False)
+    
+    # Re-enable torque after EEPROM writes
+    try:
+        servo.write_address(config.reg_torque_enable, [1])
+    except Exception as e:
+        logger.warning(f"Could not re-enable torque: {e}")
     
     return results
 

@@ -134,12 +134,19 @@ class Gripper:
     def set_max_effort(self, max_effort):
         # Protocol 2.0: Use Current Limit instead of Torque Limit
         # range 0-100% (0-100)
+        # Note: Current Limit (register 38) is EEPROM, requires torque disabled
 
         moving_current = self.scale(max_effort, self.config.max_current)
 
         print("set_max_effort(%d): current limit: %d (position control)"%(max_effort, moving_current))
         for servo in self.servos:
+            # Disable torque to write EEPROM register
+            servo.write_address(self.config.reg_torque_enable, [0])
+            time.sleep(0.01)
             servo.write_word(self.config.reg_current_limit, moving_current)
+            # Re-enable torque
+            servo.write_address(self.config.reg_torque_enable, [1])
+            time.sleep(0.01)
 
     def _goto_position(self, position):
         for servo in self.servos:
