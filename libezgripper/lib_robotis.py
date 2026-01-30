@@ -125,7 +125,9 @@ class USB2Dynamixel_Device():
 
     def _open_serial(self, baudrate):
         try:
-            self.servo_dev = serial.serial_for_url(url=self.dev_name, baudrate=baudrate, timeout=0.2, writeTimeout=0.2)
+            # Increase timeout for high baudrate (1 Mbps) to avoid buffer issues
+            timeout = 0.5 if baudrate >= 1000000 else 0.2
+            self.servo_dev = serial.serial_for_url(url=self.dev_name, baudrate=baudrate, timeout=timeout, writeTimeout=timeout)
             # Closing the device first seems to prevent "Access Denied" errors on WinXP
             # (Conversations with Brian Wu @ MIT on 6/23/2010)
             self.servo_dev.close()  
@@ -135,6 +137,9 @@ class USB2Dynamixel_Device():
 
             self.servo_dev.flushOutput()
             self.servo_dev.flushInput()
+            
+            # Give serial port time to stabilize, especially at high baudrates (1 Mbps)
+            time.sleep(0.1)
 
         except (serial.serialutil.SerialException) as e:
             raise RuntimeError("lib_robotis: Serial port not found!\n%s"%e)
@@ -331,7 +336,12 @@ class Robotis_Servo():
         ''' reads nBytes from address on the servo.
             returns [n1,n2 ...] (list of parameters)
         '''
-        msg = [ 0x02, address, nBytes ]
+        # Protocol 2.0: READ instruction requires 2-byte address and 2-byte length
+        addr_l = address & 0xFF
+        addr_h = (address >> 8) & 0xFF
+        len_l = nBytes & 0xFF
+        len_h = (nBytes >> 8) & 0xFF
+        msg = [ 0x02, addr_l, addr_h, len_l, len_h ]
         return self.send_instruction( msg )
 
     def write_address(self, address, data):
@@ -339,7 +349,10 @@ class Robotis_Servo():
             data = [n1,n2 ...] list of numbers.
             return [n1,n2 ...] (list of return parameters)
         '''
-        msg = [ 0x03, address ] + data
+        # Protocol 2.0: WRITE instruction requires 2-byte address
+        addr_l = address & 0xFF
+        addr_h = (address >> 8) & 0xFF
+        msg = [ 0x03, addr_l, addr_h ] + data
         return self.send_instruction( msg )
 
     def write_addressX(self, address, data):
@@ -347,7 +360,10 @@ class Robotis_Servo():
             data = [n1,n2 ...] list of numbers.
             return [n1,n2 ...] (list of return parameters)
         '''
-        msg = [ 0x03, address ] + data
+        # Protocol 2.0: WRITE instruction requires 2-byte address
+        addr_l = address & 0xFF
+        addr_h = (address >> 8) & 0xFF
+        msg = [ 0x03, addr_l, addr_h ] + data
         return self.send_instruction( msg, exceptionOnErrorResponse = False )
 
     def bulk_read(self, read_list):
