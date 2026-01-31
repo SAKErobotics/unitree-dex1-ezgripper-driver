@@ -405,7 +405,9 @@ class CorrectedEZGripperDriver:
         # Clamp to valid range
         pct_clamped = max(0.0, min(100.0, position_pct))
         # Linear mapping: 0% closed -> 0.0 rad, 100% open -> 5.4 rad
-        return (pct_clamped / 100.0) * 5.4
+        rad_value = (pct_clamped / 100.0) * 5.4
+        # Clamp final result to prevent floating-point precision issues
+        return max(0.0, min(5.4, rad_value))
     
     def tau_to_effort_pct(self, tau: float) -> float:
         """
@@ -562,11 +564,11 @@ class CorrectedEZGripperDriver:
             # Create motor state for MotorStates_ (xr_teleoperate compatibility)
             motor_state = MotorState_(
                 mode=0,
-                q=actual_pos,
+                q=current_q,      # FIXED: Use converted radians, not percentage
                 dq=0.0,
                 ddq=0.0,  # Required field for MotorState_
                 tau_est=current_tau,
-                q_raw=actual_pos,
+                q_raw=current_q,  # FIXED: Use converted radians, not percentage
                 dq_raw=0.0,
                 ddq_raw=0.0,
                 temperature=0,  # TODO: read actual temperature

@@ -17,10 +17,12 @@ All interface definitions are derived from the official Unitree SDK2 repository:
 1. **MotorCmd_.hpp**
    - URL: https://github.com/unitreerobotics/unitree_sdk2/blob/main/include/unitree/idl/hg/MotorCmd_.hpp
    - Defines individual motor command structure
+   - Key field: `float q_` (position in radians) - NO RANGE DEFINED in DDS spec
 
 2. **MotorState_.hpp**
    - URL: https://github.com/unitreerobotics/unitree_sdk2/blob/main/include/unitree/idl/hg/MotorState_.hpp
    - Defines individual motor state structure
+   - Key field: `float q_` (position in radians), `float tau_est_` (estimated torque in Nm)
 
 3. **HandCmd_.hpp**
    - URL: https://github.com/unitreerobotics/unitree_sdk2/blob/main/include/unitree/idl/hg/HandCmd_.hpp
@@ -29,6 +31,98 @@ All interface definitions are derived from the official Unitree SDK2 repository:
 4. **HandState_.hpp**
    - URL: https://github.com/unitreerobotics/unitree_sdk2/blob/main/include/unitree/idl/hg/HandState_.hpp
    - Defines hand state container (array of motor states + sensors)
+
+**Python Bindings:**
+
+- Repository: https://github.com/unitreerobotics/unitree_sdk2_python
+- Location: `unitree_sdk2py/idl/unitree_hg/msg/dds_/`
+- Generated from: C++ headers above
+- Files: _HandCmd_.py, _MotorCmd_.py, _HandState_.py, _MotorState_.py
+
+**IMPORTANT: DDS Interface vs Application Convention**
+
+The DDS interface defines ONLY the data structure:
+- `float q` = position in radians (no range specified)
+- `float tau_est` = estimated torque in Nm
+
+The actual range (0.0-5.4 rad) comes from APPLICATION CONVENTION in xr_teleoperate, not the DDS spec itself.
+
+---
+
+## 🧪 **DDS COMPLIANCE TESTBENCH**
+
+### **Critical Validation Requirement:**
+**ALL changes to the driver must pass the DDS compliance testbench.**
+
+### **Quick Validation (CI/CD):**
+```bash
+# Fast compliance check
+python3 validate_dds_compliance.py --side left --domain 0
+
+# Expected output:
+# ✅ Message #1: q=2.700 rad (50.0%)
+# ✅ Message #2: q=2.700 rad (50.0%)  
+# ✅ Message #3: q=2.700 rad (50.0%)
+# ✅ Compliance validated with 3 messages
+# 🎉 DDS Compliance: PASSED
+```
+
+### **Full Loopback Testbench:**
+```bash
+# Complete bidirectional communication test
+python3 test_dds_loopback.py --side left --domain 0
+
+# Tests:
+# ✅ Unitree → SAKE command reception
+# ✅ SAKE → Unitree state publishing  
+# ✅ Position range compliance (0-5.4 rad)
+# ✅ Message format validation
+# ✅ Feedback loop integrity
+```
+
+### **Critical Compliance Requirements:**
+
+1. **State Message q Range:** `0.0 ≤ q ≤ 5.4` radians
+   - **CRITICAL BUG:** Publishing percentage (0-100) as radians breaks xr_teleoperate
+   - **Solution:** Always convert using `ezgripper_to_dex1()` before publishing
+
+2. **Bidirectional Communication:**
+   - **Unitree → SAKE:** Commands received correctly
+   - **SAKE → Unitree:** State feedback in correct format
+   - **Feedback Loop:** Enables proper xr_teleoperate control
+
+3. **Message Format:**
+   - `q` and `q_raw` must match
+   - `mode` should be 0 (position control)
+   - All required fields must be present
+
+### **Testbench Integration:**
+
+**Add to CI/CD pipeline:**
+```yaml
+# Example GitHub Actions
+- name: Validate DDS Compliance
+  run: |
+    python3 validate_dds_compliance.py --side left --domain 0
+    python3 test_dds_loopback.py --side left --domain 0
+```
+
+**Pre-commit validation:**
+```bash
+# Run before any commit
+./validate_dds_compliance.sh
+```
+
+### **Failure Diagnosis:**
+
+| Symptom | Likely Cause | Fix |
+|---------|--------------|-----|
+| `q=97.0 rad` | Publishing percentage as radians | Use `current_q` not `actual_pos` |
+| No messages | Driver not running | Start SAKE driver |
+| `q != q_raw` | Inconsistent state values | Fix state assembly |
+| High clipping | Wrong feedback range | Check state publishing |
+
+**This testbench provides testing of both directions of the Unitree DDS interface for Dex1, ensuring complete bidirectional communication validation.**
 
 **Python Bindings:**
 
