@@ -29,8 +29,8 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 # 5. Both drivers now running with:
 # - Automatic calibration at startup
 # - 200 Hz state publishing (predictive model)
-# - 30 Hz command execution
-# - 3 Hz actual position reads
+# - 30 Hz command execution with bulk operations
+# - 30 Hz bulk sensor reads (position, current, load, temperature, errors)
 ```
 
 **That's it!** The driver auto-discovers devices, guides you through verification, and stores calibration automatically.
@@ -39,7 +39,10 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 
 - ✅ **Multi-Threaded Architecture** - Separate control (30 Hz) and state (200 Hz) threads for optimal performance
 - ✅ **200 Hz State Publishing** - Achieves 195 Hz actual rate (97.5% of target) using predictive position model
-- ✅ **Predictive Position Model** - Smooth position feedback at 200 Hz between actual hardware reads (3 Hz)
+- ✅ **Predictive Position Model** - Smooth position feedback at 200 Hz between actual hardware reads (30 Hz)
+- ✅ **Protocol 2.0 Bulk Operations** - Atomic sensor reads and writes for improved performance and efficiency
+- ✅ **Advanced Monitoring** - Contact detection, error monitoring, and thermal analysis using bulk sensor data
+- ✅ **30 Hz Bulk Sensor Reads** - Full state capture (position, current, load, temperature, errors) every control cycle
 - ✅ **Position Control Only** - Calibration and operation use 100% effort position control (no torque mode)
 - ✅ **Automatic Calibration** - Calibrates at startup using position control for consistent force definition
 - ✅ **DDS Interface** - Compatible with Unitree Dex1-1 gripper DDS topics (`HGHandCmd_`, `HGHandState_`)
@@ -235,13 +238,13 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 - Uses official Unitree Dex1-1 gripper message types from `unitree_sdk2py`
 - Command rate: 200 Hz (from XR teleoperate)
 - State publishing rate: 200 Hz (195 Hz actual with predictive model)
-- Actual position reads: 3 Hz (synced with predicted position)
+- Bulk sensor reads: 30 Hz (position, current, load, temperature, errors)
 
 ## Position Mapping
 
 - `q = 0.0 rad` → 0% (closed)
-- `q = π rad` → 50% (neutral)
-- `q = 2π rad` → 100% (open)
+- `q = 2.7 rad` → 50% (neutral)
+- `q = 5.4 rad` → 100% (open)
 
 ## Architecture
 
@@ -257,16 +260,17 @@ XR Teleoperate (200 Hz) → DDS Topics → EZGripper DDS Driver → libezgripper
                                     │                   │
                         ┌───────────┴──────┐   ┌────────┴────────┐
                         │                  │   │                 │
-                   Commands          Actual   Predictive    Publish
-                   Execute          Position  Position      State
-                   (Serial)         Read      Model         (DDS)
-                                   (3 Hz)
+                   Commands          Bulk     Predictive    Publish
+                   Execute          Sensor    Position      State
+                   (Serial)         Reads     Model         (DDS)
+                                   (30 Hz)
 ```
 
 **Control Thread (30 Hz):**
 - Receives DDS commands
-- Executes position commands via serial (100% effort)
-- Reads actual position every 10 cycles (3 Hz)
+- Executes position commands via bulk write (100% effort)
+- Reads bulk sensor data every cycle (30 Hz): position, current, load, temperature, errors
+- Updates monitoring modules (contact detection, error monitoring, thermal monitoring)
 - Syncs predicted position with actual measurements
 
 **State Thread (200 Hz):**
@@ -284,253 +288,51 @@ XR Teleoperate (200 Hz) → DDS Topics → EZGripper DDS Driver → libezgripper
 
 ## Testing
 
-### Test Files
+### Basic Verification
 
-**`test_3phase_pattern.py`** - 3-phase gripper test pattern using unified DDS interface:
-```bash
-python3 test_3phase_pattern.py --side left --rate 200
-```
-Tests gripper through three phases:
-- Phase 0: Calibration (close to 0%)
-- Phase 1: Smooth sine wave oscillation (0% → 100% → 0%)
-- Phase 2: Random jumps every second
-- Phase 3: Instant point-to-point jumps
-
-**`test_movement_timing.py`** - Calibrate gripper movement speed:
-```bash
-python3 test_movement_timing.py --side left --cycles 3
-```
-Measures actual gripper movement speed by testing multiple ranges (20-80%, etc.) and calculates parameters for predictive model.
-
-**`test_overhead_characterization.py`** - Characterize system overhead:
-```bash
-python3 test_overhead_characterization.py --side left --trials 3
-```
-Separates fixed overhead (DDS latency, command processing) from actual gripper movement speed by testing multiple distance ranges.
-
-**`dex1_hand_interface.py`** - Unified DDS interface abstraction:
-- Clean Python API for controlling Dex1-1 grippers
-- Methods: `set_position()`, `open()`, `close()`, `get_state()`
-- Handles all DDS message creation and topic management
-- Used by all test scripts for consistent interface
-
-**`test_gripper.py`** - Legacy automated testing for both grippers:
-
-### Usage
+After installation, verify the gripper is working correctly:
 
 ```bash
-python3 test_gripper.py --right-dev /dev/ttyUSB0 --left-dev /dev/ttyUSB1
+# Start left gripper driver
+python3 ezgripper_dds_driver.py --side left
+
+# In another terminal, monitor the output
+# The driver should show:
+# - Hardware connection successful
+# - Calibration completed
+# - State publishing at 200 Hz
+# - Bulk sensor reads at 30 Hz
 ```
 
-### Test Sequence
+### Performance Monitoring
 
-For each gripper (right first, then left):
-1. Calibrate
-2. Open to 100% - wait 2 seconds
-3. Close to 0% - wait 2 seconds
-4. Repeat 3 times
-5. Move to 50% - stop
+The driver includes built-in performance monitoring that logs every 5 seconds:
+- State publishing rate (target: 200 Hz)
+- Command execution rate (target: 30 Hz)
+- Position tracking accuracy
+- CPU usage
 
-### Verifying Mapping
+### Monitoring Features
 
-The script tests the right gripper first, then the left gripper. Watch which physical gripper moves during each test:
+The driver automatically monitors:
+- **Contact Detection** - Detects when gripper contacts objects
+- **Error Monitoring** - Tracks hardware errors and system warnings  
+- **Thermal Monitoring** - Monitors temperature trends and predicts overheating
 
-- If the right side of the robot moves during the "RIGHT Gripper" test, mapping is correct
-- If the left side of the robot moves during the "RIGHT Gripper" test, swap the device paths
+All monitoring data is captured using bulk operations at 30 Hz with minimal performance impact.
 
-### Example Output
+## Configuration
 
-```
-============================================================
-Testing RIGHT Gripper
-============================================================
-Device: /dev/ttyUSB0
-...
-============================================================
-Testing LEFT Gripper
-============================================================
-Device: /dev/ttyUSB1
-...
+See [CONFIGURATION.md](./CONFIGURATION.md) for detailed configuration options including:
+- Servo parameters and limits
+- Communication settings
+- Monitoring thresholds
+- Calibration parameters
 
-============================================================
-Test Summary
-============================================================
-Right gripper: ✅ PASS
-Left gripper: ✅ PASS
+## Troubleshooting
 
-Verify the grippers moved correctly:
-- Right gripper should be on the RIGHT side of the robot
-- Left gripper should be on the LEFT side of the robot
-
-If mapping is incorrect, swap the device paths and re-run
-```
-
-### Custom Iterations
-
-To change the number of open/close cycles:
-
-```bash
-python3 test_gripper.py --right-dev /dev/ttyUSB0 --left-dev /dev/ttyUSB1 --iterations 5
-```
-
-## DDS Message Structure Reference
-
-### Official Unitree G1 Dex1 Hand Format
-
-This driver uses the official Unitree G1 Dex1 hand DDS message format as defined in the Unitree SDK.
-
-**Source Repository:** [unitreerobotics/dex1_1_service](https://github.com/unitreerobotics/dex1_1_service)
-
-**Official Documentation:** [Unitree G1 Developer Documentation](https://support.unitree.com/home/en/G1_developer/basic_services_interface)
-
-### DDS Topics
-
-```
-Left Gripper:
-  Command Topic:  rt/dex1/left/cmd
-  State Topic:    rt/dex1/left/state
-  Motor ID:       1
-
-Right Gripper:
-  Command Topic:  rt/dex1/right/cmd
-  State Topic:    rt/dex1/right/state
-  Motor ID:       2
-```
-
-### HandCmd_ Message Structure
-
-**Message Type:** `unitree_hg.msg.dds_.HandCmd_`
-
-**Python Definition:**
-```python
-from unitree_sdk2py.idl.default import HGHandCmd_, HGMotorCmd_
-
-@dataclass
-class HandCmd_:
-    motor_cmd: sequence[MotorCmd_]  # Sequence of motor commands
-    reserve: array[uint32, 4]       # Reserved fields [0, 0, 0, 0]
-```
-
-**MotorCmd_ Fields:**
-```python
-@dataclass
-class MotorCmd_:
-    mode: uint8        # Control mode (0 = position control)
-    q: float32         # Position in radians (0.0 = closed, 6.28 = open)
-    dq: float32        # Velocity (0.0 for position control)
-    tau: float32       # Torque (0.0, hardware handles effort)
-    kp: float32        # Position gain (0.0, hardware handles control)
-    kd: float32        # Damping gain (0.0, hardware handles control)
-    reserve: uint32    # Reserved field (0)
-```
-
-**Example Command:**
-```python
-# Create motor command for left gripper (Motor ID 1)
-motor_cmd = HGMotorCmd_(
-    mode=0,      # Position control
-    q=3.14,      # 50% open (π radians)
-    dq=0.0,
-    tau=0.0,
-    kp=0.0,
-    kd=0.0,
-    reserve=0
-)
-
-# Create hand command with single motor
-hand_cmd = HGHandCmd_(
-    motor_cmd=[motor_cmd],
-    reserve=[0, 0, 0, 0]
-)
-```
-
-### HandState_ Message Structure
-
-**Message Type:** `unitree_hg.msg.dds_.HandState_`
-
-**Python Definition:**
-```python
-from unitree_sdk2py.idl.default import HGHandState_, HGMotorState_, HGIMUState_
-
-@dataclass
-class HandState_:
-    motor_state: sequence[MotorState_]              # Motor state data
-    press_sensor_state: sequence[PressSensorState_] # Pressure sensor data
-    imu_state: IMUState_                            # IMU data
-    power_v: float32                                # Power voltage
-    power_a: float32                                # Power current
-    system_v: float32                               # System voltage
-    device_v: float32                               # Device voltage
-    error: array[uint32, 2]                         # Error flags
-    reserve: array[uint32, 2]                       # Reserved fields
-```
-
-**MotorState_ Fields:**
-```python
-@dataclass
-class MotorState_:
-    mode: uint8                  # Current control mode
-    q: float32                   # Current position (radians)
-    dq: float32                  # Current velocity
-    ddq: float32                 # Current acceleration
-    tau_est: float32             # Estimated torque
-    temperature: array[int16, 2] # Temperature readings
-    vol: float32                 # Voltage
-    sensor: array[uint32, 2]     # Sensor data
-    motorstate: uint32           # Motor state flags
-    reserve: array[uint32, 4]    # Reserved fields
-```
-
-### Position Mapping
-
-The Dex1 hand uses radians for position:
-
-```
-q = 0.0 rad  → 0% (fully closed)
-q = 3.14 rad → 50% (neutral)
-q = 6.28 rad → 100% (fully open)
-```
-
-**Conversion Formula:**
-```python
-# Dex1 to EZGripper percentage
-position_pct = (q_radians / 6.28) * 100.0
-
-# EZGripper percentage to Dex1
-q_radians = (position_pct / 100.0) * 6.28
-```
-
-### Message Flow
-
-```
-G1 XR Teleoperate
-    ↓
-rt/dex1/left/cmd (HandCmd_)
-    ↓
-EZGripper DDS Driver
-    ↓
-Hardware Controller → EZGripper
-    ↓
-rt/dex1/left/state (HandState_)
-    ↓
-G1 System
-```
-
-### SDK References
-
-**Unitree SDK2 Python:**
-- Repository: [unitreerobotics/unitree_sdk2_python](https://github.com/unitreerobotics/unitree_sdk2_python)
-- IDL Definitions: `unitree_sdk2py/idl/unitree_hg/msg/dds_/`
-- HandCmd_: `_HandCmd_.py`
-- HandState_: `_HandState_.py`
-- MotorCmd_: `_MotorCmd_.py`
-- MotorState_: `_MotorState_.py`
-
-**Dex1 Service:**
-- Repository: [unitreerobotics/dex1_1_service](https://github.com/unitreerobotics/dex1_1_service)
-- Official Dex1-1 gripper serial-to-DDS service
-- Defines topic names and message usage patterns
+See [BUG_REPORT.md](./BUG_REPORT.md) for common issues and troubleshooting steps.
 
 ## License
 
-BSD-3-Clause
+This project is part of the SAKErobotics EZGripper ecosystem for Unitree robots.
