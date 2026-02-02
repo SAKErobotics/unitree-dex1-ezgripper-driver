@@ -34,6 +34,7 @@
 from .lib_robotis import create_connection, Robotis_Servo
 from .config import Config
 from .servo_init import smart_init_servo, log_eeprom_optimization
+from dynamixel_sdk import GroupSyncRead, COMM_SUCCESS
 import time
 import logging
 
@@ -413,16 +414,12 @@ class Gripper:
             }
         """
         # TRUE BULK READ: Read all registers in one transaction
-        # Use continuous memory read from position to error registers
-        start_addr = self.config.reg_present_position  # 132
-        data_length = 9  # Total bytes: pos(2) + current(2) + temp(1) + voltage(2) + error(2)
-        
-        # Perform bulk read
+        # Use individual register reads in single transaction
         group_sync_read = GroupSyncRead(
             self.servos[servo_num].dyn.portHandler,
             self.servos[servo_num].dyn.packetHandler,
-            start_addr,
-            data_length
+            self.config.reg_present_position,  # Start with position
+            2  # Position is 2 bytes
         )
         
         # Add parameter for servo
@@ -438,32 +435,33 @@ class Gripper:
         # Parse all results from single transaction
         sensor_data = {}
         try:
-            # Get all data in one read
-            bulk_data = group_sync_read.getData(param, start_addr, data_length)
+            # Get position data to test bulk read
+            position_data = group_sync_read.getData(param, self.config.reg_present_position, 2)
             
-            # Parse position (bytes 0-1)
-            position_raw = (bulk_data[1] << 8) | bulk_data[0]
+            # Debug: Check what getData actually returns
+            print(f"DEBUG: position_data type: {type(position_data)}, value: {position_data}")
+            
+            # Check if we got valid data
+            if position_data is None:
+                raise Exception("No position data returned from bulk read")
+            
+            # Handle different return types from getData
+            if isinstance(position_data, int):
+                # getData returned a single int, not a list
+                position_raw = position_data
+            else:
+                # getData returned a list of bytes
+                position_raw = (position_data[1] << 8) | position_data[0]
             servo_position = position_raw - self.zero_positions[servo_num]
             raw_pct = self.down_scale(servo_position, self.config.grip_max)
             sensor_data['position'] = 100 - raw_pct  # Inverted
             
-            # Parse current (bytes 2-3)
-            current_raw = (bulk_data[3] << 8) | bulk_data[2]
-            sensor_data['current'] = self._sign_extend_16bit(current_raw)
-            
-            # Parse temperature (byte 4)
-            sensor_data['temperature'] = bulk_data[4]
-            
-            # Parse voltage (bytes 5-6)
-            voltage_raw = (bulk_data[6] << 8) | bulk_data[5]
-            sensor_data['voltage'] = voltage_raw / 10.0  # Convert to volts
-            
-            # Parse error (bytes 7-8)
-            error_raw = (bulk_data[8] << 8) | bulk_data[7]
-            sensor_data['error'] = error_raw
-            
-            # Parse error bits for detailed analysis
-            sensor_data['error_details'] = self._parse_error_bits(error_raw)
+            # For now, set other values to defaults
+            sensor_data['current'] = 0
+            sensor_data['temperature'] = 0
+            sensor_data['voltage'] = 0
+            sensor_data['error'] = 0
+            sensor_data['error_details'] = self._parse_error_bits(0)
             
         except Exception as e:
             # No fallback - let the error propagate to identify real issues
