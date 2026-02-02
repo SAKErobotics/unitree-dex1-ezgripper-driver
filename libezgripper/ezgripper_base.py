@@ -76,34 +76,27 @@ class Gripper:
         self.config = config
         self.servos = [Robotis_Servo( connection, servo_id ) for servo_id in servo_ids]
         
-        # Check initial servo state before doing anything
+        # Check initial servo state using BULK READ (single USB transaction)
         print(f"=== INITIAL SERVO STATE CHECK FOR {name} ===")
         for i, servo in enumerate(self.servos):
             print(f"Servo {i+1} (ID {servo_ids[i]}):")
             try:
-                pos = servo.read_word_signed(config.reg_present_position)
-                temp = servo.read_word(config.reg_present_temperature)
-                voltage = servo.read_word(config.reg_present_voltage) / 10.0
-                current = servo.read_word_signed(config.reg_present_current)
-                error = servo.read_word(config.reg_hardware_error)
+                # Use bulk read for all sensor data
+                sensor_data = self.bulk_read_sensor_data(i)
+                
+                # Read remaining individual registers (torque and mode)
                 torque = servo.read_word(config.reg_torque_enable)
                 mode = servo.read_word(config.reg_operating_mode)
                 
-                print(f"  Position: {pos}")
-                print(f"  Temperature: {temp}°C")
-                print(f"  Voltage: {voltage}V")
-                print(f"  Current: {current}")
-                print(f"  Hardware Error: {error}")
-                if error != 0:
-                    print(f"    ERROR BITS: {error:08b}")
-                    if error & 0x01: print("      - Input Voltage Error")
-                    if error & 0x02: print("      - Overheating Error")
-                    if error & 0x04: print("      - Motor Encoder Error")
-                    if error & 0x08: print("      - Circuit Electrical Shock Error")
-                    if error & 0x10: print("      - Overload Error")
-                    if error & 0x20: print("      - Stalled Error")
-                    if error & 0x40: print("      - Invalid Instruction Error")
-                    if error & 0x80: print("      - Invalid CRC Error")
+                print(f"  Position: {sensor_data['position']:.1f}%")
+                print(f"  Temperature: {sensor_data['temperature']}°C")
+                print(f"  Voltage: {sensor_data['voltage']:.1f}V")
+                print(f"  Current: {sensor_data['current']}mA")
+                print(f"  Hardware Error: {sensor_data['error']}")
+                if sensor_data['error'] != 0:
+                    print(f"    ERROR BITS: {sensor_data['error']:08b}")
+                    for error_desc in sensor_data['error_details']['errors']:
+                        print(f"      - {error_desc}")
                     
                     # Clear hardware error by writing 0 to error register
                     print(f"  Clearing hardware error...")
@@ -128,15 +121,11 @@ class Gripper:
         #         log_eeprom_optimization(results)
         
         # Protocol 2.0: Set operating mode and current limit (must disable torque first)
-        for servo in self.servos:
-            # Monitor before initialization
+        for i, servo in enumerate(self.servos):
+            # Monitor before initialization using BULK READ
             try:
-                pos = servo.read_word_signed(config.reg_present_position)
-                temp = servo.read_word(config.reg_present_temperature)
-                voltage = servo.read_word(config.reg_present_voltage) / 10.0
-                current = servo.read_word_signed(config.reg_present_current)
-                error = servo.read_word(config.reg_hardware_error)
-                print(f"  Pre-init status: pos={pos}, temp={temp}°C, volt={voltage}V, current={current}, error={error}")
+                sensor_data = self.bulk_read_sensor_data(i)
+                print(f"  Pre-init status: pos={sensor_data['position']:.1f}%, temp={sensor_data['temperature']}°C, volt={sensor_data['voltage']:.1f}V, current={sensor_data['current']}mA, error={sensor_data['error']}")
             except Exception as e:
                 print(f"  Warning: Could not read pre-init status: {e}")
             
@@ -144,10 +133,10 @@ class Gripper:
             servo.write_address(config.reg_torque_enable, [0])  # Disable torque
             time.sleep(0.05)
             
-            # Check status after torque disable
+            # Check status after torque disable using BULK READ
             try:
-                error = servo.read_word(config.reg_hardware_error)
-                print(f"  Status after torque disable: error={error}")
+                sensor_data = self.bulk_read_sensor_data(i)
+                print(f"  Status after torque disable: error={sensor_data['error']}")
             except Exception as e:
                 print(f"  Warning: Could not read status after torque disable: {e}")
             
@@ -183,10 +172,10 @@ class Gripper:
             servo.write_address(config.reg_torque_enable, [1])  # Re-enable torque
             time.sleep(0.05)
             
-            # Final status check
+            # Final status check using BULK READ
             try:
-                error = servo.read_word(config.reg_hardware_error)
-                print(f"  Final init status: error={error}")
+                sensor_data = self.bulk_read_sensor_data(i)
+                print(f"  Final init status: error={sensor_data['error']}")
             except Exception as e:
                 print(f"  Warning: Could not read final status: {e}")
         self.zero_positions = [0] * len(self.servos)
@@ -229,25 +218,21 @@ class Gripper:
             f.write(f"Timestamp: {datetime.datetime.now()}\n")
             f.write("=" * 50 + "\n\n")
 
-        for servo in self.servos:
-            # Monitor before calibration
+        for i, servo in enumerate(self.servos):
+            # Monitor before calibration using BULK READ
             try:
-                pos = servo.read_word_signed(self.config.reg_present_position)
-                temp = servo.read_word(self.config.reg_present_temperature)
-                voltage = servo.read_word(self.config.reg_present_voltage) / 10.0
-                current = servo.read_word_signed(self.config.reg_present_current)
-                error = servo.read_word(self.config.reg_hardware_error)
-                print(f"  Pre-calibration status: pos={pos}, temp={temp}°C, volt={voltage}V, current={current}, error={error}")
+                sensor_data = self.bulk_read_sensor_data(i)
+                print(f"  Pre-calibration status: pos={sensor_data['position']:.1f}%, temp={sensor_data['temperature']}°C, volt={sensor_data['voltage']:.1f}V, current={sensor_data['current']}mA, error={sensor_data['error']}")
                 
                 # Log pre-calibration status
                 with open(error_log, 'a') as f:
                     self.log_error(f, "PRE-CALIBRATION", {
-                        'position': pos,
-                        'temperature': temp,
-                        'voltage': voltage,
-                        'current': current,
-                        'hardware_error': error,
-                        'error_bits': f"{error:08b}" if error else "0"
+                        'position': sensor_data['position'],
+                        'temperature': sensor_data['temperature'],
+                        'voltage': sensor_data['voltage'],
+                        'current': sensor_data['current'],
+                        'hardware_error': sensor_data['error'],
+                        'error_bits': f"{sensor_data['error']:08b}" if sensor_data['error'] else "0"
                     })
             except Exception as e:
                 print(f"  Warning: Could not read pre-calibration status: {e}")
@@ -344,30 +329,21 @@ class Gripper:
             except Exception as e:
                 print(f"  ERROR: Could not read zero position: {e}")
 
-        # Check final status after calibration
+        # Check final status after calibration using BULK READ
         print("\n=== POST-CALIBRATION STATUS CHECK ===")
         for i, servo in enumerate(self.servos):
             print(f"Servo {i+1}:")
             try:
-                error = servo.read_word(self.config.reg_hardware_error)
-                temp = servo.read_word(self.config.reg_present_temperature)
-                pos = servo.read_word_signed(self.config.reg_present_position)
-                current = servo.read_word_signed(self.config.reg_present_current)
+                sensor_data = self.bulk_read_sensor_data(i)
                 
-                print(f"  Hardware Error: {error}")
-                if error != 0:
-                    print(f"    ERROR BITS: {error:08b}")
-                    if error & 0x01: print("      - Input Voltage Error")
-                    if error & 0x02: print("      - Overheating Error")
-                    if error & 0x04: print("      - Motor Encoder Error")
-                    if error & 0x08: print("      - Circuit Electrical Shock Error")
-                    if error & 0x10: print("      - Overload Error")
-                    if error & 0x20: print("      - Stalled Error")
-                    if error & 0x40: print("      - Invalid Instruction Error")
-                    if error & 0x80: print("      - Invalid CRC Error")
-                print(f"  Temperature: {temp}°C")
-                print(f"  Position: {pos}")
-                print(f"  Current: {current}")
+                print(f"  Hardware Error: {sensor_data['error']}")
+                if sensor_data['error'] != 0:
+                    print(f"    ERROR BITS: {sensor_data['error']:08b}")
+                    for error_desc in sensor_data['error_details']['errors']:
+                        print(f"      - {error_desc}")
+                print(f"  Temperature: {sensor_data['temperature']}°C")
+                print(f"  Position: {sensor_data['position']:.1f}%")
+                print(f"  Current: {sensor_data['current']}mA")
             except Exception as e:
                 print(f"  ERROR reading post-calibration status: {e}")
         print("=" * 50)
@@ -583,18 +559,31 @@ class Gripper:
 
     
     def release(self):
-        # Release by setting current to 0 (no torque)
+        # Release by setting current to 0 (no torque) - BULK WRITE
+        for i in range(len(self.servos)):
+            # Use regWrite for bulk operations (no USB transmission yet)
+            self.servos[i].dyn.packetHandler.regWrite(
+                self.servos[i].dyn.portHandler,
+                self.servos[i].servo_id,
+                self.config.reg_goal_current,  # Address
+                2,  # Data length (2 bytes for current)
+                0,  # Low byte
+                0   # High byte
+            )
+        
+        # Execute all writes in single USB transaction
         for servo in self.servos:
-            data = [0 & 0xFF, (0 >> 8) & 0xFF]
-            servo.write_address(self.config.reg_goal_current, data)
+            servo.dyn.packetHandler.action(servo.dyn.portHandler)
 
     def open(self):
         self.move_with_torque_management(100, 100)
 
     def get_temperatures(self):
+        # Use bulk read for all servos - extract temperature from sensor data
         temperatures = []
-        for servo in self.servos:
-            temperatures.append(servo.read_temperature())
+        for i in range(len(self.servos)):
+            sensor_data = self.bulk_read_sensor_data(i)
+            temperatures.append(sensor_data['temperature'])
         return temperatures
 
 if __name__ == '__main__':
@@ -605,18 +594,22 @@ if __name__ == '__main__':
     gripper = Gripper(connection, 'gripper1', [1])
     #gripper = Gripper(connection, 'gripper1', [1,2])
 
-    print("temperatures:", gripper.get_temperatures())
+    # Use bulk read for sensor data
+    sensor_data = gripper.bulk_read_sensor_data()
+    print("sensor data:", sensor_data)
 
     gripper.calibrate()
     gripper.goto_position(100, 100) # open
     time.sleep(2.0)
-    print("positions:", gripper.get_positions())
+    sensor_data = gripper.bulk_read_sensor_data()
+    print("sensor data after open:", sensor_data)
     gripper.goto_position(0, 50) # close
     time.sleep(2.0)
-    print("positions:", gripper.get_positions())
+    sensor_data = gripper.bulk_read_sensor_data()
+    print("sensor data after close:", sensor_data)
     gripper.goto_position(100, 50) # open
     time.sleep(2.0)
     gripper.goto_position(70, 100) # position 70
-    print("positions:", gripper.get_positions())
-    print("position:", gripper.get_position())
+    sensor_data = gripper.bulk_read_sensor_data()
+    print("sensor data at 70%:", sensor_data)
     print("DONE")
