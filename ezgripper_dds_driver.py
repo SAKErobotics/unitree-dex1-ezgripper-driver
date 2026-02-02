@@ -216,10 +216,10 @@ class CorrectedEZGripperDriver:
         self._load_calibration()
         self._setup_dds()
         
-        # Auto-calibrate at startup if enabled
+        # Auto-calibrate at startup if enabled (but not if manual calibration will be done)
         if self.gripper.config.calibration_auto_on_init:
-            self.logger.info("Running automatic calibration at startup...")
-            self.calibrate()
+            self.logger.info("Auto-calibration enabled in config, but skipping - will use manual calibration")
+            # Don't auto-calibrate - let manual calibration handle it
         else:
             self.logger.info("Auto-calibration disabled in config")
         
@@ -233,8 +233,10 @@ class CorrectedEZGripperDriver:
             self.connection = create_connection(dev_name=self.device, baudrate=1000000)  # 1 Mbps
             self.gripper = create_gripper(self.connection, f'corrected_{self.side}', [1])
             
-            # Test connection
-            test_pos = self.gripper.get_position()
+            # Test connection and cache initial sensor data
+            sensor_data = self.gripper.bulk_read_sensor_data()
+            self.current_sensor_data = sensor_data
+            test_pos = self.get_position()
             self.logger.info(f"Hardware connected: position {test_pos:.1f}%")
             
             # Read serial number from hardware
@@ -260,6 +262,34 @@ class CorrectedEZGripperDriver:
         except Exception as e:
             self.logger.warning(f"Failed to read serial number: {e}")
             return 'unknown'
+    
+    def get_position(self):
+        """Get current position from cached sensor data"""
+        if self.current_sensor_data and 'position' in self.current_sensor_data:
+            return self.current_sensor_data['position']
+        else:
+            # Fallback if no cached data
+            return 50.0
+    
+    def get_temperature(self):
+        """Get current temperature from cached sensor data"""
+        return self.current_sensor_data.get('temperature', 25)
+    
+    def get_voltage(self):
+        """Get current voltage from cached sensor data"""
+        return self.current_sensor_data.get('voltage', 12.0)
+    
+    def get_current(self):
+        """Get current motor current from cached sensor data"""
+        return self.current_sensor_data.get('current', 0)
+    
+    def get_error(self):
+        """Get current error code from cached sensor data"""
+        return self.current_sensor_data.get('error', 0)
+    
+    def get_error_details(self):
+        """Get current error details from cached sensor data"""
+        return self.current_sensor_data.get('error_details', {'errors': []})
     
     def _update_device_config(self):
         """Update device config with current device and serial number mapping"""
@@ -376,18 +406,16 @@ class CorrectedEZGripperDriver:
             zero_pos = self.gripper.zero_positions[0]
             self.save_calibration(zero_pos)
             
-            # Verify with quick test using position control only
-            self.gripper.goto_position(25, 100)  # Move to 25% with 100% effort
-            time.sleep(1)
+            # Calibration already moved to 50% position, just verify we're there
             actual = self.gripper.get_position()
-            error = abs(actual - 25.0)
+            error = abs(actual - 50.0)
             
             if error <= 10.0:
                 self.is_calibrated = True
-                self.logger.info(f"✅ Calibration successful (error: {error:.1f}%)")
+                self.logger.info(f"✅ Calibration successful (at {actual:.1f}%, error: {error:.1f}%)")
                 return True
             else:
-                self.logger.warning(f"⚠️ Calibration issue (error: {error:.1f}%)")
+                self.logger.warning(f"⚠️ Calibration issue (at {actual:.1f}%, expected 50%, error: {error:.1f}%)")
                 return False
                 
         except Exception as e:
@@ -481,7 +509,7 @@ class CorrectedEZGripperDriver:
             # In PWM mode (16), use proportional PWM control for position
             if self.gripper.config.operating_mode == 16:
                 # Position control using PWM: error drives force
-                current_pos = self.gripper.get_position()
+                current_pos = self.get_position()  # Use cached position data
                 error = cmd.position_pct - current_pos
                 
                 # Proportional control with deadband
@@ -593,8 +621,9 @@ class CorrectedEZGripperDriver:
             current_q = self.ezgripper_to_dex1(predicted_pos)
             current_tau = effort / 10.0
             
-            # Read real sensor data for DDS compliance
+            # Read real sensor data for DDS compliance and cache it
             sensor_data = self.gripper.bulk_read_sensor_data()
+            self.current_sensor_data = sensor_data  # Update cache
             
             # Create motor state with official SDK2 structure
             # ENFORCE DDS CONTRACT: Clamp to valid range [0.0, 5.4] before writing to DDS
@@ -606,11 +635,11 @@ class CorrectedEZGripperDriver:
                 ddq=0.0,                          # No acceleration data
                 tau_est=current_tau,              # Torque estimation
                 temperature=[
-                    int(sensor_data.get('temperature', 25)),
-                    int(sensor_data.get('temperature', 25))
-                ],                                 # Real temperature data (int16[2])
-                vol=sensor_data.get('voltage', 12.0),  # Real voltage in volts (already converted)
-                sensor=[0, sensor_data.get('error', 0)],      # Error data in sensor field
+                    int(self.get_temperature()),
+                    int(self.get_temperature())
+                ],
+                vol=self.get_voltage(),  # Real voltage in volts (already converted)
+                sensor=[0, self.get_error()],      # Error data in sensor field
                 motorstate=0,                     # Normal operation
                 reserve=[0, 0, 0, 0]              # Required uint32[4] array
             )
@@ -671,18 +700,17 @@ class CorrectedEZGripperDriver:
                 # Read sensor data using bulk operations (every cycle = 30 Hz for accurate control)
                 # Changed from every 10 cycles (3 Hz) to every cycle (30 Hz)
                 try:
-                    # Use bulk read for all sensor data in single USB transaction
+                    # Use bulk read for all sensor data in single USB transaction and update cache
                     sensor_data = self.gripper.bulk_read_sensor_data()
+                    self.current_sensor_data = sensor_data  # Update cache
                     
-                    # Check for servo hardware errors
-                    self._handle_servo_errors(sensor_data['error_details'])
+                    # Check for servo hardware errors using cache
+                    self._handle_servo_errors(self.get_error_details())
                     
                     with self.state_lock:
-                        self.actual_position_pct = sensor_data['position']
+                        self.actual_position_pct = self.get_position()
                         # Sync predicted position with actual (minimal prediction needed now)
                         self.predicted_position_pct = self.actual_position_pct
-                        # Store other sensor data for monitoring
-                        self.current_sensor_data = sensor_data
                     
                     # Reset communication error counters on success
                     self.comm_error_count = 0
@@ -841,7 +869,7 @@ def run(self):
         self.logger.info("Shutting down hardware...")
         self.running = False
         if self.gripper:
-            self.gripper.move_with_torque_management(50.0, 30.0)
+            self.gripper.move_with_torque_management(50.0, 10.0)  # Reduced effort to prevent overloading
             time.sleep(1)
 
 
@@ -894,7 +922,10 @@ def main():
     # Calibrate if requested
     if args.calibrate:
         driver.calibrate()
+        print("Calibration completed. Exiting.")
+        return
     
+    # Normal DDS operation mode
     try:
         driver.run()
     except KeyboardInterrupt:

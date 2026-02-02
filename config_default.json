@@ -39,6 +39,24 @@
     "eeprom_settings": {
       "return_delay_time": 0,
       "status_return_level": 1
+    },
+    "backpressure_control": {
+      "enabled": true,
+      "fast_current_level": "max",
+      "desired_force_level": "movement", 
+      "holding_current_level": "holding",
+      "detection": {
+        "current_spike_threshold": 1000,
+        "stagnation_distance": 50,
+        "stagnation_movement": 2,
+        "monitor_frequency_hz": 100,
+        "detection_timeout_s": 5.0
+      },
+      "response": {
+        "reduction_delay_ms": 0,
+        "force_adjustment_step": 10,
+        "contact_settle_time_ms": 100
+      }
     }
   },
   "gripper": {
@@ -53,7 +71,7 @@
     },
     "calibration": {
       "position": -10000,
-      "pwm": 265,
+      "pwm": 50,
       "timeout": 0.1,
       "auto_on_init": true
     }

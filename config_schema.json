@@ -133,6 +133,105 @@
               "maximum": 2
             }
           }
+        },
+        "backpressure_control": {
+          "type": "object",
+          "description": "Back-pressure detection and adaptive current control for gentle grasping",
+          "required": ["enabled", "fast_current_level", "desired_force_level"],
+          "properties": {
+            "enabled": {
+              "type": "boolean",
+              "description": "Enable back-pressure detection and adaptive current control",
+              "default": true
+            },
+            "fast_current_level": {
+              "type": "string",
+              "description": "Current level to use for fast initial movement",
+              "enum": ["holding", "movement", "max"],
+              "default": "max"
+            },
+            "desired_force_level": {
+              "type": "string", 
+              "description": "Current level to use for desired force after contact",
+              "enum": ["holding", "movement", "max"],
+              "default": "movement"
+            },
+            "holding_current_level": {
+              "type": "string",
+              "description": "Current level to use for force maintenance",
+              "enum": ["holding", "movement", "max"],
+              "default": "holding"
+            },
+            "detection": {
+              "type": "object",
+              "description": "Back-pressure detection parameters",
+              "required": ["current_spike_threshold", "stagnation_distance"],
+              "properties": {
+                "current_spike_threshold": {
+                  "type": "integer",
+                  "description": "Current threshold in mA for spike detection",
+                  "minimum": 500,
+                  "maximum": 2000,
+                  "default": 1000
+                },
+                "stagnation_distance": {
+                  "type": "integer",
+                  "description": "Distance to target in raw units for stagnation detection",
+                  "minimum": 10,
+                  "maximum": 200,
+                  "default": 50
+                },
+                "stagnation_movement": {
+                  "type": "integer",
+                  "description": "Minimum movement in raw units to consider 'moving'",
+                  "minimum": 1,
+                  "maximum": 10,
+                  "default": 2
+                },
+                "monitor_frequency_hz": {
+                  "type": "integer",
+                  "description": "Monitoring frequency for back-pressure detection",
+                  "minimum": 10,
+                  "maximum": 200,
+                  "default": 100
+                },
+                "detection_timeout_s": {
+                  "type": "number",
+                  "description": "Maximum time to wait for back-pressure detection",
+                  "minimum": 1.0,
+                  "maximum": 10.0,
+                  "default": 5.0
+                }
+              }
+            },
+            "response": {
+              "type": "object",
+              "description": "Response parameters for back-pressure handling",
+              "properties": {
+                "reduction_delay_ms": {
+                  "type": "integer",
+                  "description": "Delay before reducing current (0 = immediate)",
+                  "minimum": 0,
+                  "maximum": 100,
+                  "default": 0
+                },
+                "force_adjustment_step": {
+                  "type": "integer",
+                  "description": "Step size for fine force adjustments in mA",
+                  "minimum": 1,
+                  "maximum": 50,
+                  "default": 10
+                },
+                "contact_settle_time_ms": {
+                  "type": "integer",
+                  "description": "Time to wait after contact detection before fine adjustments",
+                  "minimum": 50,
+                  "maximum": 500,
+                  "default": 100
+                }
+              }
+            }
+          }
         }
       }
     },

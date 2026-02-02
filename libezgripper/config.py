@@ -53,6 +53,19 @@ class Config:
         return self._config['servo'].get('pwm_limit', 885)
     
     @property
+    def backpressure_control(self) -> Dict[str, Any]:
+        return self._config['servo'].get('backpressure_control', {})
+    
+    @property
+    def current_limits(self) -> Dict[str, int]:
+        return {
+            'holding': self.holding_current,
+            'movement': self.movement_current,
+            'max': self.max_current,
+            'hardware_max': self.hardware_max_current
+        }
+    
+    @property
     def temp_warning(self) -> int:
         return self._config['servo']['temperature']['warning']
     
