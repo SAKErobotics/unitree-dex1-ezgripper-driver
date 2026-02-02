@@ -4,48 +4,112 @@
 
 This document describes the DDS (Data Distribution Service) interface used for controlling Unitree G1 Dex1-1 grippers. This interface is used by the EZGripper DDS driver to provide drop-in compatibility with the official Unitree Dex1-1 gripper hardware.
 
+All specifications in this document are verified from official Unitree repositories:
+- **Unitree SDK2:** https://github.com/unitreerobotics/unitree_sdk2
+- **xr_teleoperate:** https://github.com/unitreerobotics/xr_teleoperate
+
 ---
 
 ## Source References
 
-All interface definitions are derived from the official Unitree SDK2 repository:
+### **Primary Sources (Official Unitree Repositories):**
 
-**Repository:** https://github.com/unitreerobotics/unitree_sdk2
+**1. Unitree SDK2 Repository:**
+- **URL:** https://github.com/unitreerobotics/unitree_sdk2
+- **Purpose:** Official DDS message definitions
 
-**Message Definition Files (C++ Headers):**
+**2. xr_teleoperate Repository:**
+- **URL:** https://github.com/unitreerobotics/xr_teleoperate
+- **Purpose:** Actual DDS interface usage and application conventions
+- **Key File:** `teleop/robot_control/robot_hand_unitree.py`
 
-1. **MotorCmd_.hpp**
-   - URL: https://github.com/unitreerobotics/unitree_sdk2/blob/main/include/unitree/idl/hg/MotorCmd_.hpp
-   - Defines individual motor command structure
-   - Key field: `float q_` (position in radians) - NO RANGE DEFINED in DDS spec
+### **DDS Message Definitions (Verified from Official Sources):**
 
-2. **MotorState_.hpp**
-   - URL: https://github.com/unitreerobotics/unitree_sdk2/blob/main/include/unitree/idl/hg/MotorState_.hpp
-   - Defines individual motor state structure
-   - Key field: `float q_` (position in radians), `float tau_est_` (estimated torque in Nm)
+#### **MotorState_ Structure (OFFICIAL):**
+**Source:** https://raw.githubusercontent.com/unitreerobotics/unitree_sdk2/main/include/unitree/idl/hg/MotorState_.hpp
 
-3. **HandCmd_.hpp**
-   - URL: https://github.com/unitreerobotics/unitree_sdk2/blob/main/include/unitree/idl/hg/HandCmd_.hpp
-   - Defines hand command container (array of motor commands)
+```cpp
+class MotorState_ {
+private:
+ uint8_t mode_ = 0;
+ float q_ = 0.0f;
+ float dq_ = 0.0f;
+ float ddq_ = 0.0f;
+ float tau_est_ = 0.0f;
+ std::array<int16_t, 2> temperature_ = { };
+ float vol_ = 0.0f;
+ std::array<uint32_t, 2> sensor_ = { };
+ uint32_t motorstate_ = 0;
+ std::array<uint32_t, 4> reserve_ = { };
+};
+```
 
-4. **HandState_.hpp**
-   - URL: https://github.com/unitreerobotics/unitree_sdk2/blob/main/include/unitree/idl/hg/HandState_.hpp
-   - Defines hand state container (array of motor states + sensors)
+#### **MotorCmd_ Structure (OFFICIAL):**
+**Source:** https://raw.githubusercontent.com/unitreerobotics/unitree_sdk2/main/include/unitree/idl/hg/MotorCmd_.hpp
 
-**Python Bindings:**
+```cpp
+class MotorCmd_ {
+private:
+ uint8_t mode_ = 0;
+ float q_ = 0.0f;
+ float dq_ = 0.0f;
+ float tau_ = 0.0f;
+ float kp_ = 0.0f;
+ float kd_ = 0.0f;
+ uint32_t reserve_ = 0;
+};
+```
 
+### **xr_teleoperate Usage Pattern (VERIFIED):**
+**Source:** https://raw.githubusercontent.com/unitreerobotics/xr_teleoperate/main/teleop/robot_control/robot_hand_unitree.py
+
+#### **DDS Topics:**
+```python
+kTopicGripperLeftCommand = "rt/dex1/left/cmd"
+kTopicGripperLeftState = "rt/dex1/left/state"
+kTopicGripperRightCommand = "rt/dex1/right/cmd"
+kTopicGripperRightState = "rt/dex1/right/state"
+```
+
+#### **How xr_teleoperate READS gripper state:**
+```python
+def _subscribe_gripper_state(self):
+    while True:
+        left_gripper_msg = self.LeftGripperState_subscriber.Read()
+        right_gripper_msg = self.RightGripperState_subscriber.Read()
+        if left_gripper_msg is not None and right_gripper_msg is not None:
+            # CRITICAL: Only reads the .q field from states[0]
+            self.left_gripper_state_value.value = left_gripper_msg.states[0].q
+            self.right_gripper_state_value.value = right_gripper_msg.states[0].q
+```
+
+#### **How xr_teleoperate WRITES gripper commands:**
+```python
+def ctrl_dual_gripper(self, dual_gripper_action):
+    self.left_gripper_msg.cmds[0].q = dual_gripper_action[0]
+    self.right_gripper_msg.cmds[0].q = dual_gripper_action[1]
+    
+    self.LeftGripperCmb_publisher.Write(self.left_gripper_msg)
+    self.RightGripperCmb_publisher.Write(self.right_gripper_msg)
+```
+
+#### **Position Range Convention (VERIFIED):**
+```python
+LEFT_MAPPED_MAX = LEFT_MAPPED_MIN + 5.40  # 5.4 radians max!
+RIGHT_MAPPED_MAX = RIGHT_MAPPED_MIN + 5.40
+```
+
+### **CRITICAL FINDINGS:**
+
+1. **xr_teleoperate only reads/writes the `q` field** - all other fields are ignored
+2. **Position range is 0.0-5.4 radians** (confirmed in xr_teleoperate code)
+3. **Message structure must match official SDK2 specification exactly**
+4. **Container access pattern:** `states[0].q` for reading, `cmds[0].q` for writing
+
+### **Python Bindings:**
 - Repository: https://github.com/unitreerobotics/unitree_sdk2_python
 - Location: `unitree_sdk2py/idl/unitree_hg/msg/dds_/`
 - Generated from: C++ headers above
-- Files: _HandCmd_.py, _MotorCmd_.py, _HandState_.py, _MotorState_.py
-
-**IMPORTANT: DDS Interface vs Application Convention**
-
-The DDS interface defines ONLY the data structure:
-- `float q` = position in radians (no range specified)
-- `float tau_est` = estimated torque in Nm
-
-The actual range (0.0-5.4 rad) comes from APPLICATION CONVENTION in xr_teleoperate, not the DDS spec itself.
 
 ---
 
@@ -207,7 +271,7 @@ class MotorCmd_ {
 | Field | Type | Units | Description | Dex1-1 Usage |
 |-------|------|-------|-------------|--------------|
 | `mode` | uint8 | - | Control mode (0=position, 1=velocity, etc.) | Always 0 (position mode) |
-| `q` | float | radians | Target position (0.0 = closed, 6.28 = open) | Primary control input |
+| `q` | float | radians | Target position (0.0 = closed, 5.4 = open) | Primary control input |
 | `dq` | float | rad/s | Target velocity | Unused (set to 0.0) |
 | `tau` | float | Nm | Target torque | Unused (set to 0.0) |
 | `kp` | float | - | Position gain | Unused (set to 0.0) |
@@ -216,8 +280,8 @@ class MotorCmd_ {
 
 **Position Mapping for Dex1-1:**
 - `q = 0.0` rad → Gripper fully closed (0%)
-- `q = 3.14` rad (π) → Gripper 50% open
-- `q = 6.28` rad (2π) → Gripper fully open (100%)
+- `q = 2.7` rad → Gripper 50% open
+- `q = 5.4` rad → Gripper fully open (100%)
 
 **Motor ID:**
 - Motor ID is set as an attribute after construction: `motor_cmd.id = 1` (left) or `2` (right)
@@ -279,7 +343,7 @@ class MotorState_ {
 | Field | Type | Units | Description | Dex1-1 Usage |
 |-------|------|-------|-------------|--------------|
 | `mode` | uint8 | - | Current control mode | 0 (position mode) |
-| `q` | float | radians | Current position (0.0-6.28) | Actual gripper position |
+| `q` | float | radians | Current position (0.0-5.4) | Actual gripper position |
 | `dq` | float | rad/s | Current velocity | Set to 0.0 |
 | `ddq` | float | rad/s² | Current acceleration | Set to 0.0 |
 | `tau_est` | float | Nm | Estimated torque | Grip force / 10.0 |
@@ -293,12 +357,60 @@ class MotorState_ {
 - Motor ID is set as an attribute: `motor_state.id = 1` (left) or `2` (right)
 
 **Position Mapping:**
-- Same as MotorCmd_: 0.0 rad = closed, 6.28 rad = open
+- Same as MotorCmd_: 0.0 rad = closed, 5.4 rad = open
 
 **Torque Feedback:**
 - `tau_est` provides grip force indication
 - Non-zero when gripper is gripping an object
 - Zero during free movement
+
+---
+
+## MotorState_ Implementation Requirements
+
+### **Python Implementation (Official SDK2 Compatible):**
+```python
+motor_state = MotorState_(
+    mode=0,
+    q=clamped_q,              # Critical: xr_teleoperate reads states[0].q
+    dq=0.0,                   # Required by spec, ignored by xr_teleoperate
+    ddq=0.0,                  # Required by spec, ignored by xr_teleoperate
+    tau_est=current_tau,      # Required by spec, ignored by xr_teleoperate
+    temperature=[25, 25],     # int16[2] array - required type
+    vol=12.0,                 # Motor voltage - required field
+    sensor=[0, 0],            # Sensor data array - required field
+    motorstate=0,             # Motor state flags - required field
+    reserve=[0, 0, 0, 0]      # uint32[4] array - required type
+)
+
+# Container for xr_teleoperate
+motor_states = MotorStates_()
+motor_states.states = [motor_state]  # xr_teleoperate accesses states[0].q
+```
+
+### **Implementation Requirements:**
+
+**Required Fields (must be present):**
+- `mode` (uint8)
+- `q` (float) - position in radians, range 0.0-5.4
+- `dq` (float) - velocity
+- `ddq` (float) - acceleration
+- `tau_est` (float) - estimated torque
+- `temperature` (int16[2]) - temperature array
+- `vol` (float) - motor voltage
+- `sensor` (uint32[2]) - sensor data
+- `motorstate` (uint32) - motor state flags
+- `reserve` (uint32[4]) - reserved array
+
+**Field Type Requirements:**
+- `temperature` must be `int16[2]`, not float
+- `reserve` must be `uint32[4]`, not [0, 0]
+- All array fields must have correct lengths
+
+**xr_teleoperate Usage:**
+- Only reads `states[0].q` field
+- Ignores all other fields
+- Expects position range 0.0-5.4 radians
 
 ---
 

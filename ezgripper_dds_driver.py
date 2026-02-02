@@ -183,6 +183,15 @@ class CorrectedEZGripperDriver:
         self.commanded_position_pct = 50.0  # Latest commanded position
         self.movement_speed = 952.43        # Measured gripper speed (%/sec)
         self.last_predict_time = time.time()
+        self.current_sensor_data = {}        # Store bulk sensor data from bulk reads
+        
+        # Error handling and health monitoring
+        self.hardware_healthy = True          # Hardware communication status
+        self.comm_error_count = 0            # Consecutive communication errors
+        self.max_comm_errors = 5             # Stop after N consecutive errors
+        self.last_successful_comm = time.time()
+        self.servo_error_count = 0           # Servo hardware errors
+        self.critical_servo_errors = 0       # Critical servo errors
         
         # Monitoring for verification
         self.state_publish_count = 0
@@ -461,6 +470,11 @@ class CorrectedEZGripperDriver:
         if self.latest_command is None:
             return
         
+        # PROTECTION: Don't execute commands if hardware is unhealthy
+        if not self.hardware_healthy:
+            self.logger.warning("Hardware unhealthy - skipping command execution")
+            return
+        
         try:
             cmd = self.latest_command
             
@@ -546,57 +560,67 @@ class CorrectedEZGripperDriver:
         """Publish predicted gripper state at 200 Hz (called from state thread)"""
         current_time = time.time()
         
+        # PROTECTION: Don't publish false state when hardware is unhealthy
+        if not self.hardware_healthy:
+            # Option: Stop publishing entirely (safer - xr_teleoperate knows something's wrong)
+            # return
+            
+            # Option: Publish explicit error state
+            try:
+                motor_state = MotorState_(
+                    mode=255,                    # Error mode
+                    q=0.0,                       # Safe position
+                    dq=0.0,                      # No velocity
+                    ddq=0.0,                     # No acceleration
+                    tau_est=0.0,                 # No torque
+                    temperature=[0, 0],          # Error temperature (int16[2])
+                    vol=0.0,                     # No voltage
+                    sensor=[0xFFFF, 0xFFFF],     # Error sensor data
+                    motorstate=0xFFFFFFFF,       # Error state flags
+                    reserve=[0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]  # Error flags
+                )
+                
+                motor_states = MotorStates_()
+                motor_states.states = [motor_state]
+                self.state_publisher.Write(motor_states)
+                return
+            except Exception as e:
+                self.logger.error(f"Error state publishing failed: {e}")
+                return
+        
         try:
-            # Update predicted position based on commanded position and movement speed
-            self.update_predicted_position()
-            
-            # Read shared state with lock
-            with self.state_lock:
-                predicted_pos = self.predicted_position_pct
-                actual_pos = self.actual_position_pct
-                commanded_pos = self.commanded_position_pct
-                effort = self.current_effort_pct
-            
             # Convert predicted position to Dex1 units for publishing
             current_q = self.ezgripper_to_dex1(predicted_pos)
             current_tau = effort / 10.0
             
-            # Create motor state for MotorStates_ (xr_teleoperate compatibility)
+            # Read real sensor data for DDS compliance
+            sensor_data = self.gripper.bulk_read_sensor_data()
+            
+            # Create motor state with official SDK2 structure
+            # ENFORCE DDS CONTRACT: Clamp to valid range [0.0, 5.4] before writing to DDS
+            clamped_q = max(0.0, min(5.4, current_q))
             motor_state = MotorState_(
-                mode=0,
-                q=current_q,      # FIXED: Use converted radians, not percentage
-                dq=0.0,
-                ddq=0.0,  # Required field for MotorState_
-                tau_est=current_tau,
-                q_raw=current_q,  # FIXED: Use converted radians, not percentage
-                dq_raw=0.0,
-                ddq_raw=0.0,
-                temperature=0,  # TODO: read actual temperature
-                lost=0,
-                reserve=[0, 0]
+                mode=0,                           # Position control mode
+                q=clamped_q,                      # Position feedback
+                dq=0.0,                           # No velocity data
+                ddq=0.0,                          # No acceleration data
+                tau_est=current_tau,              # Torque estimation
+                temperature=[
+                    int(sensor_data.get('temperature', 25)),
+                    int(sensor_data.get('temperature', 25))
+                ],                                 # Real temperature data (int16[2])
+                vol=sensor_data.get('voltage', 12.0),  # Real voltage in volts (already converted)
+                sensor=[0, sensor_data.get('error', 0)],      # Error data in sensor field
+                motorstate=0,                     # Normal operation
+                reserve=[0, 0, 0, 0]              # Required uint32[4] array
             )
             
             # Create MotorStates_ message
             motor_states = MotorStates_()
             motor_states.states = [motor_state]
             
-            # Debug: log what we're about to publish
-            if self.state_publish_count % 100 == 0:  # Log every 100th publish to avoid spam
-                self.logger.debug(f"Publishing state: pos={actual_pos:.2f}, current={current_tau:.2f}")
-                self.logger.debug(f"motor_state type: {type(motor_state)}")
-                self.logger.debug(f"motor_states type: {type(motor_states)}")
-            
-            # Publish state at 200 Hz (every loop) - matches xr_teleoperate
-            # Write returns a tuple (status, timestamp) but we ignore it
+            # Publish to DDS
             try:
-                # Check if Write is still a method
-                if self.state_publish_count % 100 == 0:
-                    self.logger.debug(f"state_publisher.Write type: {type(self.state_publisher.Write)}")
-                    self.logger.debug(f"state_publisher.Write callable: {callable(self.state_publisher.Write)}")
-                    if hasattr(self.state_publisher.Write, '__name__'):
-                        self.logger.debug(f"Write method name: {self.state_publisher.Write.__name__}")
-                
-                self.logger.debug(f"About to call Write() on state_publisher")
                 result = self.state_publisher.Write(motor_states)
                 self.logger.debug(f"Write() returned: {result} (type: {type(result)})")
             except TypeError as e:
@@ -644,12 +668,38 @@ class CorrectedEZGripperDriver:
                 self.receive_commands()
                 self.execute_command()
                 
-                # Read actual position periodically (every 10 cycles = 3 Hz)
-                if self.command_count % 10 == 0:
+                # Read sensor data using bulk operations (every cycle = 30 Hz for accurate control)
+                # Changed from every 10 cycles (3 Hz) to every cycle (30 Hz)
+                try:
+                    # Use bulk read for all sensor data in single USB transaction
+                    sensor_data = self.gripper.bulk_read_sensor_data()
+                    
+                    # Check for servo hardware errors
+                    self._handle_servo_errors(sensor_data['error_details'])
+                    
                     with self.state_lock:
-                        self.actual_position_pct = self.gripper.get_position()
-                        # Sync predicted position with actual
+                        self.actual_position_pct = sensor_data['position']
+                        # Sync predicted position with actual (minimal prediction needed now)
                         self.predicted_position_pct = self.actual_position_pct
+                        # Store other sensor data for monitoring
+                        self.current_sensor_data = sensor_data
+                    
+                    # Reset communication error counters on success
+                    self.comm_error_count = 0
+                    self.last_successful_comm = time.time()
+                    
+                except Exception as e:
+                    # Handle communication errors
+                    self._handle_communication_error(e)
+                    
+                    # Fallback to individual position read if bulk read fails
+                    try:
+                        with self.state_lock:
+                            self.actual_position_pct = self.gripper.get_position()
+                            self.predicted_position_pct = self.actual_position_pct
+                    except Exception as fallback_e:
+                        self.logger.error(f"Both bulk and fallback reads failed: {fallback_e}")
+                        self.hardware_healthy = False
                 
                 # Absolute time scheduling to prevent drift
                 next_cycle += period
@@ -664,11 +714,83 @@ class CorrectedEZGripperDriver:
             self.logger.error(f"Control thread error: {e}")
         finally:
             self.logger.info("Control thread stopped")
-    
-    def state_loop(self):
-        """State thread: Publish predicted position at 200 Hz"""
-        self.logger.info("Starting state thread at 200 Hz...")
-        period = 1.0 / self.state_loop_rate
+
+    def _handle_servo_errors(self, error_details):
+        """Handle servo hardware errors - SIMPLE: any error = torque off"""
+        if not error_details['has_error']:
+            # Reset error counters on clean status
+            if self.servo_error_count > 0:
+                self.logger.info("Servo errors cleared")
+            self.servo_error_count = 0
+            return
+        
+        self.servo_error_count += 1
+        self.logger.critical(f"Servo error #{self.servo_error_count}: {error_details['errors']}")
+        
+        # SIMPLE: Any error = disable torque immediately
+        self.gripper.disable_torque()  # Torque to zero
+        self.hardware_healthy = False
+
+    def _handle_communication_error(self, error):
+        """Handle communication errors - SIMPLE: disable torque on failures"""
+        self.comm_error_count += 1
+        self.logger.error(f"Communication error #{self.comm_error_count}: {error}")
+        
+        # Sequential communication issues = torque to zero
+        if self.comm_error_count >= self.max_comm_errors:
+            self.gripper.disable_torque()  # Torque to zero
+            self.hardware_healthy = False
+            return
+        
+        if time.time() - self.last_successful_comm > 2.0:  # 2 second timeout
+            self.gripper.disable_torque()  # Torque to zero
+            self.hardware_healthy = False
+
+def state_loop(self):
+    """State thread: Publish predicted position at 200 Hz"""
+    self.logger.info("Starting state thread at 200 Hz...")
+    period = 1.0 / self.state_loop_rate
+    next_cycle = time.time()
+
+    try:
+        while self.running:
+            # Update predicted position and publish state
+            self.publish_state()
+
+            # Absolute time scheduling for precise 200 Hz
+            next_cycle += period
+            sleep_time = next_cycle - time.time()
+            if sleep_time > 0:
+                time.sleep(sleep_time)
+            else:
+                # Missed deadline - reset
+                next_cycle = time.time()
+
+    except Exception as e:
+        self.logger.error(f"State thread error: {e}")
+    finally:
+        self.logger.info("State thread stopped")
+
+def run(self):
+    """Start multi-threaded driver with control and state threads"""
+    self.logger.info("Starting multi-threaded EZGripper driver...")
+    self.logger.info("  Control thread: 30 Hz (commands + actual position)")
+    self.logger.info("  State thread: 200 Hz (predicted position publishing)")
+
+    # Start threads
+    self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
+    self.state_thread = threading.Thread(target=self.state_loop, daemon=True, name="State")
+
+    self.control_thread.start()
+    self.state_thread.start()
+
+    try:
+        # Main thread waits for keyboard interrupt
+        while self.running:
+            time.sleep(0.1)
+    except KeyboardInterrupt:
+        self.logger.info("Shutting down corrected EZGripper driver...")
+    finally:
         next_cycle = time.time()
         
         try:

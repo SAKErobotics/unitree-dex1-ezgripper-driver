@@ -382,79 +382,187 @@ class Gripper:
             position_pct: Target position (0% = fully open, 100% = fully closed)
             effort_pct: Effort/current limit (0-100%)
         """
-        # Set effort/current limit
-        self.set_max_effort(int(effort_pct))
-        
         # Invert: 0% = fully open (grip_max), 100% = fully closed (0)
         # This matches the physical operation where opening increases raw position
         inverted_pct = 100 - int(position_pct)
         scaled_position = self.scale(inverted_pct, self.config.grip_max)
         
-        # Send position command to servo
-        # Operating mode already set to Position Control during initialization
+        # Calculate goal current
+        goal_current = self.scale(int(effort_pct), self.config.max_current)
+        
+        # BULK WRITE: Send current limit and position in single USB transaction
         for i in range(len(self.servos)):
             target_raw_pos = self.zero_positions[i] + scaled_position
-            self.servos[i].write_word(self.config.reg_goal_position, target_raw_pos)
+            
+            # Use regWrite for bulk operations (Protocol 2.0)
+            # Step 1: Register write operations (no USB transmission yet)
+            self.servos[i].dyn.packetHandler.regWrite(
+                self.servos[i].dyn.portHandler,
+                self.servos[i].servo_id,
+                self.config.reg_goal_current,  # Address
+                2,  # Data length (2 bytes for current)
+                goal_current & 0xFF,  # Low byte
+                (goal_current >> 8) & 0xFF  # High byte
+            )
+            
+            self.servos[i].dyn.packetHandler.regWrite(
+                self.servos[i].dyn.portHandler,
+                self.servos[i].servo_id,
+                self.config.reg_goal_position,  # Address
+                4,  # Data length (4 bytes for position)
+                target_raw_pos & 0xFF,  # Byte 0
+                (target_raw_pos >> 8) & 0xFF,  # Byte 1
+                (target_raw_pos >> 16) & 0xFF,  # Byte 2
+                (target_raw_pos >> 24) & 0xFF   # Byte 3
+            )
+            
+            # Step 2: Execute all registered writes in single USB transaction
+            self.servos[i].dyn.packetHandler.action(
+                self.servos[i].dyn.portHandler
+            )
 
-    def set_max_effort(self, max_effort):
-        # Protocol 2.0: Use Goal Current (RAM) for dynamic current control
-        # range 0-100% (0-100)
-        # Goal Current (register 102) is RAM - can write with torque enabled, no EEPROM wear
-
-        goal_current = self.scale(max_effort, self.config.max_current)
-
-        print("set_max_effort(%d): goal current: %d (position control)"%(max_effort, goal_current))
-        for servo in self.servos:
-            # Write to Goal Current (RAM register - 2 bytes, fast, no EEPROM wear)
-            data = [goal_current & 0xFF, (goal_current >> 8) & 0xFF]
-            servo.write_address(self.config.reg_goal_current, data)
-
-    def get_position(self, servo_num=0, \
-            use_percentages = True, gripper_module = 'dual_gen1'):
-
-        servo_position = self.servos[servo_num].read_word_signed(self.config.reg_present_position) - self.zero_positions[servo_num]
-        raw_pct = self.down_scale(servo_position, self.config.grip_max)
-        # Invert: raw 0 = 100% closed, raw grip_max = 0% open
-        current_position = 100 - raw_pct
-
-        if not use_percentages:
-            # Use Dex1 mapping from config
-            current_position = remap(current_position, \
-                100.0, 0.0, self.config.dex1_open_radians, self.config.dex1_close_radians)
-
-        return current_position
-
-    def get_positions(self):
-        positions = []
-        for i in range(len(self.servos)):
-            positions.append(self.get_position(i))
-        return positions
     
-    def get_state_bulk(self):
+    
+    def bulk_read_sensor_data(self, servo_num=0):
         """
-        Get complete servo state using bulk read (optional, faster than individual reads)
-        Returns ServoState object with position, current, load, temperature, errors
+        Read all sensor data in single USB transaction for efficiency
         
-        This is OPTIONAL - only use if you need multiple values at once.
-        For position-only, use get_position() which is simpler.
+        Returns:
+            dict: {
+                'position': position_pct,
+                'current': current_ma,
+                'temperature': temp_c,
+                'voltage': voltage_v,
+                'error': error_code
+            }
         """
+        # TRUE BULK READ: Read all registers in one transaction
+        # Use continuous memory read from position to error registers
+        start_addr = self.config.reg_present_position  # 132
+        data_length = 9  # Total bytes: pos(2) + current(2) + temp(1) + voltage(2) + error(2)
+        
+        # Perform bulk read
+        group_sync_read = GroupSyncRead(
+            self.servos[servo_num].dyn.portHandler,
+            self.servos[servo_num].dyn.packetHandler,
+            start_addr,
+            data_length
+        )
+        
+        # Add parameter for servo
+        param = GroupSyncRead.addParam(group_sync_read, self.servos[servo_num].servo_id)
+        
+        # Execute single bulk read transaction
+        comm_result = group_sync_read.txRxPacket()
+        
+        if comm_result != COMM_SUCCESS:
+            # No fallback - let the error propagate to identify real issues
+            raise Exception(f"Bulk read failed with comm_result: {comm_result}")
+        
+        # Parse all results from single transaction
+        sensor_data = {}
         try:
-            from .servo_state import ServoState
+            # Get all data in one read
+            bulk_data = group_sync_read.getData(param, start_addr, data_length)
             
-            # Bulk read with CORRECTED addresses (no duplicate 126)
-            data = self.servos[0].bulk_read([
-                (126, 2),  # Present Current
-                (132, 4),  # Present Position
-                (128, 2),  # Present Load (CORRECTED - was 126 in buggy version)
-                (70, 1),   # Hardware Error
-                (146, 1),  # Present Temperature
-            ])
+            # Parse position (bytes 0-1)
+            position_raw = (bulk_data[1] << 8) | bulk_data[0]
+            servo_position = position_raw - self.zero_positions[servo_num]
+            raw_pct = self.down_scale(servo_position, self.config.grip_max)
+            sensor_data['position'] = 100 - raw_pct  # Inverted
             
-            return ServoState.from_bulk_read(data)
+            # Parse current (bytes 2-3)
+            current_raw = (bulk_data[3] << 8) | bulk_data[2]
+            sensor_data['current'] = self._sign_extend_16bit(current_raw)
+            
+            # Parse temperature (byte 4)
+            sensor_data['temperature'] = bulk_data[4]
+            
+            # Parse voltage (bytes 5-6)
+            voltage_raw = (bulk_data[6] << 8) | bulk_data[5]
+            sensor_data['voltage'] = voltage_raw / 10.0  # Convert to volts
+            
+            # Parse error (bytes 7-8)
+            error_raw = (bulk_data[8] << 8) | bulk_data[7]
+            sensor_data['error'] = error_raw
+            
+            # Parse error bits for detailed analysis
+            sensor_data['error_details'] = self._parse_error_bits(error_raw)
+            
         except Exception as e:
-            # Fallback to individual read if bulk fails
-            return None
+            # No fallback - let the error propagate to identify real issues
+            raise Exception(f"Bulk read data parsing failed: {e}")
+        finally:
+            # Clean up
+            group_sync_read.clearParam()
+            
+        return sensor_data
 
+    def _sign_extend_16bit(self, value):
+        """Convert 16-bit signed value from servo to Python int"""
+        if value & 0x8000:
+            return value - 0x10000
+        return value
+
+    def _parse_error_bits(self, error_code):
+        """Parse Dynamixel error register bits into human-readable descriptions"""
+        error_details = {
+            'raw_error': error_code,
+            'has_error': error_code != 0,
+            'errors': []  # Just list the errors for logging
+        }
+        
+        if error_code == 0:
+            return error_details
+            
+        # Parse each error bit - SIMPLE: any error = torque off
+        if error_code & 0x01:
+            error_details['errors'].append('Input Voltage Error')
+            
+        if error_code & 0x02:
+            error_details['errors'].append('Overheating Error')
+            
+        if error_code & 0x04:
+            error_details['errors'].append('Motor Encoder Error')
+            
+        if error_code & 0x08:
+            error_details['errors'].append('Circuit Electrical Shock Error')
+            
+        if error_code & 0x10:
+            error_details['errors'].append('Overload Error')
+            
+        if error_code & 0x20:
+            error_details['errors'].append('Stalled Error')
+            
+        if error_code & 0x40:
+            error_details['errors'].append('Invalid Instruction Error')
+            
+        if error_code & 0x80:
+            error_details['errors'].append('Invalid CRC Error')
+            
+        return error_details
+
+    def disable_torque(self):
+        """Set torque to zero - simple protection"""
+        # BULK WRITE: Use regWrite + action for all servos
+        for i in range(len(self.servos)):
+            # Use regWrite for bulk operations (no USB transmission yet)
+            self.servos[i].dyn.packetHandler.regWrite(
+                self.servos[i].dyn.portHandler,
+                self.servos[i].servo_id,
+                self.config.reg_torque_enable,  # Address
+                1,  # Data length (1 byte for torque enable)
+                0   # Disable torque
+            )
+        
+        # Execute all writes in single USB transaction
+        for servo in self.servos:
+            servo.dyn.packetHandler.action(servo.dyn.portHandler)
+
+    
+    
+        
+    
     def move_with_torque_management(self, position, closing_torque, \
             use_percentages = True, gripper_module = 'dual_gen1'):
         # Simplified movement - always use position control

@@ -58,7 +58,7 @@ class Robotis_Servo:
             )
     
     def read_address(self, address, nBytes=1):
-        """Read nBytes from address on the servo"""
+        """Read nBytes from address"""
         with self.dyn.lock:
             if nBytes == 1:
                 value, comm_result, error = self.dyn.packetHandler.read1ByteTxRx(
