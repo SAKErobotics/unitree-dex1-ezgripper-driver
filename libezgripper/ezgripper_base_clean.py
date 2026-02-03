@@ -62,39 +62,69 @@ class Gripper:
         self._setup_position_control()
 
     def _setup_position_control(self):
-        """Minimal setup - just enable multi-turn and position control"""
-        print("  Minimal setup - enabling multi-turn mode...")
+        """Read current state and only write parameters that need updating"""
+        print("  Setup - checking servo configuration...")
         
         for i, servo in enumerate(self.servos):
-            # Disable torque for EEPROM writes
-            servo.write_address(64, [0])  # torque_enable register
-            time.sleep(0.05)
+            # Read current torque enable status
+            torque_status = servo.read_word(64)
+            print(f"    Torque enable: {torque_status}")
             
-            # Enable multi-turn mode (REQUIRED for EZGripper)
-            multi_turn_mode = servo.read_word(10)  # multi_turn_mode register
-            print(f"    Current multi-turn mode: {multi_turn_mode}")
+            # Read current multi-turn mode (REQUIRED for EZGripper)
+            multi_turn_mode = servo.read_word(10)
+            print(f"    Multi-turn mode: {multi_turn_mode}")
+            
+            # Only update multi-turn if needed
             if multi_turn_mode != 1:
-                print(f"    Enabling multi-turn mode: {multi_turn_mode} -> 1")
-                servo.write_word(10, 1)  # Enable multi-turn
-                time.sleep(0.1)  # Wait for EEPROM write
-                # Verify it worked
+                print(f"    Updating multi-turn mode: {multi_turn_mode} -> 1")
+                
+                # Disable torque if needed for EEPROM write
+                if torque_status != 0:
+                    print(f"    Disabling torque for EEPROM write...")
+                    servo.write_address(64, [0])
+                    torque_status = 0  # Update our cached status
+                    time.sleep(0.05)
+                
+                # Write multi-turn mode
+                servo.write_word(10, 1)
+                time.sleep(0.1)
+                
+                # Verify
                 new_mode = servo.read_word(10)
-                print(f"    New multi-turn mode: {new_mode}")
                 if new_mode != 1:
                     print(f"    ❌ FAILED to enable multi-turn mode!")
                 else:
-                    print(f"    ✅ Multi-turn mode enabled successfully")
+                    print(f"    ✅ Multi-turn mode updated successfully")
             else:
-                print(f"    Multi-turn mode already enabled: 1")
+                print(f"    ✅ Multi-turn mode already correct")
             
-            # Set position control mode
-            servo.write_word(11, 4)  # operating_mode = 4 (position control)
+            # Check operating mode (should be 4 for extended position control)
+            operating_mode = servo.read_word(11)
+            print(f"    Operating mode: {operating_mode}")
+            if operating_mode != 4:
+                print(f"    Updating operating mode: {operating_mode} -> 4")
+                # Disable torque if needed for EEPROM write
+                if torque_status != 0:
+                    print(f"    Disabling torque for EEPROM write...")
+                    servo.write_address(64, [0])
+                    torque_status = 0
+                    time.sleep(0.05)
+                servo.write_word(11, 4)
+                time.sleep(0.05)
+                print(f"    ✅ Operating mode updated")
+            else:
+                print(f"    ✅ Operating mode already correct")
             
-            # Re-enable torque
-            servo.write_address(64, [1])  # torque_enable register
-            time.sleep(0.05)
+            # Ensure torque is enabled for operation
+            if torque_status != 1:
+                print(f"    Enabling torque for operation...")
+                servo.write_address(64, [1])
+                time.sleep(0.05)
+                print(f"    ✅ Torque enabled")
+            else:
+                print(f"    ✅ Torque already enabled")
         
-        print("  Multi-turn setup complete")
+        print("  Setup complete - all parameters verified")
 
     def scale(self, n, to_max):
         """Scale from 0..100 to 0..to_max"""
