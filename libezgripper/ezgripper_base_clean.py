@@ -370,49 +370,45 @@ class Gripper:
 
     def bulk_write_control_data(self):
         """
-        Write control data using TRUE bulk write (single USB transaction)
+        Write control data using regWrite + action (like old working code)
+        
+        Writes BOTH goal_current and goal_position in single transaction.
+        This is critical - the old working code always updated current_limit
+        with every position command for proper force control.
         
         Position translation for grasping:
         - User command 0 (fully closed) → internal target -50
         - This ensures gripper goes beyond calibrated zero into grasp operational space
-        - Gripper architecture extends beyond zero for proper object wrapping
         """
         # Translate position for grasping
-        # User 0 → -50 to ensure full closure beyond zero
         internal_position = self.target_position
         if self.target_position == 0:
             internal_position = -50
             print(f"    🎯 Position translation: user 0% → internal -50% (grasp operational space)")
         
-        # Calculate goal values from target variables - UNCLAMPED
-        # 0% = closed (position 0), 100% = open (position 2500)
-        scaled_position = int(int(internal_position) * 2500 / 100)  # No clamping, no inversion
+        # Calculate goal values - UNCLAMPED
+        scaled_position = int(int(internal_position) * 2500 / 100)
+        goal_pwm = int(int(self.target_effort) * 885 / 100)  # Scale effort to PWM (0-885 for MX-64)
         
-        # Clear previous bulk write params
-        self.bulk_write.clearParam()
-        
-        # Add goal position for each servo - UNCLAMPED
+        # Write BOTH registers for each servo using regWrite + action
         for i in range(len(self.servos)):
             target_raw_pos = self.zero_positions[i] + scaled_position
             
-            # Convert to 4-byte array (little-endian)
-            param = [
-                target_raw_pos & 0xFF,
-                (target_raw_pos >> 8) & 0xFF,
-                (target_raw_pos >> 16) & 0xFF,
-                (target_raw_pos >> 24) & 0xFF
-            ]
+            packet_handler = self.servos[i].dyn.packetHandler
+            port_handler = self.servos[i].dyn.portHandler
+            servo_id = self.servos[i].servo_id
             
-            # Add to bulk write
-            self.bulk_write.addParam(self.servo_ids[i], param)
+            # Register write for Goal PWM (register 100, 2 bytes, RAM)
+            # This controls the force/torque during position control
+            packet_handler.regWrite2ByteTxOnly(port_handler, servo_id, 100, goal_pwm)
             
-            # Always log writes for debugging
-            print(f"    ✍️  WRITE servo: target={self.target_position}% → internal={internal_position}% → raw_pos={target_raw_pos} (zero={self.zero_positions[i]})")
-        
-        # Execute bulk write - SINGLE USB transaction
-        result = self.bulk_write.txPacket()
-        if result != COMM_SUCCESS:
-            raise Exception(f"Bulk write failed: {result}")
+            # Register write for goal_position (register 116, 4 bytes)
+            packet_handler.regWrite4ByteTxOnly(port_handler, servo_id, 116, target_raw_pos)
+            
+            # Execute BOTH writes in single transaction
+            packet_handler.action(port_handler, servo_id)
+            
+            print(f"    ✍️  WRITE servo: pos={self.target_position}%→{target_raw_pos}, pwm={self.target_effort}%→{goal_pwm}")
 
     def _goto_position_unclamped(self, position_pct, effort_pct):
         """
