@@ -46,14 +46,24 @@ class CalibrationReaction(CollisionReaction):
         
         print(f"  📍 Collision at: {collision_position}, offset set to: {-collision_position}")
         
-        # Clear hardware error by cycling torque (no delays - must be fast)
-        print(f"  🔧 Clearing hardware error...")
-        gripper.servos[0].write_address(64, [0])  # Disable torque
-        gripper.servos[0].write_address(64, [1])  # Re-enable torque
+        # Stop the servo immediately by commanding current position
+        # This prevents hardware error from occurring
+        print(f"  � Stopping servo at current position...")
+        current_raw_pos = collision_position  # Already at collision position
+        gripper.servos[0].write_address(116, [
+            current_raw_pos & 0xFF,
+            (current_raw_pos >> 8) & 0xFF,
+            (current_raw_pos >> 16) & 0xFF,
+            (current_raw_pos >> 24) & 0xFF
+        ])
         
-        print(f"  🔄 Commanding position 50%...")
+        # Small delay to let servo process stop command
+        import time
+        time.sleep(0.05)
         
-        # Move to position 50 to reduce load (fast with 100% effort)
+        print(f"  🔄 Opening to position 50%...")
+        
+        # Now move to position 50 to reduce load (fast with 100% effort)
         gripper.goto_position(50, 100)
         
         # Diagnostic: Check servo state after command
