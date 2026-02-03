@@ -7,48 +7,37 @@ Includes direct hardware calibration (bypasses DDS)
 
 import tkinter as tk
 from tkinter import ttk, messagebox
-import cyclonedds.domain as domain
-from cyclonedds.pub import DataWriter
-from cyclonedds.topic import Topic
-from cyclonedds.sub import DataReader
-from cyclonedds.util import duration
-from dataclasses import dataclass
 import time
 import threading
+
+# Import Unitree SDK2 for DDS communication
+from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber, ChannelFactoryInitialize
+from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_, MotorStates_, MotorCmd_, MotorState_
 
 # Import for direct hardware access (calibration only)
 from libezgripper import create_connection, create_gripper
 
-@dataclass
-class GripperCommand:
-    q: float
-    dq: float
-    tau: float
-
-@dataclass
-class GripperState:
-    q: float
-    dq: float
-    tau: float
-
 class GripperControlGUI:
-    def __init__(self, side='left', device=None):
+    def __init__(self, side='left', device=None, domain=0):
         self.side = side
         self.device = device or f"/dev/ttyUSB0"  # Default device
+        self.domain = domain
         self.window = tk.Tk()
         self.window.title(f"EZGripper Control - {side.upper()}")
         self.window.geometry("600x550")
         
-        # DDS setup
-        self.participant = domain.DomainParticipant()
+        # DDS setup using Unitree SDK2
+        ChannelFactoryInitialize(self.domain)
         
         # Command publisher
-        cmd_topic = Topic(self.participant, f'rt/dex1/{side}/cmd', GripperCommand)
-        self.cmd_writer = DataWriter(self.participant, cmd_topic)
+        cmd_topic_name = f"rt/dex1/{side}/cmd"
+        self.cmd_publisher = ChannelPublisher(cmd_topic_name, MotorCmds_)
+        self.cmd_publisher.Init()
         
         # State subscriber
-        state_topic = Topic(self.participant, f'rt/dex1/{side}/state', GripperState)
-        self.state_reader = DataReader(self.participant, state_topic)
+        state_topic_name = f"rt/dex1/{side}/state"
+        self.state_subscriber = ChannelSubscriber(state_topic_name, MotorStates_)
+        self.state_subscriber.Init()
         
         # Current state
         self.current_position = 50.0
@@ -157,22 +146,39 @@ class GripperControlGUI:
         # Send nominal 30% effort (will be overridden by state machine)
         tau = 0.3
         
-        cmd = GripperCommand(q=q_rad, dq=0.0, tau=tau)
-        self.cmd_writer.write(cmd)
+        # Create MotorCmd_ for single motor
+        motor_cmd = MotorCmd_(
+            mode=0,
+            q=q_rad,
+            dq=0.0,
+            tau=tau,
+            kp=0.0,
+            kd=0.0
+        )
+        
+        # Create MotorCmds_ message
+        motor_cmds = MotorCmds_()
+        motor_cmds.cmds = [motor_cmd]
+        
+        # Publish command
+        self.cmd_publisher.Write(motor_cmds)
         
         print(f"📤 Sent: position={self.current_position:.0f}% ({q_rad:.2f}rad), effort={tau*100:.0f}%")
         
     def _start_state_monitor(self):
         def update_state():
-            samples = self.state_reader.take(N=1)
-            if samples:
-                state = samples[0]
+            # Read state from DDS
+            state_msg = self.state_subscriber.Read()
+            
+            if state_msg and hasattr(state_msg, 'states') and state_msg.states and len(state_msg.states) > 0:
+                state = state_msg.states[0]
                 # Convert radians back to percentage
                 pos_pct = (state.q / 5.4) * 100.0
-                effort_pct = state.tau * 100.0
+                effort_pct = state.tau_est * 100.0
                 self.state_label.config(
                     text=f"Position: {pos_pct:.1f}%, Force: {effort_pct:.0f}%"
                 )
+            
             self.window.after(50, update_state)  # Update at 20 Hz
         
         update_state()
