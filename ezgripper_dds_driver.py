@@ -29,6 +29,7 @@ from unitree_sdk2py.idl.default import unitree_go_msg_dds__MotorCmd_
 
 # Minimal libezgripper imports - only what we use
 from libezgripper import create_connection, create_gripper
+from libezgripper.grasp_manager import GraspManager
 import serial.tools.list_ports
 
 
@@ -211,10 +212,18 @@ class CorrectedEZGripperDriver:
         self.control_thread = None
         self.state_thread = None
         
+        # Grasp manager - state-based adaptive grasping
+        self.grasp_manager = None  # Initialized after hardware
+        
         # Initialize
         self._initialize_hardware()
         self._load_calibration()
         self._setup_dds()
+        
+        # Initialize simplified grasp manager after hardware is ready
+        # Loads force percentages and thresholds from config
+        self.grasp_manager = GraspManager(self.gripper.config)
+        self.logger.info("GraspManager initialized - percentage-based force system")
         
         # Auto-calibrate at startup if enabled (but not if manual calibration will be done)
         if self.gripper.config.calibration_auto_on_init:
@@ -515,7 +524,12 @@ class CorrectedEZGripperDriver:
             self.logger.error(f"Command receive failed: {e}")
     
     def execute_command(self):
-        """Execute latest command (no locking, single-threaded)"""
+        """
+        Execute latest command using GraspManager
+        
+        DDS commands are treated as INPUTS to the state machine, not direct execution.
+        The GraspManager owns the goal and adapts based on state + sensors + DDS input.
+        """
         if self.latest_command is None:
             return
         
@@ -527,19 +541,35 @@ class CorrectedEZGripperDriver:
         try:
             cmd = self.latest_command
             
-            # Position mode - use goto_position which sets target variables
-            self.logger.info(f"🎯 EXEC: target={cmd.position_pct:.1f}%, effort={cmd.effort_pct:.1f}%")
-            self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
-            self.logger.info(f"   → gripper.target_position={self.gripper.target_position}%")
+            # Get current sensor data for GraspManager
+            sensor_data = self.current_sensor_data if self.current_sensor_data else {}
+            
+            # Get hardware current limit from config for percentage conversion
+            hardware_current_limit = self.gripper.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
+            
+            # Process DDS command as INPUT through GraspManager
+            # GraspManager returns the MANAGED goal (not raw DDS command)
+            goal_position, goal_effort = self.grasp_manager.process_cycle(
+                dds_position=cmd.position_pct,
+                dds_effort=cmd.effort_pct,
+                sensor_data=sensor_data,
+                hardware_current_limit_ma=hardware_current_limit
+            )
+            
+            # Execute the MANAGED goal (not raw DDS command)
+            self.logger.info(f"🎯 DDS INPUT: pos={cmd.position_pct:.1f}%, effort={cmd.effort_pct:.1f}%")
+            self.logger.info(f"🎯 MANAGED GOAL: pos={goal_position:.1f}%, effort={goal_effort:.1f}%")
+            self.gripper.goto_position(goal_position, goal_effort)
             
             if self.command_count % 30 == 0:  # Log every second at 30Hz
-                self.logger.info(f"Command received: q={cmd.position_pct:.1f}%")
+                state_info = self.grasp_manager.get_state_info()
+                self.logger.info(f"State: {state_info['state']}, Contact: {state_info['in_contact']}")
             
             # Update state (thread-safe)
             with self.state_lock:
-                self.target_position_pct = cmd.position_pct
-                self.commanded_position_pct = cmd.position_pct  # Update commanded position for prediction
-                self.current_effort_pct = cmd.effort_pct
+                self.target_position_pct = cmd.position_pct  # DDS target
+                self.commanded_position_pct = goal_position  # Actual commanded (managed)
+                self.current_effort_pct = goal_effort
             
             # Increment command counter
             self.command_count += 1
@@ -552,7 +582,7 @@ class CorrectedEZGripperDriver:
                     mode = "OPEN"
                 else:
                     mode = f"POSITION {cmd.position_pct:.1f}%"
-                self.logger.info(f"Executing: {mode} (q={cmd.q_radians:.3f}, tau={cmd.tau:.3f})")
+                self.logger.info(f"DDS Command: {mode} (q={cmd.q_radians:.3f}, tau={cmd.tau:.3f})")
             
         except Exception as e:
             self.logger.error(f"Command execution failed: {e}")

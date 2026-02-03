@@ -47,11 +47,17 @@
       "return_delay_time": 2,
       "status_return_level": 2
     },
+    "force_management": {
+      "moving_force_pct": 80,
+      "holding_force_pct": 30,
+      "contact_force_pct": 30,
+      "idle_force_pct": 0
+    },
     "collision_detection": {
-      "current_spike_threshold": 1000,
-      "stagnation_movement": 2,
-      "detection_samples": 4,
-      "response_immediate": true,
+      "current_spike_threshold_pct": 50,
+      "stagnation_movement_units": 2,
+      "consecutive_samples_required": 3,
+      "settling_cycles": 10,
       "monitor_frequency_hz": 30
     }
   },
