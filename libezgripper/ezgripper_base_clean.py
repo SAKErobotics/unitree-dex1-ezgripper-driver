@@ -258,7 +258,7 @@ class Gripper:
     def _detect_collision(self, sensor_data):
         """Detect collision - immediate response on EITHER condition"""
         stagnation_threshold = 2   # From config
-        current_threshold = 150     # Lower threshold for finger contact
+        current_threshold = 400     # Threshold for collision detection (increased for full closure)
         
         current_position = sensor_data.get('position_raw', 0)
         current_current = abs(sensor_data.get('current', 0))
@@ -280,14 +280,19 @@ class Gripper:
             
             return True
         
-        # Check 2: Position stagnation (IMMEDIATE collision detection)
-        if hasattr(self, '_last_position') and self._last_position is not None:
-            movement = abs(current_position - self._last_position)
-            if self.calibration_active:
+        # Check 2: Position stagnation (DISABLED during calibration)
+        # During calibration, only use current spike detection to ensure full closure
+        if not self.calibration_active:
+            if hasattr(self, '_last_position') and self._last_position is not None:
+                movement = abs(current_position - self._last_position)
+                if movement < stagnation_threshold:
+                    print(f"\n    ✅ COLLISION DETECTED: Position stagnation movement={movement} < {stagnation_threshold}!")
+                    return True
+        else:
+            # During calibration, still track movement for logging
+            if hasattr(self, '_last_position') and self._last_position is not None:
+                movement = abs(current_position - self._last_position)
                 print(f", movement={movement}", end="")
-            if movement < stagnation_threshold:
-                print(f"\n    ✅ COLLISION DETECTED: Position stagnation movement={movement} < {stagnation_threshold}!")
-                return True
         
         if self.calibration_active:
             print()  # Newline after monitoring output
@@ -439,7 +444,7 @@ class Gripper:
         if result != COMM_SUCCESS:
             raise Exception(f"Bulk write position failed: {result}")
 
-    def _goto_position_unclamped(self, position_pct, effort_pct):
+ 
         """
         Set target position without clamping AND apply current to force contact
         
@@ -468,7 +473,7 @@ class Gripper:
         Set target position - ALWAYS UNCLAMPED, goes until destination or collision
         
         Args:
-            position_pct: Target position (0% = fully open, 100% = fully closed, can be negative)
+            position_pct: Target position (0% = closed, 100% = open, can be negative)
             effort_pct: Effort/current limit (0-100%)
         """
         self.target_position = position_pct
@@ -524,19 +529,13 @@ class Gripper:
             self.update_main_loop()
             if self.collision_detected:
                 # Collision detected and reaction completed (PWM dropped to 15%)
-                # Now open to 50% with 100% PWM
+                # Now open to 50% with 100% PWM and let servo reach position naturally
                 print(f"  🔓 Opening to 50% with 100% PWM...")
                 self.goto_position(50, 100)
-                time.sleep(0.5)  # Wait for movement
                 
-                # Release gripper (PWM=0) to prevent false collision on next calibration
-                print(f"  🔓 Releasing gripper (PWM=0)...")
-                self.bulk_write_pwm.clearParam()
-                pwm_param = [0, 0]
-                self.bulk_write_pwm.addParam(self.servo_ids[0], pwm_param)
-                self.bulk_write_pwm.txPacket()
-                
-                print(f"  ✅ Calibration complete")
+                # Servo will move to 50% and hold there with position control
+                # No blocking sleep - calibration complete
+                print(f"  ✅ Calibration complete - gripper moving to 50%")
                 return True
             time.sleep(0.033)
         
