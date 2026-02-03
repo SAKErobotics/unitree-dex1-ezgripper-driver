@@ -39,10 +39,12 @@ class CalibrationReaction(CollisionReaction):
     def on_collision(self, gripper, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
         """Record zero position and move to 50% open"""
         # Record zero position from collision
+        # Store NEGATIVE of collision position as offset
+        # During bulk read, adding this offset gives position relative to zero
         collision_position = sensor_data.get('position_raw', 0)
-        gripper.zero_positions[0] = collision_position
+        gripper.zero_positions[0] = -collision_position
         
-        print(f"  📍 Zero position set to: {collision_position}")
+        print(f"  📍 Collision at: {collision_position}, offset set to: {-collision_position}")
         print(f"  🔄 Relaxing to position 50%...")
         
         # Move to position 50 to reduce load (fast with 100% effort)
