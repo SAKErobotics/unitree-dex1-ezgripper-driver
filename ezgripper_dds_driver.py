@@ -605,11 +605,12 @@ class CorrectedEZGripperDriver:
                     dq=0.0,                      # No velocity
                     ddq=0.0,                     # No acceleration
                     tau_est=0.0,                 # No torque
-                    temperature=[0, 0],          # Error temperature (int16[2])
-                    vol=0.0,                     # No voltage
-                    sensor=[0xFFFF, 0xFFFF],     # Error sensor data
-                    motorstate=0xFFFFFFFF,       # Error state flags
-                    reserve=[0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF, 0xFFFFFFFF]  # Error flags
+                    q_raw=0.0,                   # Raw position (float32)
+                    dq_raw=0.0,                  # Raw velocity (float32)
+                    ddq_raw=0.0,                 # Raw acceleration (float32)
+                    temperature=0,               # Error temperature (uint8)
+                    lost=0xFFFFFFFF,             # Error - max lost packets (uint32)
+                    reserve=[0xFFFFFFFF, 0xFFFFFFFF]  # Error flags (array[uint32, 2])
                 )
                 
                 motor_states = MotorStates_()
@@ -643,14 +644,13 @@ class CorrectedEZGripperDriver:
                 dq=0.0,                           # No velocity data
                 ddq=0.0,                          # No acceleration data
                 tau_est=current_tau,              # Torque estimation
-                temperature=[
-                    int(self.get_temperature()),
-                    int(self.get_temperature())
-                ],
-                vol=self.get_voltage(),  # Real voltage in volts (already converted)
-                sensor=[0, self.get_error()],      # Error data in sensor field
-                motorstate=0,                     # Normal operation
-                reserve=[0, 0, 0, 0]              # Required uint32[4] array
+
+                q_raw=clamped_q,                  # Raw position (float32)
+                dq_raw=0.0,                       # Raw velocity (float32)
+                ddq_raw=0.0,                      # Raw acceleration (float32)
+                temperature=int(self.get_temperature()),  # Temperature (uint8)
+                lost=0,                           # Lost packets (uint32)
+                reserve=[0, 0]                    # Reserve array[uint32, 2]
             )
             
             # Create MotorStates_ message
