@@ -460,18 +460,17 @@ class Gripper:
 
     def calibrate_with_collision_detection(self):
         """
-        Simple calibration - close until collision detected
+        Self-contained calibration - close until collision detected
         
-        Clean architecture:
-        - 30Hz loop (in DDS driver) continuously monitors collision
-        - Calibration just sets reaction and waits for collision_detected flag
-        - No monitoring loop here - collision detection always running
+        Self-contained approach:
+        - Calibration has its own monitoring loop (independent)
+        - Runs as fast as possible for rapid collision detection
+        - Does not rely on external 30Hz loop
         
         Strategy:
-        1. Set CalibrationReaction
-        2. goto_position(-300, 100) - Force beyond closed until collision
-        3. Wait for collision_detected flag (set by 30Hz loop)
-        4. CalibrationReaction sets zero offset when collision detected
+        1. goto_position(-300, 100) - Force beyond closed until collision
+        2. Monitor in tight loop until collision detected
+        3. CalibrationReaction sets zero offset when collision detected
         """
         # Reset state
         self.collision_detected = False
@@ -481,14 +480,18 @@ class Gripper:
         self.enable_collision_monitoring(CalibrationReaction())
         self.goto_position(-300, 100)
         
-        # Wait for collision_detected flag (set by continuous 30Hz loop)
-        # Timeout after 3 seconds for safety
-        timeout = time.time() + 3.0
-        while not self.collision_detected and time.time() < timeout:
-            time.sleep(0.01)  # Small sleep, 30Hz loop does the monitoring
+        # Self-contained monitoring loop - run as fast as possible
+        for _ in range(200):
+            self.update_main_loop()
+            
+            # Check collision immediately - no delay for fast response
+            if self.collision_detected:
+                self.calibration_active = False
+                return True
         
+        # Timeout - no collision detected
         self.calibration_active = False
-        return self.collision_detected
+        return False
 
     def calibrate(self):
         """Modern calibration using goto_position with collision detection"""
