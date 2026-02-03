@@ -444,30 +444,6 @@ class Gripper:
         if result != COMM_SUCCESS:
             raise Exception(f"Bulk write position failed: {result}")
 
- 
-        """
-        Set target position without clamping AND apply current to force contact
-        
-        Args:
-            position_pct: Target position (can be negative to force beyond limit)
-            effort_pct: Effort/current limit (0-100%)
-        """
-        # Calculate without clamping
-        # 0% = closed (position 0), 100% = open (position 2500)
-        scaled_position = int(int(position_pct) * 2500 / 100)  # No clamping, no inversion
-        
-        # Set target directly (bypass normal goto_position)
-        self.target_position = position_pct
-        self.target_effort = effort_pct
-        
-        # Write directly to servo for immediate effect
-        target_raw_pos = self.zero_positions[0] + scaled_position
-        self.servos[0].write_word(116, target_raw_pos)  # goal_position register
-        print(f"  UNCLAMPED write: position={position_pct}% → raw={target_raw_pos}")
-        
-        # Note: Multi-turn mode allows going beyond normal position limits
-        # No current control needed for now - multi-turn should handle it
-
     def goto_position(self, position_pct, effort_pct):
         """
         Set target position - ALWAYS UNCLAMPED, goes until destination or collision
