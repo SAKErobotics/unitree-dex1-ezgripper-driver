@@ -50,7 +50,8 @@ class Gripper:
         self.config = config
         self.servos = [Robotis_Servo(connection, servo_id) for servo_id in servo_ids]
         
-        # Initialize zero positions (software-managed, set during calibration)
+        # Initialize zero positions to 0
+        # Will be set to actual zero during calibration
         self.zero_positions = [0] * len(servo_ids)
         
         # Collision detection and reaction system
@@ -411,83 +412,24 @@ class Gripper:
         
         Strategy:
         1. goto_position(-300, 100) - Force beyond closed until collision
-        2. Main loop detects collision and CalibrationReaction moves to position 50
+        2. Wrap-around is REQUIRED for winch/tendon tightening
+        3. CalibrationReaction sets zero and relaxes when collision detected
         """
-        print("\n=== SIMPLE CALIBRATION WITH GOTO_POSITION ===")
-        
-        # Reset calibration state
+        # Reset state
         self.collision_detected = False
         self.calibration_active = True
-        self._last_position = None
         
-        # Step 1: Force beyond closed for collision (start from current position)
-        print("  Step 1: Moving to -300% (beyond closed) until collision...")
-        start_close_time = time.time()
+        # Close (may wrap around - this is required for winch/tendon)
         self.goto_position(-300, 100)
-        
-        # Enable collision monitoring with calibration reaction
         self.enable_collision_monitoring(CalibrationReaction())
-        self.calibration_active = True
         
-        # Step 3: Run main loop until collision detected
-        print("  Step 3: Monitoring for collision...")
-        monitoring_start = time.time()
-        cycle_times = []
-        position_history = []  # Track position over time
-        start_position = None
-        
-        for sample in range(50):  # Extended time
-            cycle_start = time.time()
-            result = self.update_main_loop()
-            cycle_end = time.time()
-            total_cycle_time = (cycle_end - cycle_start) * 1000  # ms
-            cycle_times.append(total_cycle_time)
-            
-            # Track position over time
-            if result:
-                data = result['sensor_data']
-                pos = data.get('position_raw', 0)
-                elapsed = time.time() - monitoring_start
-                position_history.append((elapsed, pos))
-                
-                if start_position is None:
-                    start_position = pos
-            
-            # Check if collision was detected in this cycle
-            if result and result.get('collision_detected'):
-                print("  ✅ Collision detected - calibration complete!")
-                return True
-            
-            # Show progress with timing and movement speed
-            if result and sample % 5 == 0:
-                data = result['sensor_data']
-                timing = result.get('timing', {})
-                pos = data.get('position_raw', 0)
-                current = data.get('current', 0)
-                elapsed = time.time() - monitoring_start
-                
-                # Calculate movement speed
-                if start_position is not None:
-                    pos_change = abs(pos - start_position)
-                    speed = pos_change / elapsed if elapsed > 0 else 0
-                    print(f"    Sample {sample+1}: pos={pos}, cur={current}mA, "
-                          f"Δpos={pos_change}, speed={speed:.0f}units/s, "
-                          f"read={timing.get('read_ms', 0):.1f}ms, "
-                          f"cycle={total_cycle_time:.1f}ms")
-            
-            # CRITICAL: Check again after update_main_loop in case collision was just detected
+        # Monitor until collision
+        for _ in range(50):
+            self.update_main_loop()
             if self.collision_detected:
-                detection_time = time.time() - monitoring_start
-                avg_cycle = sum(cycle_times) / len(cycle_times) if cycle_times else 0
-                print(f"  ✅ Collision detected in {sample+1} cycles!")
-                print(f"     Detection time: {detection_time*1000:.1f}ms")
-                print(f"     Avg cycle time: {avg_cycle:.1f}ms")
-                print(f"     Cycles: {cycle_times[:sample+1]}")
                 return True
-                
-            time.sleep(0.033)  # 30Hz
+            time.sleep(0.033)
         
-        print("  ⚠️  No collision detected")
         self.calibration_active = False
         return False
 
