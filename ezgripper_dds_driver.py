@@ -705,29 +705,31 @@ class CorrectedEZGripperDriver:
                 # Write control data to servo (CRITICAL - actually moves the gripper)
                 self.gripper.bulk_write_control_data()
                 
-                # Read sensor data using bulk operations (every cycle = 30 Hz for accurate control)
-                # Changed from every 10 cycles (3 Hz) to every cycle (30 Hz)
+                # Read sensor data + collision detection (continuous at 30 Hz)
                 try:
-                    # Use bulk read for all sensor data in single USB transaction and update cache
-                    sensor_data = self.gripper.bulk_read_sensor_data()
-                    self.current_sensor_data = sensor_data  # Update cache
+                    # Use update_main_loop for bulk read + collision detection
+                    result = self.gripper.update_main_loop()
                     
-                    # DEBUG: Stream sensor reads
-                    self.logger.info(f"📊 SENSOR: raw={sensor_data.get('position_raw', 'N/A')}, pct={sensor_data.get('position', 'N/A'):.1f}%")
-                    
-                    # Check for servo hardware errors using cache
-                    self._handle_servo_errors(self.get_error_details())
-                    
-                    with self.state_lock:
-                        self.actual_position_pct = self.get_position()
-                        # Sync predicted position with actual (minimal prediction needed now)
-                        self.predicted_position_pct = self.actual_position_pct
-                    # DEBUG: Log every update
-                    self.logger.info(f"🔄 READ: actual_position_pct={self.actual_position_pct:.1f}%")
-                    
-                    # Reset communication error counters on success
-                    self.comm_error_count = 0
-                    self.last_successful_comm = time.time()
+                    if result:
+                        sensor_data = result['sensor_data']
+                        self.current_sensor_data = sensor_data  # Update cache
+                        
+                        # DEBUG: Stream sensor reads
+                        self.logger.info(f"📊 SENSOR: raw={sensor_data.get('position_raw', 'N/A')}, pct={sensor_data.get('position', 'N/A'):.1f}%")
+                        
+                        # Check for servo hardware errors using cache
+                        self._handle_servo_errors(self.get_error_details())
+                        
+                        with self.state_lock:
+                            self.actual_position_pct = self.get_position()
+                            # Sync predicted position with actual (minimal prediction needed now)
+                            self.predicted_position_pct = self.actual_position_pct
+                        # DEBUG: Log every update
+                        self.logger.info(f"🔄 READ: actual_position_pct={self.actual_position_pct:.1f}%")
+                        
+                        # Reset communication error counters on success
+                        self.comm_error_count = 0
+                        self.last_successful_comm = time.time()
                     
                 except Exception as e:
                     # Handle communication errors

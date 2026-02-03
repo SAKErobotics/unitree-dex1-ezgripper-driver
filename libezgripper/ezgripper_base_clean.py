@@ -462,32 +462,33 @@ class Gripper:
         """
         Simple calibration - close until collision detected
         
-        Strategy:
-        1. goto_position(-300, 100) - Force beyond closed until collision
-        2. Wrap-around is REQUIRED for winch/tendon tightening
-        3. CalibrationReaction sets zero offset (collision position)
-        4. Offset is applied during bulk_read_sensor_data (30Hz)
+        Clean architecture:
+        - 30Hz loop (in DDS driver) continuously monitors collision
+        - Calibration just sets reaction and waits for collision_detected flag
+        - No monitoring loop here - collision detection always running
         
-        The offset represents where the gripper closes relative to physical zero.
-        Once set, it's applied to all position reads in bulk_read_sensor_data.
+        Strategy:
+        1. Set CalibrationReaction
+        2. goto_position(-300, 100) - Force beyond closed until collision
+        3. Wait for collision_detected flag (set by 30Hz loop)
+        4. CalibrationReaction sets zero offset when collision detected
         """
-        # Reset state only
+        # Reset state
         self.collision_detected = False
         self.calibration_active = True
         
-        # Close (may wrap around - this is required for winch/tendon)
-        self.goto_position(-300, 100)
+        # Set reaction and command close
         self.enable_collision_monitoring(CalibrationReaction())
+        self.goto_position(-300, 100)
         
-        # Monitor until collision
-        for _ in range(50):
-            self.update_main_loop()
-            if self.collision_detected:
-                return True
-            time.sleep(0.033)
+        # Wait for collision_detected flag (set by continuous 30Hz loop)
+        # Timeout after 3 seconds for safety
+        timeout = time.time() + 3.0
+        while not self.collision_detected and time.time() < timeout:
+            time.sleep(0.01)  # Small sleep, 30Hz loop does the monitoring
         
         self.calibration_active = False
-        return False
+        return self.collision_detected
 
     def calibrate(self):
         """Modern calibration using goto_position with collision detection"""
