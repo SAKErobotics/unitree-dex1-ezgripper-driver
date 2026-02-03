@@ -24,7 +24,7 @@ class GripperControlGUI:
         self.domain = domain
         self.window = tk.Tk()
         self.window.title(f"EZGripper Control - {side.upper()}")
-        self.window.geometry("750x650")
+        self.window.geometry("650x750")
         
         # DDS setup using Unitree SDK2
         ChannelFactoryInitialize(self.domain)
@@ -43,6 +43,10 @@ class GripperControlGUI:
         self.current_position = 50.0
         self.current_effort = 30.0
         
+        # Command mode: continuous (G1 pattern) or on-demand (button clicks)
+        self.continuous_mode = tk.BooleanVar(value=True)  # Default to G1 pattern
+        self.command_publisher_active = False
+        
         # Direct hardware connection (for calibration only)
         self.hw_connection = None
         self.hw_gripper = None
@@ -50,12 +54,34 @@ class GripperControlGUI:
         
         self._create_widgets()
         self._start_state_monitor()
+        self._start_command_publisher()  # Start in continuous mode by default
         
     def _create_widgets(self):
         # Title
         title = tk.Label(self.window, text=f"{self.side.upper()} Gripper Control", 
                         font=("Arial", 16, "bold"))
         title.pack(pady=10)
+        
+        # Command mode selector
+        mode_frame = tk.Frame(self.window)
+        mode_frame.pack(pady=5)
+        
+        mode_check = tk.Checkbutton(
+            mode_frame,
+            text="🔄 Continuous Mode (200Hz - G1 Pattern)",
+            variable=self.continuous_mode,
+            command=self._toggle_command_mode,
+            font=("Arial", 10, "bold")
+        )
+        mode_check.pack()
+        
+        self.mode_status = tk.Label(
+            mode_frame,
+            text="Sending commands at 200Hz continuously",
+            font=("Arial", 9),
+            fg="green"
+        )
+        self.mode_status.pack()
         
         # Position control
         pos_frame = tk.LabelFrame(self.window, text="Position Control", padx=20, pady=20)
@@ -129,12 +155,16 @@ class GripperControlGUI:
         position = float(value)
         self.pos_label.config(text=f"Position: {position:.0f}%")
         self.current_position = position
-        self._send_command()
+        # In on-demand mode, send command immediately
+        if not self.continuous_mode.get():
+            self._send_command()
         
     def _set_position(self, position):
         self.pos_slider.set(position)
         self.current_position = position
-        self._send_command()
+        # In on-demand mode, send command immediately
+        if not self.continuous_mode.get():
+            self._send_command()
         
     def _send_command(self):
         try:
@@ -147,8 +177,6 @@ class GripperControlGUI:
             # Send nominal 30% effort (will be overridden by state machine)
             tau = 0.3
             
-            print(f"\n🔵 _send_command() called: position={self.current_position:.0f}%")
-            
             # Create MotorCmd_ for single motor
             motor_cmd = MotorCmd_(
                 mode=0,
@@ -157,25 +185,52 @@ class GripperControlGUI:
                 tau=tau,
                 kp=0.0,
                 kd=0.0,
-                reserve=[0, 0, 0]  # Required reserve field
+                reserve=[0, 0, 0]
             )
-            print(f"✅ Created MotorCmd_: q={q_rad:.3f}, tau={tau}")
             
             # Create MotorCmds_ message
             motor_cmds = MotorCmds_()
             motor_cmds.cmds = [motor_cmd]
-            print(f"✅ Created MotorCmds_ with {len(motor_cmds.cmds)} commands")
             
-            # Publish command
-            result = self.cmd_publisher.Write(motor_cmds)
-            print(f"✅ Write() returned: {result}")
-            print(f"📤 Sent: position={self.current_position:.0f}% ({q_rad:.2f}rad), effort={tau*100:.0f}%\n")
+            # Publish command at 200Hz (G1 pattern)
+            self.cmd_publisher.Write(motor_cmds)
             
         except Exception as e:
-            print(f"❌ Error in _send_command(): {e}")
-            import traceback
-            traceback.print_exc()
+            # Only log errors (not every command at 200Hz)
+            if not hasattr(self, '_last_error') or self._last_error != str(e):
+                print(f"❌ Error in _send_command(): {e}")
+                self._last_error = str(e)
         
+    def _toggle_command_mode(self):
+        """Toggle between continuous and on-demand command mode"""
+        if self.continuous_mode.get():
+            # Switch to continuous mode
+            self.mode_status.config(
+                text="Sending commands at 200Hz continuously",
+                fg="green"
+            )
+            if not self.command_publisher_active:
+                self._start_command_publisher()
+        else:
+            # Switch to on-demand mode
+            self.mode_status.config(
+                text="Sending commands only on button clicks/slider changes",
+                fg="blue"
+            )
+            self.command_publisher_active = False
+    
+    def _start_command_publisher(self):
+        """Publish commands continuously at 200Hz like G1 teleoperation"""
+        self.command_publisher_active = True
+        
+        def publish_command():
+            # Only continue if continuous mode is still enabled
+            if self.continuous_mode.get() and self.command_publisher_active:
+                self._send_command()
+                self.window.after(5, publish_command)  # 5ms = 200Hz
+        
+        publish_command()
+    
     def _start_state_monitor(self):
         def update_state():
             # Read state from DDS
@@ -294,7 +349,10 @@ if __name__ == '__main__':
     print("\n=== DDS Control ===")
     print("Commands sent to: rt/dex1/{}/cmd".format(side))
     print("State received from: rt/dex1/{}/state".format(side))
-    print("\nGraspManager will automatically manage force based on state:")
+    print("\n=== Command Modes ===")
+    print("  • Continuous Mode (default): Sends at 200Hz like G1 teleoperation")
+    print("  • On-Demand Mode: Sends only on button clicks/slider changes")
+    print("\n=== GraspManager Force Management ===")
     print("  • MOVING: 80% force (fast movement)")
     print("  • CONTACT: 30% force (settling)")
     print("  • GRASPING: 30% force (holding)")
