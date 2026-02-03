@@ -53,23 +53,25 @@ class CalibrationReaction(CollisionReaction):
         import time
         t_write_start = time.time()
         
-        # Command servo to hold at collision position (0%)
-        print(f"  🔒 Holding at 0% (position {collision_position})...")
+        # Open to 50% with 100% PWM for FAST movement
+        open_position = collision_position + 1250  # 50% of 2500
+        
+        print(f"  � Opening to 50% with 100% PWM (position {open_position})...")
         
         gripper.bulk_write_pwm.clearParam()
         gripper.bulk_write_position.clearParam()
         
-        # Use 10% PWM for very gentle hold to prevent overload
-        goal_pwm = int(885 * 0.1)  # 10% PWM = 88
-        pwm_param = [goal_pwm & 0xFF, (goal_pwm >> 8) & 0xFF]
+        # Use 100% PWM for fast opening
+        goal_pwm_100 = 885  # 100% PWM
+        pwm_param = [goal_pwm_100 & 0xFF, (goal_pwm_100 >> 8) & 0xFF]
         gripper.bulk_write_pwm.addParam(gripper.servo_ids[0], pwm_param)
         
-        # Hold at collision position
+        # Open to 50%
         pos_param = [
-            collision_position & 0xFF,
-            (collision_position >> 8) & 0xFF,
-            (collision_position >> 16) & 0xFF,
-            (collision_position >> 24) & 0xFF
+            open_position & 0xFF,
+            (open_position >> 8) & 0xFF,
+            (open_position >> 16) & 0xFF,
+            (open_position >> 24) & 0xFF
         ]
         gripper.bulk_write_position.addParam(gripper.servo_ids[0], pos_param)
         
@@ -77,7 +79,19 @@ class CalibrationReaction(CollisionReaction):
         gripper.bulk_write_pwm.txPacket()
         gripper.bulk_write_position.txPacket()
         
-        print(f"  ✅ Calibration complete - gripper at 0% (closed position)")
+        # Wait for gripper to reach 50%
+        import time
+        time.sleep(0.5)
+        
+        # Reduce PWM to 25% for gentle holding
+        print(f"  🔒 Reducing PWM to 25% for gentle hold...")
+        gripper.bulk_write_pwm.clearParam()
+        goal_pwm_25 = int(885 * 0.25)  # 25% PWM = 221
+        pwm_param = [goal_pwm_25 & 0xFF, (goal_pwm_25 >> 8) & 0xFF]
+        gripper.bulk_write_pwm.addParam(gripper.servo_ids[0], pwm_param)
+        gripper.bulk_write_pwm.txPacket()
+        
+        print(f"  ✅ Calibration complete - gripper at 50% with 25% PWM hold")
         
         # Stop calibration
         gripper.calibration_active = False
