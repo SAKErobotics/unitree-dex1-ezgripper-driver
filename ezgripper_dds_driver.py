@@ -755,7 +755,7 @@ class CorrectedEZGripperDriver:
         self.logger.critical(f"Servo error #{self.servo_error_count}: {error_details['errors']}")
         
         # SIMPLE: Any error = disable torque immediately
-        self.gripper.disable_torque()  # Torque to zero
+        self.gripper.goto_position(50.0, 10.0)  # Safe position with low effort
         self.hardware_healthy = False
 
     def _handle_communication_error(self, error):
@@ -765,12 +765,12 @@ class CorrectedEZGripperDriver:
         
         # Sequential communication issues = torque to zero
         if self.comm_error_count >= self.max_comm_errors:
-            self.gripper.disable_torque()  # Torque to zero
+            self.gripper.goto_position(50.0, 10.0)  # Safe position with low effort
             self.hardware_healthy = False
             return
         
         if time.time() - self.last_successful_comm > 2.0:  # 2 second timeout
-            self.gripper.disable_torque()  # Torque to zero
+            self.gripper.goto_position(50.0, 10.0)  # Safe position with low effort
             self.hardware_healthy = False
 
     def state_loop(self):
