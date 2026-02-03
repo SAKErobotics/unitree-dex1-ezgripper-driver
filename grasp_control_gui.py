@@ -137,33 +137,44 @@ class GripperControlGUI:
         self._send_command()
         
     def _send_command(self):
-        # Convert percentage (0-100) to radians (0-5.4)
-        # 0% = fully closed = 0 rad
-        # 100% = fully open = 5.4 rad
-        q_rad = (self.current_position / 100.0) * 5.4
-        
-        # Effort is informational only - GraspManager manages force internally
-        # Send nominal 30% effort (will be overridden by state machine)
-        tau = 0.3
-        
-        # Create MotorCmd_ for single motor
-        motor_cmd = MotorCmd_(
-            mode=0,
-            q=q_rad,
-            dq=0.0,
-            tau=tau,
-            kp=0.0,
-            kd=0.0
-        )
-        
-        # Create MotorCmds_ message
-        motor_cmds = MotorCmds_()
-        motor_cmds.cmds = [motor_cmd]
-        
-        # Publish command
-        self.cmd_publisher.Write(motor_cmds)
-        
-        print(f"📤 Sent: position={self.current_position:.0f}% ({q_rad:.2f}rad), effort={tau*100:.0f}%")
+        try:
+            # Convert percentage (0-100) to radians (0-5.4)
+            # 0% = fully closed = 0 rad
+            # 100% = fully open = 5.4 rad
+            q_rad = (self.current_position / 100.0) * 5.4
+            
+            # Effort is informational only - GraspManager manages force internally
+            # Send nominal 30% effort (will be overridden by state machine)
+            tau = 0.3
+            
+            print(f"\n🔵 _send_command() called: position={self.current_position:.0f}%")
+            
+            # Create MotorCmd_ for single motor
+            motor_cmd = MotorCmd_(
+                mode=0,
+                q=q_rad,
+                dq=0.0,
+                tau=tau,
+                kp=0.0,
+                kd=0.0,
+                reserve=[0, 0, 0]  # Required reserve field
+            )
+            print(f"✅ Created MotorCmd_: q={q_rad:.3f}, tau={tau}")
+            
+            # Create MotorCmds_ message
+            motor_cmds = MotorCmds_()
+            motor_cmds.cmds = [motor_cmd]
+            print(f"✅ Created MotorCmds_ with {len(motor_cmds.cmds)} commands")
+            
+            # Publish command
+            result = self.cmd_publisher.Write(motor_cmds)
+            print(f"✅ Write() returned: {result}")
+            print(f"📤 Sent: position={self.current_position:.0f}% ({q_rad:.2f}rad), effort={tau*100:.0f}%\n")
+            
+        except Exception as e:
+            print(f"❌ Error in _send_command(): {e}")
+            import traceback
+            traceback.print_exc()
         
     def _start_state_monitor(self):
         def update_state():
