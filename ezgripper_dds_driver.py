@@ -471,6 +471,7 @@ class CorrectedEZGripperDriver:
         try:
             # Use ChannelSubscriber.Read() like xr_teleoperate
             cmd_msg = self.cmd_subscriber.Read()
+            self.logger.debug(f"Read() returned: {cmd_msg is not None}, has cmds: {hasattr(cmd_msg, 'cmds') if cmd_msg else False}")
             
             if cmd_msg and hasattr(cmd_msg, 'cmds') and cmd_msg.cmds and len(cmd_msg.cmds) > 0:
                 motor_cmd = cmd_msg.cmds[0]
@@ -512,7 +513,9 @@ class CorrectedEZGripperDriver:
             cmd = self.latest_command
             
             # Position mode - use goto_position which sets target variables
+            self.logger.debug(f"🎯 EXEC: Setting target to {cmd.position_pct:.1f}%")
             self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+            self.logger.debug(f"   gripper.target_position = {self.gripper.target_position}%")
             
             if self.command_count % 30 == 0:  # Log every second at 30Hz
                 self.logger.info(f"Command received: q={cmd.position_pct:.1f}%")

@@ -245,7 +245,8 @@ class Gripper:
             
             # Write goal position
             self.servos[i].write_word(116, target_raw_pos)  # goal_position register
-            print(f"    UNCLAMPED write: position={self.target_position}% → raw={target_raw_pos}")
+            # Always log writes for debugging
+            print(f"    ✍️  WRITE servo: target={self.target_position}% → raw_pos={target_raw_pos} (zero={self.zero_positions[i]})")
 
     def _goto_position_unclamped(self, position_pct, effort_pct):
         """
