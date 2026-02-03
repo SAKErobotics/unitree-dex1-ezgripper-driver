@@ -45,8 +45,8 @@ class CalibrationReaction(CollisionReaction):
         print(f"  📍 Zero position set to: {collision_position}")
         print(f"  🔄 Relaxing to position 50%...")
         
-        # Move to position 50 to reduce load
-        gripper.goto_position(50, 30)
+        # Move to position 50 to reduce load (fast with 100% effort)
+        gripper.goto_position(50, 100)
         
         # Stop calibration
         gripper.calibration_active = False
