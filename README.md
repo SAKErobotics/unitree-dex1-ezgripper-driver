@@ -329,6 +329,94 @@ See [CONFIGURATION.md](./CONFIGURATION.md) for detailed configuration options in
 - Monitoring thresholds
 - Calibration parameters
 
+## Servo Reset and Recovery
+
+### Resetting the Servo
+
+The servo can be reset by restarting the driver. This gives full control to the robot system to reset the servo state, which is critical for autonomous operation.
+
+**To reset the servo:**
+```bash
+# Kill the running driver
+pkill -9 -f ezgripper_dds_driver
+
+# Restart the driver (will auto-calibrate and reset servo state)
+python3 ezgripper_dds_driver.py --side left
+```
+
+**When to reset:**
+- After hardware errors (e.g., error code 27136)
+- When gripper becomes unresponsive
+- After communication failures
+- To clear error states
+
+**Note:** The driver restart performs a full initialization sequence including calibration, which resets the servo to a known good state.
+
+## Information for Autonomous Systems
+
+This section provides key information for robots and autonomous systems integrating the EZGripper driver.
+
+### Servo State Management
+
+**Automatic Reset Capability:**
+- The servo can be reset by restarting the driver process
+- No manual intervention required - fully autonomous
+- Driver restart clears all error states and recalibrates
+- This enables the robot to recover from errors without human assistance
+
+**Error Handling:**
+- Hardware errors (e.g., error code 27136) may block some commands
+- Calibration commands still work even when errors are present
+- Driver restart is the recommended recovery method
+- Error states are logged but don't prevent driver initialization
+
+### Control Flow
+
+**Command Execution:**
+- Commands received via DDS at up to 200 Hz
+- Control loop executes at 30 Hz with bulk operations
+- Position updates happen every control cycle (30 Hz)
+- State feedback published at 200 Hz using predictive model
+
+**Error Recovery:**
+1. Detect error via hardware error monitoring
+2. Log error details (error code, timestamp)
+3. Restart driver process to reset servo
+4. Driver auto-calibrates and resumes normal operation
+
+**Calibration:**
+- Runs automatically on driver startup
+- Uses position control with collision detection
+- Completes in ~1 second
+- Works even when hardware errors are present
+- Can be skipped with `--no-calibrate` flag if needed
+
+### Integration Points
+
+**DDS Topics:**
+- Commands: `rt/dex1/{side}/cmd` (MotorCmds_)
+- State: `rt/dex1/{side}/state` (MotorStates_)
+- Compatible with Unitree Dex1_1 specification
+
+**Position Feedback:**
+- Real-time position updates at 30 Hz from servo
+- Predictive model provides 200 Hz state publishing
+- Position range: 0.0 rad (closed) to 5.4 rad (open)
+
+**Health Monitoring:**
+- Hardware error detection via bulk sensor reads
+- Temperature monitoring and thermal prediction
+- Contact detection via current monitoring
+- All monitoring data available at 30 Hz
+
+### Autonomous Operation Recommendations
+
+1. **Monitor hardware_healthy flag** - Indicates servo error state
+2. **Restart driver on persistent errors** - Automatic recovery mechanism
+3. **Use calibration on startup** - Ensures consistent zero position
+4. **Monitor position feedback** - Verify commands are being executed
+5. **Check state publishing rate** - Should maintain ~200 Hz
+
 ## Troubleshooting
 
 See [BUG_REPORT.md](./BUG_REPORT.md) for common issues and troubleshooting steps.
