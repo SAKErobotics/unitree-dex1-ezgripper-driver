@@ -24,7 +24,7 @@ class GripperControlGUI:
         self.domain = domain
         self.window = tk.Tk()
         self.window.title(f"EZGripper Control - {side.upper()}")
-        self.window.geometry("600x550")
+        self.window.geometry("750x650")
         
         # DDS setup using Unitree SDK2
         ChannelFactoryInitialize(self.domain)

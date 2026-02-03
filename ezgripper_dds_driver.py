@@ -518,7 +518,10 @@ class CorrectedEZGripperDriver:
         try:
             # Use ChannelSubscriber.Read() like xr_teleoperate
             cmd_msg = self.cmd_subscriber.Read()
-            self.logger.debug(f"Read() returned: {cmd_msg is not None}, has cmds: {hasattr(cmd_msg, 'cmds') if cmd_msg else False}")
+            
+            # Log at INFO level to see what we're receiving
+            if cmd_msg is not None:
+                self.logger.info(f"📨 DDS Read: msg={cmd_msg is not None}, has_cmds={hasattr(cmd_msg, 'cmds') if cmd_msg else False}, cmds_len={len(cmd_msg.cmds) if (cmd_msg and hasattr(cmd_msg, 'cmds') and cmd_msg.cmds) else 0}")
             
             if cmd_msg and hasattr(cmd_msg, 'cmds') and cmd_msg.cmds and len(cmd_msg.cmds) > 0:
                 motor_cmd = cmd_msg.cmds[0]
