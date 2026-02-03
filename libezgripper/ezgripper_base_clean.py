@@ -336,7 +336,7 @@ class Gripper:
             current_raw = self.bulk_read.getData(servo_id, 126, 2)
             
             # Register 132: present_position (4 bytes)
-            position_raw_servo = self.bulk_read.getData(servo_id, 132, 4)
+            position_raw = self.bulk_read.getData(servo_id, 132, 4)
             
             # Register 144: present_voltage (2 bytes)
             voltage_raw = self.bulk_read.getData(servo_id, 144, 2)
@@ -344,14 +344,11 @@ class Gripper:
             # Register 146: present_temperature (1 byte)
             temperature = self.bulk_read.getData(servo_id, 146, 1)
             
-            # Apply offset during storage (30Hz) - ADD offset to position
-            # Calibration stores raw servo position as offset
-            # During read, ADD offset to get adjusted position for cached data
-            position_raw = position_raw_servo + self.zero_positions[servo_num]
+            # Parse position with software offset
             sensor_data['position_raw'] = position_raw
-            
-            # Calculate percentage (0% = closed, 100% = open)
-            raw_pct = self.down_scale(position_raw, 2500)  # grip_max from config
+            servo_position = position_raw - self.zero_positions[servo_num]
+            # 0% = closed (position 0), 100% = open (position 2500)
+            raw_pct = self.down_scale(servo_position, 2500)  # grip_max from config
             sensor_data['position'] = min(100.0, raw_pct)  # Clamp max to 100%, negative OK
             
             # Parse current
@@ -396,9 +393,7 @@ class Gripper:
         
         # Add goal position for each servo - UNCLAMPED
         for i in range(len(self.servos)):
-            # Subtract offset to convert user position to servo raw position
-            # Since offset is negative, this becomes addition
-            target_raw_pos = scaled_position - self.zero_positions[i]
+            target_raw_pos = self.zero_positions[i] + scaled_position
             
             # Convert to 4-byte array (little-endian)
             param = [
@@ -460,36 +455,30 @@ class Gripper:
 
     def calibrate_with_collision_detection(self):
         """
-        Self-contained calibration - close until collision detected
-        
-        Self-contained approach:
-        - Calibration has its own monitoring loop (independent)
-        - Runs as fast as possible for rapid collision detection
-        - Does not rely on external 30Hz loop
+        Simple calibration - close until collision detected
         
         Strategy:
-        1. goto_position(-300, 100) - Force beyond closed until collision
-        2. Monitor in tight loop until collision detected
-        3. CalibrationReaction sets zero offset when collision detected
+        1. Reset zero_positions to 0 (ensures proper wrap-around)
+        2. goto_position(-300, 100) - Force beyond closed until collision
+        3. Wrap-around is REQUIRED for winch/tendon tightening
+        4. CalibrationReaction sets actual zero and relaxes when collision detected
         """
-        # Reset state
+        # Reset state and zero positions
         self.collision_detected = False
         self.calibration_active = True
+        self.zero_positions[0] = 0  # Reset to ensure proper wrap-around
         
-        # Set reaction and command close
-        self.enable_collision_monitoring(CalibrationReaction())
+        # Close (will wrap around - this is required for winch/tendon)
         self.goto_position(-300, 100)
+        self.enable_collision_monitoring(CalibrationReaction())
         
-        # Self-contained monitoring loop - run as fast as possible
-        for _ in range(200):
+        # Monitor until collision
+        for _ in range(50):
             self.update_main_loop()
-            
-            # Check collision immediately - no delay for fast response
             if self.collision_detected:
-                self.calibration_active = False
                 return True
+            time.sleep(0.033)
         
-        # Timeout - no collision detected
         self.calibration_active = False
         return False
 
