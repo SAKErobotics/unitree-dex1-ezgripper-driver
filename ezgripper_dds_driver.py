@@ -700,10 +700,10 @@ class CorrectedEZGripperDriver:
             while self.running:
                 # Receive and execute commands
                 self.receive_commands()
-                self.execute_command()
+                self.execute_command()  # Calls goto_position() which writes immediately
                 
-                # Write control data to servo (CRITICAL - actually moves the gripper)
-                self.gripper.bulk_write_control_data()
+                # NOTE: No bulk_write here - goto_position() writes immediately
+                # This ensures instant response when collision reactions call goto_position()
                 
                 # Read sensor data + collision detection (continuous at 30 Hz)
                 try:
