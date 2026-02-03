@@ -6,7 +6,7 @@
       "holding": 50,
       "movement": 100,
       "max": 200,
-      "hardware_max": 300
+      "hardware_max": 1359
     },
     "temperature": {
       "warning": 60,

@@ -119,8 +119,8 @@ class Gripper:
                 print(f"    ✅ Operating mode already correct")
             
             # Set current limit to safe value (register 38)
-            # Read current limit from config (max = 200 in config_default.json)
-            safe_current_limit = 200  # ~680mA, prevents overload
+            # 70% of hardware_max (1359) = 951 for fast movement and collision detection
+            safe_current_limit = 951  # 70% of max, enables fast movement
             current_limit = servo.read_word(38)
             print(f"    Current limit: {current_limit}")
             
@@ -164,7 +164,8 @@ class Gripper:
 
     def update_main_loop(self):
         """
-        Main 30Hz loop - bulk read, collision detection, bulk write
+        Main 30Hz loop - bulk read and collision detection only
+        Writes are done by goto_position() only
         
         Returns:
             dict: Current sensor data and collision status
@@ -180,8 +181,7 @@ class Gripper:
                 if collision:
                     self._handle_collision_collision(sensor_data)
             
-            # Step 3: Bulk write control data
-            self.bulk_write_control_data()
+            # Note: No bulk write here - only goto_position() writes to servo
             
             return {
                 'sensor_data': sensor_data,
@@ -201,17 +201,26 @@ class Gripper:
         current_position = sensor_data.get('position_raw', 0)
         current_current = abs(sensor_data.get('current', 0))
         
+        # Always log during calibration for monitoring
+        if self.calibration_active:
+            print(f"    Monitor: pos={current_position}, current={current_current}mA", end="")
+        
         # Check 1: Current spike (IMMEDIATE collision detection)
         if current_current > current_threshold:
-            print(f"    ✅ IMMEDIATE COLLISION: Current spike {current_current}mA > {current_threshold}mA!")
+            print(f"\n    ✅ COLLISION DETECTED: Current spike {current_current}mA > {current_threshold}mA!")
             return True
         
         # Check 2: Position stagnation (IMMEDIATE collision detection)
         if hasattr(self, '_last_position') and self._last_position is not None:
             movement = abs(current_position - self._last_position)
+            if self.calibration_active:
+                print(f", movement={movement}", end="")
             if movement < stagnation_threshold:
-                print(f"    ✅ IMMEDIATE COLLISION: Position stagnation movement={movement} < {stagnation_threshold}!")
+                print(f"\n    ✅ COLLISION DETECTED: Position stagnation movement={movement} < {stagnation_threshold}!")
                 return True
+        
+        if self.calibration_active:
+            print()  # Newline after monitoring output
         
         self._last_position = current_position
         return False
@@ -229,10 +238,7 @@ class Gripper:
             
             # IMMEDIATELY move to position 50 to reduce load
             print("  IMMEDIATE RELAX: Moving to position 50...")
-            self.goto_position(50, 100)
-            
-            # Execute the goto 50 immediately
-            self.bulk_write_control_data()
+            self.goto_position(50, 30)
             print("  ✅ Gripper relaxed to position 50")
 
     def bulk_read_sensor_data(self, servo_num=0):
@@ -335,6 +341,9 @@ class Gripper:
         self.target_position = position_pct
         self.target_effort = effort_pct
         print(f"  Target set: position={position_pct}%, effort={effort_pct}%")
+        
+        # Actually write to servo
+        self.bulk_write_control_data()
 
     def calibrate_with_collision_detection(self):
         """
@@ -365,14 +374,22 @@ class Gripper:
         for sample in range(50):  # Extended time
             result = self.update_main_loop()
             
+            # Check if collision was detected in this cycle
             if result and result.get('collision_detected'):
                 print("  ✅ Collision detected - calibration complete!")
                 return True
-            elif result and sample % 5 == 0:  # Show progress every 5 samples
+            
+            # Show progress
+            if result and sample % 5 == 0:
                 data = result['sensor_data']
                 pos = data.get('position_raw', 0)
                 current = data.get('current', 0)
                 print(f"    Sample {sample+1}: Position={pos}, Current={current}mA")
+            
+            # CRITICAL: Check again after update_main_loop in case collision was just detected
+            if self.collision_detected:
+                print("  ✅ Collision detected - exiting immediately!")
+                return True
                 
             time.sleep(0.033)  # 30Hz
         

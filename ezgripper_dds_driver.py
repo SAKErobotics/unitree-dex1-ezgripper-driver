@@ -231,6 +231,11 @@ class CorrectedEZGripperDriver:
         
         try:
             self.connection = create_connection(dev_name=self.device, baudrate=1000000)  # 1 Mbps
+            
+            # Wait 1 second for servo to be ready after USB connection
+            # Prevents error 128 on first read operation
+            time.sleep(1.0)
+            
             self.gripper = create_gripper(self.connection, f'corrected_{self.side}', [1])
             
             # Test connection and cache initial sensor data
