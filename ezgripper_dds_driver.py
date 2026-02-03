@@ -247,6 +247,23 @@ class CorrectedEZGripperDriver:
             
             self.gripper = create_gripper(self.connection, f'corrected_{self.side}', [1])
             
+            # CLEAR HARDWARE ERRORS (The fix for Error 128)
+            self.logger.info("Attempting to clear hardware error states (Resetting Error 128)...")
+            for servo in self.gripper.servos:
+                try:
+                    # Method A: Use the libezgripper reboot if available
+                    if hasattr(servo, 'reboot'):
+                        servo.reboot()
+                    else:
+                        # Method B: Direct register write to Reboot (Address 0x08 for SAKE/Dynamixel-based)
+                        # This clears the 128 (0x80) error bit
+                        servo.write_address(0x08, [1]) 
+                    
+                    self.logger.info(f"Servo {servo.servo_id} reboot command sent.")
+                    time.sleep(0.5) # Give the firmware time to restart the control loop
+                except Exception as e:
+                    self.logger.warning(f"Could not reboot servo {servo.servo_id}: {e}")
+            
             # Test connection and cache initial sensor data
             sensor_data = self.gripper.bulk_read_sensor_data()
             self.current_sensor_data = sensor_data
@@ -452,26 +469,32 @@ class CorrectedEZGripperDriver:
     
     def dex1_to_ezgripper(self, q_radians: float) -> float:
         """
-        Convert Dex1 position to EZGripper position
+        Convert Dex1 position to EZGripper position with safety margins.
+        Maps 0.0-5.4 rad to 5%-95% to prevent stall-induced Error 128.
+        
         Dex1: 0.0 rad = closed, 5.4 rad = open
-        EZGripper: 0% = closed, 100% = open
+        EZGripper: 5% = closed (safe margin), 95% = open (safe margin)
         """
-        # Clamp to valid range
+        # 1. Clamp input to the known G1 range
         q_clamped = max(0.0, min(5.4, q_radians))
-        # Linear mapping: 0.0 rad -> 0% closed, 5.4 rad -> 100% open
-        return (q_clamped / 5.4) * 100.0
+        
+        # 2. Map 0.0 -> 5.4 rad to 5.0% -> 95.0% 
+        # This keeps the motor away from mechanical hard-limits at both ends.
+        return 5.0 + (q_clamped / 5.4) * 90.0
     
     def ezgripper_to_dex1(self, position_pct: float) -> float:
         """
-        Convert EZGripper position to Dex1 position
-        EZGripper: 0% = closed, 100% = open
+        Convert EZGripper position to Dex1 position (Inverse mapping).
+        
+        EZGripper: 5% = closed (safe margin), 95% = open (safe margin)
         Dex1: 0.0 rad = closed, 5.4 rad = open
         """
-        # Clamp to valid range
-        pct_clamped = max(0.0, min(100.0, position_pct))
-        # Linear mapping: 0% closed -> 0.0 rad, 100% open -> 5.4 rad
-        rad_value = (pct_clamped / 100.0) * 5.4
-        # Clamp final result to prevent floating-point precision issues
+        # 1. Clamp hardware percentage to our safe operational range
+        pct_clamped = max(5.0, min(95.0, position_pct))
+        
+        # 2. Reverse the linear mapping: (pct - offset) / range * total_rad
+        rad_value = ((pct_clamped - 5.0) / 90.0) * 5.4
+        
         return max(0.0, min(5.4, rad_value))
     
     def tau_to_effort_pct(self, tau: float) -> float:
@@ -531,6 +554,14 @@ class CorrectedEZGripperDriver:
         The GraspManager owns the goal and adapts based on state + sensors + DDS input.
         """
         if self.latest_command is None:
+            return
+        
+        # HEARTBEAT CHECK: Prevent phantom movements from stale commands
+        # If the last DDS command is older than 250ms, the teleop has likely stopped.
+        # We stop sending serial commands to avoid bus contention or "phantom" movements.
+        if time.time() - self.latest_command.timestamp > 0.25:
+            if self.command_count % 100 == 0:  # Log only occasionally to avoid spam
+                self.logger.warning("Teleop heartbeat lost. Standing by...")
             return
         
         # PROTECTION: Don't execute commands if hardware is unhealthy
@@ -765,6 +796,14 @@ class CorrectedEZGripperDriver:
                     # Handle communication errors
                     self._handle_communication_error(e)
                     
+                    # Clear the serial buffer to recover from noise/corruption
+                    if hasattr(self.connection, 'port'):
+                        try:
+                            self.connection.port.reset_input_buffer()
+                            self.logger.debug("Serial input buffer reset after error")
+                        except:
+                            pass
+                    
                     # Fallback to individual position read if bulk read fails
                     try:
                         with self.state_lock:
@@ -785,8 +824,14 @@ class CorrectedEZGripperDriver:
                     next_cycle = time.time()
                     
         except Exception as e:
-            self.logger.error(f"Control thread error: {e}")
+            self.logger.error(f"Control thread encountered a fatal error: {e}")
         finally:
+            # Crucial: Disable torque if we are exiting to prevent the "Lock" state
+            self.logger.info("Control thread stopping. Cleaning up serial bus...")
+            try:
+                self.gripper.release() 
+            except:
+                pass
             self.logger.info("Control thread stopped")
 
     def _handle_servo_errors(self, error_details):
@@ -849,7 +894,7 @@ class CorrectedEZGripperDriver:
         """Start multi-threaded driver with control and state threads"""
         self.logger.info("Starting multi-threaded EZGripper driver...")
         self.logger.info("  Control thread: 30 Hz (commands + actual position)")
-        self.logger.info("  State thread: 200 Hz (predicted position publishing)")
+        self.logger.info("  State thread: 200 Hz (actual position publishing)")
 
         # Start threads
         self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
@@ -862,61 +907,60 @@ class CorrectedEZGripperDriver:
             # Main thread waits for keyboard interrupt
             while self.running:
                 time.sleep(0.1)
-        except KeyboardInterrupt:
-            self.logger.info("Shutting down corrected EZGripper driver...")
+        except (KeyboardInterrupt, SystemExit):
+            self.logger.info("Shutdown signal received...")
         finally:
-            next_cycle = time.time()
-        
-            try:
-                while self.running:
-                    # Publish actual position from 30Hz control loop
-                    self.publish_state()
+            self.running = False
+            
+            # Wait for threads to stop using the serial port
+            if self.control_thread and self.control_thread.is_alive():
+                self.control_thread.join(timeout=1.5)
+            if self.state_thread and self.state_thread.is_alive():
+                self.state_thread.join(timeout=1.0)
                 
-                    # Absolute time scheduling for precise 200 Hz
-                    next_cycle += period
-                    sleep_time = next_cycle - time.time()
-                    if sleep_time > 0:
-                        time.sleep(sleep_time)
-                    else:
-                        # Missed deadline - reset
-                        next_cycle = time.time()
-                    
-            except Exception as e:
-                self.logger.error(f"State thread error: {e}")
-            finally:
-                self.logger.info("State thread stopped")
-    
-        def run(self):
-            """Start multi-threaded driver with control and state threads"""
-            self.logger.info("Starting multi-threaded EZGripper driver...")
-            self.logger.info("  Control thread: 30 Hz (commands + actual position)")
-            self.logger.info("  State thread: 200 Hz (predicted position publishing)")
-        
-            # Start threads
-            self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
-            self.state_thread = threading.Thread(target=self.state_loop, daemon=True, name="State")
-        
-            self.control_thread.start()
-            self.state_thread.start()
-        
-            try:
-                # Main thread waits for keyboard interrupt
-                while self.running:
-                    time.sleep(0.1)
-            except KeyboardInterrupt:
-                self.logger.info("Shutting down corrected EZGripper driver...")
-            finally:
-                self.running = False
-                self.control_thread.join(timeout=2.0)
-                self.state_thread.join(timeout=2.0)
+            self.logger.info("Threads joined. Invoking final hardware shutdown...")
+            self.shutdown()
     
     def shutdown(self):
-                """Clean shutdown"""
-                self.logger.info("Shutting down hardware...")
-                self.running = False
-                if self.gripper:
-                    self.gripper.goto_position(50.0, 10.0)  # Move to safe position with low effort
-                    time.sleep(1)
+        """Clean shutdown - Fixed for USB2Dynamixel_Device"""
+        self.logger.info("Shutting down hardware...")
+        self.running = False
+        
+        if self.gripper:
+            try:
+                # 1. Try to release torque one last time
+                try:
+                    self.gripper.release()
+                    time.sleep(0.1)
+                except:
+                    pass
+
+                # 2. Disable Torque Enable register
+                for servo in self.gripper.servos:
+                    try:
+                        servo.write_address(self.gripper.config.reg_torque_enable, [0])
+                    except:
+                        pass
+                        
+            except Exception as e:
+                self.logger.warning(f"Hardware shutdown was incomplete: {e}")
+            finally:
+                # 3. Handle the specific USB2Dynamixel port closure
+                if self.connection:
+                    try:
+                        if hasattr(self.connection, 'port') and hasattr(self.connection.port, 'close'):
+                            self.connection.port.close()
+                            self.logger.info("Serial port closed via .port.close()")
+                        elif hasattr(self.connection, 'close'):
+                            self.connection.close()
+                            self.logger.info("Connection closed via .close()")
+                    except Exception as e:
+                        self.logger.debug(f"Port closure handled by OS or library: {e}")
+                    finally:
+                        # Ensure the object is cleared so it can't be reused
+                        self.connection = None
+
+        self.logger.info("Driver shutdown complete. System ready for restart.")
 
 
 def main():
