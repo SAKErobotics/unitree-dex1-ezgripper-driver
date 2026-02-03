@@ -696,6 +696,10 @@ class CorrectedEZGripperDriver:
                     sensor_data = self.gripper.bulk_read_sensor_data()
                     self.current_sensor_data = sensor_data  # Update cache
                     
+                    # DEBUG: Log position reads every 30 cycles (once per second)
+                    if self.command_count % 30 == 0:
+                        self.logger.info(f"📊 SENSOR: raw={sensor_data.get('position_raw', 'N/A')}, pct={sensor_data.get('position', 'N/A'):.1f}%, zero={self.gripper.zero_positions[0]}")
+                    
                     # Check for servo hardware errors using cache
                     self._handle_servo_errors(self.get_error_details())
                     
@@ -703,6 +707,8 @@ class CorrectedEZGripperDriver:
                         self.actual_position_pct = self.get_position()
                         # Sync predicted position with actual (minimal prediction needed now)
                         self.predicted_position_pct = self.actual_position_pct
+                        # DEBUG
+                        self.logger.info(f"🔄 UPDATED actual_position_pct = {self.actual_position_pct:.1f}%")
                     
                     # Reset communication error counters on success
                     self.comm_error_count = 0
