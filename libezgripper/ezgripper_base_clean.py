@@ -488,20 +488,55 @@ class Gripper:
         3. Wrap-around is REQUIRED for winch/tendon tightening
         4. CalibrationReaction sets actual zero and relaxes when collision detected
         """
+        # Read current position and command relative movement to ensure closing
+        # This prevents direction ambiguity in Extended Position Control Mode
+        pos_bytes = self.servos[0].read_address(132, 4)
+        current_pos = pos_bytes[0] + (pos_bytes[1] << 8) + (pos_bytes[2] << 16) + (pos_bytes[3] << 24)
+        if current_pos & 0x80000000:
+            current_pos = current_pos - 0x100000000
+        
         # Reset state and zero positions
         self.collision_detected = False
         self.calibration_active = True
-        self.zero_positions[0] = 0  # Reset to ensure proper wrap-around
+        self.zero_positions[0] = 0
+        
+        # Command position well below current to ensure closing direction
+        target_pos = current_pos - 15000  # Beyond close limit (-12567)
+        target_pct = int(target_pos * 100 / 2500)
+        
+        print(f"  📍 Current: {current_pos}, Target: {target_pos} ({target_pct}%)")
         
         # Close with 100% PWM for fast movement
         # Immediate PWM=0 stop on collision prevents overload
-        self.goto_position(-300, 100)
+        self.goto_position(target_pct, 100)
+        
+        # Wait for movement to start (skip first 5 cycles = ~165ms)
+        # This prevents false collision detection from residual current
+        for _ in range(5):
+            self.update_main_loop()
+            time.sleep(0.033)
+        
+        # Now enable collision monitoring after movement has started
         self.enable_collision_monitoring(CalibrationReaction())
         
-        # Monitor until collision
-        for _ in range(50):
+        # Monitor until collision (150 cycles = ~5 seconds max)
+        for _ in range(150):
             self.update_main_loop()
             if self.collision_detected:
+                # Collision detected and reaction completed (PWM dropped to 15%)
+                # Now open to 50% with 100% PWM
+                print(f"  🔓 Opening to 50% with 100% PWM...")
+                self.goto_position(50, 100)
+                time.sleep(0.5)  # Wait for movement
+                
+                # Release gripper (PWM=0) to prevent false collision on next calibration
+                print(f"  🔓 Releasing gripper (PWM=0)...")
+                self.bulk_write_pwm.clearParam()
+                pwm_param = [0, 0]
+                self.bulk_write_pwm.addParam(self.servo_ids[0], pwm_param)
+                self.bulk_write_pwm.txPacket()
+                
+                print(f"  ✅ Calibration complete")
                 return True
             time.sleep(0.033)
         
