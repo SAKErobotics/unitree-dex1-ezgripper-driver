@@ -406,8 +406,12 @@ class CorrectedEZGripperDriver:
             zero_pos = self.gripper.zero_positions[0]
             self.save_calibration(zero_pos)
             
-            # Calibration already moved to 50% position, just verify we're there
-            actual = self.gripper.get_position()
+            # Calibration already moved to 50% position, wait for it to arrive
+            import time
+            time.sleep(0.5)  # Wait for gripper to reach position 50
+            
+            sensor_data = self.gripper.bulk_read_sensor_data(0)
+            actual = sensor_data.get('position', 0.0)
             error = abs(actual - 50.0)
             
             if error <= 10.0:
@@ -723,7 +727,8 @@ class CorrectedEZGripperDriver:
                     # Fallback to individual position read if bulk read fails
                     try:
                         with self.state_lock:
-                            self.actual_position_pct = self.gripper.get_position()
+                            sensor_data = self.gripper.bulk_read_sensor_data(0)
+                            self.actual_position_pct = sensor_data.get('position', 0.0)
                             self.predicted_position_pct = self.actual_position_pct
                     except Exception as fallback_e:
                         self.logger.error(f"Both bulk and fallback reads failed: {fallback_e}")

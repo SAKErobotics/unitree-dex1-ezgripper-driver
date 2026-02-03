@@ -212,7 +212,7 @@ class Gripper:
             servo_position = position_raw - self.zero_positions[servo_num]
             # 0% = closed (position 0), 100% = open (position 2500)
             raw_pct = self.down_scale(servo_position, 2500)  # grip_max from config
-            sensor_data['position'] = raw_pct  # No inversion
+            sensor_data['position'] = max(0.0, min(100.0, raw_pct))  # Clamp to 0-100% range
             
             # Parse current
             sensor_data['current'] = self._sign_extend_16bit(current_raw)
