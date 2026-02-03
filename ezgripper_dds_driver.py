@@ -621,9 +621,14 @@ class CorrectedEZGripperDriver:
                 return
         
         try:
-            # Convert predicted position to Dex1 units for publishing
-            current_q = self.ezgripper_to_dex1(predicted_pos)
-            current_tau = effort / 10.0
+            # Use actual position from 30Hz control loop - no prediction needed
+            with self.state_lock:
+                actual_pos = self.actual_position_pct
+                current_effort = self.current_effort_pct
+            
+            # Convert actual position to Dex1 units for publishing
+            current_q = self.ezgripper_to_dex1(actual_pos)
+            current_tau = current_effort / 10.0
             
             # Read real sensor data for DDS compliance and cache it
             sensor_data = self.gripper.bulk_read_sensor_data()
@@ -780,14 +785,14 @@ class CorrectedEZGripperDriver:
             self.hardware_healthy = False
 
     def state_loop(self):
-        """State thread: Publish predicted position at 200 Hz"""
+        """State thread: Publish actual position at 200 Hz"""
         self.logger.info("Starting state thread at 200 Hz...")
         period = 1.0 / self.state_loop_rate
         next_cycle = time.time()
 
         try:
             while self.running:
-                # Update predicted position and publish state
+                # Publish actual position from 30Hz control loop
                 self.publish_state()
 
                 # Absolute time scheduling for precise 200 Hz
@@ -828,7 +833,7 @@ class CorrectedEZGripperDriver:
         
             try:
                 while self.running:
-                    # Update predicted position and publish state
+                    # Publish actual position from 30Hz control loop
                     self.publish_state()
                 
                     # Absolute time scheduling for precise 200 Hz
@@ -874,7 +879,7 @@ class CorrectedEZGripperDriver:
                 self.logger.info("Shutting down hardware...")
                 self.running = False
                 if self.gripper:
-                    self.gripper.move_with_torque_management(50.0, 10.0)  # Reduced effort to prevent overloading
+                    self.gripper.goto_position(50.0, 10.0)  # Move to safe position with low effort
                     time.sleep(1)
 
 
