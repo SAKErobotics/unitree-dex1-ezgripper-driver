@@ -345,7 +345,6 @@ python3 ezgripper_dds_driver.py --side left
 ```
 
 **When to reset:**
-- After hardware errors (e.g., error code 27136)
 - When gripper becomes unresponsive
 - After communication failures
 - To clear error states
@@ -365,8 +364,7 @@ This section provides key information for robots and autonomous systems integrat
 - This enables the robot to recover from errors without human assistance
 
 **Error Handling:**
-- Hardware errors (e.g., error code 27136) may block some commands
-- Calibration commands still work even when errors are present
+- Hardware errors are detected and logged
 - Driver restart is the recommended recovery method
 - Error states are logged but don't prevent driver initialization
 
