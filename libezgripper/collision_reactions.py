@@ -45,7 +45,13 @@ class CalibrationReaction(CollisionReaction):
         gripper.zero_positions[0] = -collision_position
         
         print(f"  📍 Collision at: {collision_position}, offset set to: {-collision_position}")
-        print(f"  🔄 Relaxing to position 50%...")
+        
+        # Clear hardware error by cycling torque (no delays - must be fast)
+        print(f"  🔧 Clearing hardware error...")
+        gripper.servos[0].write_address(64, [0])  # Disable torque
+        gripper.servos[0].write_address(64, [1])  # Re-enable torque
+        
+        print(f"  🔄 Commanding position 50%...")
         
         # Move to position 50 to reduce load (fast with 100% effort)
         gripper.goto_position(50, 100)
