@@ -2,10 +2,11 @@
 """
 Simple GUI for controlling EZGripper via DDS commands
 Sends position commands to test GraspManager state machine
+Includes direct hardware calibration (bypasses DDS)
 """
 
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, messagebox
 import cyclonedds.domain as domain
 from cyclonedds.pub import DataWriter
 from cyclonedds.topic import Topic
@@ -13,6 +14,10 @@ from cyclonedds.sub import DataReader
 from cyclonedds.util import duration
 from dataclasses import dataclass
 import time
+import threading
+
+# Import for direct hardware access (calibration only)
+from libezgripper import create_connection, create_gripper
 
 @dataclass
 class GripperCommand:
@@ -27,11 +32,12 @@ class GripperState:
     tau: float
 
 class GripperControlGUI:
-    def __init__(self, side='left'):
+    def __init__(self, side='left', device=None):
         self.side = side
+        self.device = device or f"/dev/ttyUSB0"  # Default device
         self.window = tk.Tk()
         self.window.title(f"EZGripper Control - {side.upper()}")
-        self.window.geometry("500x400")
+        self.window.geometry("600x550")
         
         # DDS setup
         self.participant = domain.DomainParticipant()
@@ -47,6 +53,11 @@ class GripperControlGUI:
         # Current state
         self.current_position = 50.0
         self.current_effort = 30.0
+        
+        # Direct hardware connection (for calibration only)
+        self.hw_connection = None
+        self.hw_gripper = None
+        self.calibrating = False
         
         self._create_widgets()
         self._start_state_monitor()
@@ -100,6 +111,31 @@ class GripperControlGUI:
                                     font=("Arial", 11))
         self.state_label.pack()
         
+        # Calibration section (direct hardware access)
+        calib_frame = tk.LabelFrame(self.window, text="Calibration (Direct Hardware)", 
+                                    padx=20, pady=20)
+        calib_frame.pack(fill="x", padx=20, pady=10)
+        
+        # Device path input
+        device_input_frame = tk.Frame(calib_frame)
+        device_input_frame.pack(pady=5)
+        tk.Label(device_input_frame, text="Device:", font=("Arial", 10)).pack(side=tk.LEFT, padx=5)
+        self.device_entry = tk.Entry(device_input_frame, width=20, font=("Arial", 10))
+        self.device_entry.insert(0, self.device)
+        self.device_entry.pack(side=tk.LEFT, padx=5)
+        
+        # Calibrate button
+        self.calibrate_btn = tk.Button(calib_frame, text="🔧 Calibrate Gripper", 
+                                       command=self._calibrate_hardware,
+                                       font=("Arial", 11, "bold"),
+                                       bg="#4CAF50", fg="white",
+                                       width=20, height=2)
+        self.calibrate_btn.pack(pady=10)
+        
+        self.calib_status = tk.Label(calib_frame, text="Ready to calibrate", 
+                                     font=("Arial", 9), fg="gray")
+        self.calib_status.pack()
+        
     def _on_position_change(self, value):
         position = float(value)
         self.pos_label.config(text=f"Position: {position:.0f}%")
@@ -141,21 +177,114 @@ class GripperControlGUI:
         
         update_state()
         
+    def _calibrate_hardware(self):
+        """Calibrate gripper using direct hardware access (bypasses DDS)"""
+        if self.calibrating:
+            messagebox.showwarning("Calibration", "Calibration already in progress")
+            return
+        
+        # Get device path from entry
+        device_path = self.device_entry.get().strip()
+        if not device_path:
+            messagebox.showerror("Error", "Please enter a device path")
+            return
+        
+        # Run calibration in background thread to avoid blocking GUI
+        def calibrate_thread():
+            self.calibrating = True
+            self.calibrate_btn.config(state=tk.DISABLED, text="Calibrating...")
+            self.calib_status.config(text="Connecting to hardware...", fg="blue")
+            
+            try:
+                # Connect to hardware
+                print(f"\n🔧 Starting calibration on {device_path}...")
+                self.calib_status.config(text="Opening serial connection...")
+                self.hw_connection = create_connection(dev_name=device_path, baudrate=1000000)
+                time.sleep(1.0)  # Wait for connection
+                
+                self.calib_status.config(text="Creating gripper instance...")
+                self.hw_gripper = create_gripper(self.hw_connection, f'calib_{self.side}', [1])
+                
+                # Perform calibration
+                self.calib_status.config(text="Running calibration sequence...", fg="orange")
+                print("📍 Running calibration...")
+                self.hw_gripper.calibrate()
+                
+                # Get zero position
+                zero_pos = self.hw_gripper.zero_positions[0]
+                print(f"✅ Calibration complete! Zero position: {zero_pos}")
+                
+                # Test calibration
+                self.calib_status.config(text="Verifying calibration...")
+                time.sleep(0.5)
+                sensor_data = self.hw_gripper.bulk_read_sensor_data(0)
+                actual_pos = sensor_data.get('position', 0.0)
+                error = abs(actual_pos - 50.0)
+                
+                if error <= 10.0:
+                    self.calib_status.config(text=f"✅ Calibration successful! (at {actual_pos:.1f}%)", 
+                                           fg="green")
+                    messagebox.showinfo("Success", 
+                                      f"Calibration completed successfully!\n\n"
+                                      f"Zero position: {zero_pos}\n"
+                                      f"Current position: {actual_pos:.1f}%\n"
+                                      f"Error: {error:.1f}%")
+                else:
+                    self.calib_status.config(text=f"⚠️ Calibration issue (error: {error:.1f}%)", 
+                                           fg="orange")
+                    messagebox.showwarning("Warning", 
+                                         f"Calibration completed with issues\n\n"
+                                         f"Expected: 50%\n"
+                                         f"Actual: {actual_pos:.1f}%\n"
+                                         f"Error: {error:.1f}%")
+                
+            except Exception as e:
+                print(f"❌ Calibration failed: {e}")
+                self.calib_status.config(text=f"❌ Calibration failed: {str(e)[:40]}...", fg="red")
+                messagebox.showerror("Calibration Error", 
+                                   f"Calibration failed:\n\n{str(e)}")
+            
+            finally:
+                # Clean up hardware connection
+                try:
+                    if self.hw_gripper:
+                        self.hw_gripper.release()
+                    if self.hw_connection and hasattr(self.hw_connection, 'port'):
+                        self.hw_connection.port.close()
+                except:
+                    pass
+                
+                self.hw_connection = None
+                self.hw_gripper = None
+                self.calibrating = False
+                self.calibrate_btn.config(state=tk.NORMAL, text="🔧 Calibrate Gripper")
+                print("🔧 Calibration sequence complete\n")
+        
+        # Start calibration thread
+        thread = threading.Thread(target=calibrate_thread, daemon=True)
+        thread.start()
+    
     def run(self):
         self.window.mainloop()
 
 if __name__ == '__main__':
     import sys
     side = sys.argv[1] if len(sys.argv) > 1 else 'left'
+    device = sys.argv[2] if len(sys.argv) > 2 else '/dev/ttyUSB0'
     
     print(f"Starting GUI for {side} gripper...")
+    print(f"Device: {device}")
+    print("\n=== DDS Control ===")
     print("Commands sent to: rt/dex1/{}/cmd".format(side))
     print("State received from: rt/dex1/{}/state".format(side))
     print("\nGraspManager will automatically manage force based on state:")
     print("  • MOVING: 80% force (fast movement)")
     print("  • CONTACT: 30% force (settling)")
     print("  • GRASPING: 30% force (holding)")
-    print("\nUse the slider or buttons to control gripper position.\n")
+    print("\n=== Direct Hardware Calibration ===")
+    print("Use the 'Calibrate Gripper' button to run calibration")
+    print("This bypasses DDS and connects directly to hardware")
+    print("\nUse the slider or buttons to control gripper position via DDS.\n")
     
-    gui = GripperControlGUI(side)
+    gui = GripperControlGUI(side, device)
     gui.run()
