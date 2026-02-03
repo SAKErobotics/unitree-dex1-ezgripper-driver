@@ -200,10 +200,13 @@ python3 ezgripper_dds_driver.py --side right --calibrate
 ```
 
 **Calibration Process:**
-1. Driver moves gripper to relaxed position (50%)
-2. Performs calibration sequence
-3. Saves offset to device config by serial number
-4. Calibration persists across reboots
+1. Closes gripper with 100% PWM until collision detected
+2. Immediate PWM=0 stop, then drops to 15% PWM
+3. Records zero position (collision point)
+4. Opens to 50% with 100% PWM
+5. Releases gripper (PWM=0)
+6. Saves offset to device config by serial number
+7. Calibration persists across reboots
 
 **Note:** Calibration stays with the physical gripper (serial number), not the left/right designation. If you swap the left/right mapping, calibration automatically stays with the correct gripper.
 
