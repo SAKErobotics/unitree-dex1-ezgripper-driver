@@ -510,35 +510,11 @@ class CorrectedEZGripperDriver:
         try:
             cmd = self.latest_command
             
-            # In PWM mode (16), use proportional PWM control for position
-            if self.gripper.config.operating_mode == 16:
-                # Position control using PWM: error drives force
-                current_pos = self.get_position()  # Use cached position data
-                error = cmd.position_pct - current_pos
-                
-                # Proportional control with deadband
-                deadband = 1.0  # Stop applying force within 1% of target
-                
-                if abs(error) < deadband:
-                    pwm_command = 0  # At target, no force
-                else:
-                    # Proportional gain: PWM units per percent error
-                    kp = 10.0
-                    pwm_command = int(error * kp)
-                    
-                    # Clamp to PWM limits
-                    max_pwm = self.gripper.config.pwm_limit
-                    pwm_command = max(-max_pwm, min(max_pwm, pwm_command))
-                
-                # Send PWM command
-                self.gripper.servos[0].write_word(self.gripper.config.reg_goal_pwm, pwm_command)
-                
-                if self.command_count % 10 == 0:
-                    self.logger.debug(f"PWM position control: target={cmd.position_pct:.1f}%, current={current_pos:.1f}%, error={error:.1f}%, PWM={pwm_command}")
-            else:
-                # Position mode - use the public goto_position method which handles inversion
-                self.logger.debug(f"Moving to position {cmd.position_pct}%")
-                self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+            # Position mode - use goto_position which sets target variables
+            self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
+            
+            if self.command_count % 30 == 0:  # Log every second at 30Hz
+                self.logger.info(f"Command received: q={cmd.position_pct:.1f}%")
             
             # Update state (thread-safe)
             with self.state_lock:
