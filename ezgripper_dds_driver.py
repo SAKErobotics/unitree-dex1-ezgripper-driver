@@ -602,15 +602,9 @@ class CorrectedEZGripperDriver:
                 return
         
         try:
-            # Read FRESH sensor data directly from servo for accurate state publishing
-            sensor_data = self.gripper.bulk_read_sensor_data()
-            self.current_sensor_data = sensor_data  # Update cache
-            
-            # Use fresh position data from servo
-            actual_pos = sensor_data.get('position', 50.0)
-            
-            # Get effort from state lock
+            # Use cached position from 30Hz control loop (don't read servo at 200Hz!)
             with self.state_lock:
+                actual_pos = self.actual_position_pct
                 current_effort = self.current_effort_pct
             
             # Convert actual position to Dex1 units for publishing
