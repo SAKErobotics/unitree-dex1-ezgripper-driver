@@ -477,6 +477,7 @@ class CorrectedEZGripperDriver:
                 
                 # Convert Dex1 command to gripper parameters
                 target_position = self.dex1_to_ezgripper(motor_cmd.q)
+                self.logger.info(f"📥 DDS CMD: q={motor_cmd.q:.3f} rad → {target_position:.1f}%")
                 
                 # Position commands ALWAYS use 100% effort
                 # Force control happens after contact via torque mode transition
@@ -490,7 +491,7 @@ class CorrectedEZGripperDriver:
                     q_radians=motor_cmd.q,
                     tau=motor_cmd.tau
                 )
-                self.logger.info(f"Command received: q={motor_cmd.q:.3f} rad -> {target_position:.1f}%")
+
             else:
                 self.logger.debug(f"No command data")
         
@@ -598,18 +599,20 @@ class CorrectedEZGripperDriver:
                 return
         
         try:
-            # Use actual position from 30Hz control loop - no prediction needed
+            # Read FRESH sensor data directly from servo for accurate state publishing
+            sensor_data = self.gripper.bulk_read_sensor_data()
+            self.current_sensor_data = sensor_data  # Update cache
+            
+            # Use fresh position data from servo
+            actual_pos = sensor_data.get('position', 50.0)
+            
+            # Get effort from state lock
             with self.state_lock:
-                actual_pos = self.actual_position_pct
                 current_effort = self.current_effort_pct
             
             # Convert actual position to Dex1 units for publishing
             current_q = self.ezgripper_to_dex1(actual_pos)
             current_tau = current_effort / 10.0
-            
-            # Read real sensor data for DDS compliance and cache it
-            sensor_data = self.gripper.bulk_read_sensor_data()
-            self.current_sensor_data = sensor_data  # Update cache
             
             # Create motor state with official SDK2 structure
             # ENFORCE DDS CONTRACT: Clamp to valid range [0.0, 5.4] before writing to DDS
