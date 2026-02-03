@@ -597,7 +597,7 @@ class CorrectedEZGripperDriver:
             
             if self.command_count % 30 == 0:  # Log every second at 30Hz
                 state_info = self.grasp_manager.get_state_info()
-                self.logger.info(f"State: {state_info['state']}, Contact: {state_info['in_contact']}")
+                self.logger.info(f"State: {state_info.get('state', 'UNKNOWN')}, Contact: {state_info.get('in_contact', False)}")
             
             # Update state (thread-safe)
             with self.state_lock:
