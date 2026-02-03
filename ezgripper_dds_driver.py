@@ -779,58 +779,17 @@ class CorrectedEZGripperDriver:
             self.gripper.disable_torque()  # Torque to zero
             self.hardware_healthy = False
 
-def state_loop(self):
-    """State thread: Publish predicted position at 200 Hz"""
-    self.logger.info("Starting state thread at 200 Hz...")
-    period = 1.0 / self.state_loop_rate
-    next_cycle = time.time()
-
-    try:
-        while self.running:
-            # Update predicted position and publish state
-            self.publish_state()
-
-            # Absolute time scheduling for precise 200 Hz
-            next_cycle += period
-            sleep_time = next_cycle - time.time()
-            if sleep_time > 0:
-                time.sleep(sleep_time)
-            else:
-                # Missed deadline - reset
-                next_cycle = time.time()
-
-    except Exception as e:
-        self.logger.error(f"State thread error: {e}")
-    finally:
-        self.logger.info("State thread stopped")
-
-def run(self):
-    """Start multi-threaded driver with control and state threads"""
-    self.logger.info("Starting multi-threaded EZGripper driver...")
-    self.logger.info("  Control thread: 30 Hz (commands + actual position)")
-    self.logger.info("  State thread: 200 Hz (predicted position publishing)")
-
-    # Start threads
-    self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
-    self.state_thread = threading.Thread(target=self.state_loop, daemon=True, name="State")
-
-    self.control_thread.start()
-    self.state_thread.start()
-
-    try:
-        # Main thread waits for keyboard interrupt
-        while self.running:
-            time.sleep(0.1)
-    except KeyboardInterrupt:
-        self.logger.info("Shutting down corrected EZGripper driver...")
-    finally:
+    def state_loop(self):
+        """State thread: Publish predicted position at 200 Hz"""
+        self.logger.info("Starting state thread at 200 Hz...")
+        period = 1.0 / self.state_loop_rate
         next_cycle = time.time()
-        
+
         try:
             while self.running:
                 # Update predicted position and publish state
                 self.publish_state()
-                
+
                 # Absolute time scheduling for precise 200 Hz
                 next_cycle += period
                 sleep_time = next_cycle - time.time()
@@ -839,25 +798,25 @@ def run(self):
                 else:
                     # Missed deadline - reset
                     next_cycle = time.time()
-                    
+
         except Exception as e:
             self.logger.error(f"State thread error: {e}")
         finally:
             self.logger.info("State thread stopped")
-    
+
     def run(self):
         """Start multi-threaded driver with control and state threads"""
         self.logger.info("Starting multi-threaded EZGripper driver...")
         self.logger.info("  Control thread: 30 Hz (commands + actual position)")
         self.logger.info("  State thread: 200 Hz (predicted position publishing)")
-        
+
         # Start threads
         self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
         self.state_thread = threading.Thread(target=self.state_loop, daemon=True, name="State")
-        
+
         self.control_thread.start()
         self.state_thread.start()
-        
+
         try:
             # Main thread waits for keyboard interrupt
             while self.running:
@@ -865,17 +824,58 @@ def run(self):
         except KeyboardInterrupt:
             self.logger.info("Shutting down corrected EZGripper driver...")
         finally:
-            self.running = False
-            self.control_thread.join(timeout=2.0)
-            self.state_thread.join(timeout=2.0)
+            next_cycle = time.time()
+        
+            try:
+                while self.running:
+                    # Update predicted position and publish state
+                    self.publish_state()
+                
+                    # Absolute time scheduling for precise 200 Hz
+                    next_cycle += period
+                    sleep_time = next_cycle - time.time()
+                    if sleep_time > 0:
+                        time.sleep(sleep_time)
+                    else:
+                        # Missed deadline - reset
+                        next_cycle = time.time()
+                    
+            except Exception as e:
+                self.logger.error(f"State thread error: {e}")
+            finally:
+                self.logger.info("State thread stopped")
+    
+        def run(self):
+            """Start multi-threaded driver with control and state threads"""
+            self.logger.info("Starting multi-threaded EZGripper driver...")
+            self.logger.info("  Control thread: 30 Hz (commands + actual position)")
+            self.logger.info("  State thread: 200 Hz (predicted position publishing)")
+        
+            # Start threads
+            self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
+            self.state_thread = threading.Thread(target=self.state_loop, daemon=True, name="State")
+        
+            self.control_thread.start()
+            self.state_thread.start()
+        
+            try:
+                # Main thread waits for keyboard interrupt
+                while self.running:
+                    time.sleep(0.1)
+            except KeyboardInterrupt:
+                self.logger.info("Shutting down corrected EZGripper driver...")
+            finally:
+                self.running = False
+                self.control_thread.join(timeout=2.0)
+                self.state_thread.join(timeout=2.0)
     
     def shutdown(self):
-        """Clean shutdown"""
-        self.logger.info("Shutting down hardware...")
-        self.running = False
-        if self.gripper:
-            self.gripper.move_with_torque_management(50.0, 10.0)  # Reduced effort to prevent overloading
-            time.sleep(1)
+                """Clean shutdown"""
+                self.logger.info("Shutting down hardware...")
+                self.running = False
+                if self.gripper:
+                    self.gripper.move_with_torque_management(50.0, 10.0)  # Reduced effort to prevent overloading
+                    time.sleep(1)
 
 
 def main():
