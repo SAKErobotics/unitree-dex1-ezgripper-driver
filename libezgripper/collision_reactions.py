@@ -44,45 +44,11 @@ class CalibrationReaction(CollisionReaction):
         collision_position = sensor_data.get('position_raw', 0)
         gripper.zero_positions[0] = -collision_position
         
-        print(f"  📍 Collision at: {collision_position}, offset set to: {-collision_position}")
+        print(f"  📍 Zero position set to: {collision_position}")
+        print(f"  🔄 Relaxing to position 50%...")
         
-        # Stop the servo immediately by commanding current position
-        # This prevents hardware error from occurring
-        print(f"  � Stopping servo at current position...")
-        current_raw_pos = collision_position  # Already at collision position
-        gripper.servos[0].write_address(116, [
-            current_raw_pos & 0xFF,
-            (current_raw_pos >> 8) & 0xFF,
-            (current_raw_pos >> 16) & 0xFF,
-            (current_raw_pos >> 24) & 0xFF
-        ])
-        
-        # Small delay to let servo process stop command
-        import time
-        time.sleep(0.05)
-        
-        print(f"  🔄 Opening to position 50%...")
-        
-        # Now move to position 50 to reduce load (fast with 100% effort)
+        # Immediately send open command - no delays, no torque cycling
         gripper.goto_position(50, 100)
-        
-        # Diagnostic: Check servo state after command
-        import time
-        time.sleep(0.01)  # Small delay for servo to process
-        try:
-            torque = gripper.servos[0].read_word(64)
-            present_pos = gripper.servos[0].read_address(132, 4)
-            present_pos_val = present_pos[0] + (present_pos[1] << 8) + (present_pos[2] << 16) + (present_pos[3] << 24)
-            if present_pos_val & 0x80000000:
-                present_pos_val = present_pos_val - 0x100000000
-            hw_error = gripper.servos[0].read_word(70)
-            
-            print(f"  🔍 Servo state after command:")
-            print(f"     Torque enabled: {torque}")
-            print(f"     Present position: {present_pos_val}")
-            print(f"     Hardware error: {hw_error} (0x{hw_error:02x})")
-        except Exception as e:
-            print(f"  ⚠️  Could not read servo state: {e}")
         
         # Stop calibration
         gripper.calibration_active = False
