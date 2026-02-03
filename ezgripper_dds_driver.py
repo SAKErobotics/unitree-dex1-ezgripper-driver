@@ -683,10 +683,14 @@ class CorrectedEZGripperDriver:
             if current_time - self.last_monitor_time >= self.monitor_interval:
                 elapsed = current_time - self.last_monitor_time
                 actual_rate = self.state_publish_count / elapsed
-                position_error = abs(predicted_pos - commanded_pos)
-                tracking_error = abs(predicted_pos - actual_pos)
+                # Use actual position from control loop - no prediction
+                with self.state_lock:
+                    current_actual = self.actual_position_pct
+                    current_commanded = self.commanded_position_pct
                 
-                self.logger.info(f"📊 Monitor: State={actual_rate:.1f}Hz | Cmd={commanded_pos:.1f}% | Pred={predicted_pos:.1f}% | Actual={actual_pos:.1f}% | Err={position_error:.1f}% | Track={tracking_error:.1f}%")
+                position_error = abs(current_actual - current_commanded)
+                
+                self.logger.info(f"📊 Monitor: State={actual_rate:.1f}Hz | Cmd={current_commanded:.1f}% | Actual={current_actual:.1f}% | Err={position_error:.1f}%")
                 
                 self.state_publish_count = 0
                 self.last_monitor_time = current_time
