@@ -54,9 +54,9 @@
       "idle_force_pct": 0
     },
     "collision_detection": {
-      "current_spike_threshold_pct": 50,
+      "current_spike_threshold_pct": 25,
       "stagnation_movement_units": 2,
-      "consecutive_samples_required": 3,
+      "consecutive_samples_required": 5,
       "settling_cycles": 10,
       "monitor_frequency_hz": 30
     }

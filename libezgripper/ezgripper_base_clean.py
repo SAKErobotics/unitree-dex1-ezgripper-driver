@@ -483,70 +483,118 @@ class Gripper:
         # Actually write to servo
         self.bulk_write_control_data()
 
-    def calibrate_with_collision_detection(self):
+    def calibrate(self):
         """
-        Simple calibration - close until collision detected
+        Ultra-minimal calibration - just find zero
         
-        Strategy:
-        1. Reset zero_positions to 0 (ensures proper wrap-around)
-        2. goto_position(-300, 100) - Force beyond closed until collision
-        3. Wrap-around is REQUIRED for winch/tendon tightening
-        4. CalibrationReaction sets actual zero and relaxes when collision detected
+        Completely independent - only direct register operations
+        No dependencies on goto_position or other driver components
+        
+        Algorithm:
+        1. Close slowly with safe force
+        2. Monitor current
+        3. Stop when current spike detected
+        4. Record position as zero
+        5. Open slowly
+        6. Done
         """
-        # Read current position and command relative movement to ensure closing
-        # This prevents direction ambiguity in Extended Position Control Mode
+        print("  🔧 Calibration: Finding zero...")
+        
+        servo_id = self.servo_ids[0]
+        
+        # Safe closing force (30% PWM = 266)
+        closing_pwm = int(885 * 0.3)
+        current_threshold_ma = 400
+        
+        # Read current position
         pos_bytes = self.servos[0].read_address(132, 4)
         current_pos = pos_bytes[0] + (pos_bytes[1] << 8) + (pos_bytes[2] << 16) + (pos_bytes[3] << 24)
         if current_pos & 0x80000000:
             current_pos = current_pos - 0x100000000
         
-        # Reset state and zero positions
-        self.collision_detected = False
-        self.calibration_active = True
-        self.zero_positions[0] = 0
+        target_pos = current_pos - 15000  # Beyond closed
         
-        # Command position well below current to ensure closing direction
-        target_pos = current_pos - 15000  # Beyond close limit (-12567)
-        target_pct = int(target_pos * 100 / 2500)
+        print(f"  Closing: PWM={closing_pwm} (30%), threshold={current_threshold_ma}mA")
         
-        print(f"  📍 Current: {current_pos}, Target: {target_pos} ({target_pct}%)")
+        # Write PWM
+        self.bulk_write_pwm.clearParam()
+        pwm_param = [closing_pwm & 0xFF, (closing_pwm >> 8) & 0xFF]
+        self.bulk_write_pwm.addParam(servo_id, pwm_param)
+        self.bulk_write_pwm.txPacket()
         
-        # Close with 100% PWM for fast movement
-        # Immediate PWM=0 stop on collision prevents overload
-        self.goto_position(target_pct, 100)
+        # Write position
+        self.bulk_write_position.clearParam()
+        pos_param = [
+            target_pos & 0xFF,
+            (target_pos >> 8) & 0xFF,
+            (target_pos >> 16) & 0xFF,
+            (target_pos >> 24) & 0xFF
+        ]
+        self.bulk_write_position.addParam(servo_id, pos_param)
+        self.bulk_write_position.txPacket()
         
-        # Wait for movement to start (skip first 5 cycles = ~165ms)
-        # This prevents false collision detection from residual current
-        for _ in range(5):
-            self.update_main_loop()
+        # Monitor until stable contact
+        stable_count = 0
+        stable_required = 5  # Require 5 consecutive stable readings (165ms)
+        last_position = None
+        position_threshold = 2  # Position must not change by more than 2 units
+        
+        for cycle in range(200):  # 6.6 second timeout
             time.sleep(0.033)
-        
-        # Now enable collision monitoring after movement has started
-        self.enable_collision_monitoring(CalibrationReaction())
-        
-        # Monitor until collision (150 cycles = ~5 seconds max)
-        for _ in range(150):
-            self.update_main_loop()
-            if self.collision_detected:
-                # Collision detected and reaction completed (PWM dropped to 15%)
-                # Now open to 50% with 100% PWM and let servo reach position naturally
-                print(f"  🔓 Opening to 50% with 100% PWM...")
-                self.goto_position(50, 100)
+            
+            # Read current and position
+            result = self.bulk_read.txRxPacket()
+            if result == COMM_SUCCESS:
+                current_raw = self.bulk_read.getData(servo_id, 126, 2)
+                current_ma = abs(self._sign_extend_16bit(current_raw))
+                position_raw = self.bulk_read.getData(servo_id, 132, 4)
                 
-                # Servo will move to 50% and hold there with position control
-                # No blocking sleep - calibration complete
-                print(f"  ✅ Calibration complete - gripper moving to 50%")
-                return True
-            time.sleep(0.033)
+                # Log every cycle when current is high to see variance
+                if current_ma > 300:  # Start logging near threshold
+                    position_change = abs(position_raw - last_position) if last_position is not None else 0
+                    print(f"    {cycle}: current={current_ma}mA, pos={position_raw}, change={position_change}, stable={stable_count}")
+                elif cycle % 10 == 0:
+                    print(f"    {cycle}: current={current_ma}mA, pos={position_raw}, stable={stable_count}")
+                
+                # Check if position is stable AND current is high
+                if current_ma > current_threshold_ma:
+                    if last_position is not None:
+                        position_change = abs(position_raw - last_position)
+                        
+                        if position_change <= position_threshold:
+                            # Position stable, current high - increment counter
+                            stable_count += 1
+                            
+                            if stable_count >= stable_required:
+                                print(f"  ✅ Stable contact: {stable_count} consecutive readings")
+                                print(f"     Current: {current_ma}mA, Position: {position_raw}")
+                                
+                                # Record zero
+                                self.zero_positions[0] = -position_raw
+                                print(f"  📍 Zero offset: {self.zero_positions[0]}")
+                                
+                                # Release immediately: Disable torque
+                                print(f"  🔓 Releasing (torque off)...")
+                                self.servos[0].write_address(64, [0])  # Torque Enable = 0
+                                
+                                print(f"  ✅ Calibration complete")
+                                return True
+                        else:
+                            # Position changed - reset counter
+                            stable_count = 0
+                    
+                    last_position = position_raw
+                else:
+                    # Current dropped - reset counter
+                    stable_count = 0
+                    last_position = position_raw
         
-        self.calibration_active = False
+        # Timeout
+        print(f"  ❌ Timeout - stopping")
+        self.bulk_write_pwm.clearParam()
+        self.bulk_write_pwm.addParam(servo_id, [0, 0])
+        self.bulk_write_pwm.txPacket()
         return False
-
-    def calibrate(self):
-        """Modern calibration using goto_position with collision detection"""
-        # Set calibration reaction
-        self.collision_reaction = CalibrationReaction()
-        return self.calibrate_with_collision_detection()
 
     def get_position(self):
         """Get current position in percent (for DDS interface) - uses cached data"""
