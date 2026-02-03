@@ -48,7 +48,7 @@ class CalibrationReaction(CollisionReaction):
         t_reaction_start = time.time()
         print(f"  📍 [{t_reaction_start:.6f}] Zero position set to: {collision_position}")
         
-        # Use regWrite + action to write BOTH Goal PWM and goal_position together
+        # Use bulk write operations to write BOTH Goal PWM and goal_position
         # Goal PWM (register 100, RAM) controls force during position control
         import time
         t_write_start = time.time()
@@ -58,17 +58,30 @@ class CalibrationReaction(CollisionReaction):
         
         print(f"  🔄 [{t_write_start:.6f}] Writing Goal PWM={goal_pwm_40pct} AND goal_position={open_position}...")
         
-        # Get packet handler from servo
-        packet_handler = gripper.servos[0].dyn.packetHandler
-        port_handler = gripper.servos[0].dyn.portHandler
-        servo_id = gripper.servos[0].servo_id
+        # Clear and prepare bulk writes
+        gripper.bulk_write_pwm.clearParam()
+        gripper.bulk_write_position.clearParam()
         
-        # Write Goal PWM (register 100, 2 bytes, RAM)
-        # This controls the force/torque during position control
-        packet_handler.write2ByteTxOnly(port_handler, servo_id, 100, goal_pwm_40pct)
+        # Add Goal PWM (2 bytes)
+        pwm_param = [
+            goal_pwm_40pct & 0xFF,
+            (goal_pwm_40pct >> 8) & 0xFF
+        ]
+        gripper.bulk_write_pwm.addParam(gripper.servo_ids[0], pwm_param)
         
-        # Write goal_position (register 116, 4 bytes)
-        packet_handler.write4ByteTxOnly(port_handler, servo_id, 116, open_position)
+        # Add goal_position (4 bytes)
+        pos_param = [
+            open_position & 0xFF,
+            (open_position >> 8) & 0xFF,
+            (open_position >> 16) & 0xFF,
+            (open_position >> 24) & 0xFF
+        ]
+        gripper.bulk_write_position.addParam(gripper.servo_ids[0], pos_param)
+        
+        # Execute bulk writes
+        from dynamixel_sdk import COMM_SUCCESS
+        gripper.bulk_write_pwm.txPacket()
+        gripper.bulk_write_position.txPacket()
         
         t_write_end = time.time()
         

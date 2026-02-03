@@ -89,8 +89,11 @@ class Gripper:
         for servo_id in self.servo_ids:
             self.bulk_read.addParam(servo_id)
         
+        # Bulk write for Goal PWM (register 100, 2 bytes) - force control
+        self.bulk_write_pwm = GroupSyncWrite(port_handler, packet_handler, 100, 2)
+        
         # Bulk write for goal position (register 116, 4 bytes)
-        self.bulk_write = GroupSyncWrite(port_handler, packet_handler, 116, 4)
+        self.bulk_write_position = GroupSyncWrite(port_handler, packet_handler, 116, 4)
 
     def _setup_position_control(self):
         """Setup servos for position control - apply all settings from config"""
@@ -370,11 +373,10 @@ class Gripper:
 
     def bulk_write_control_data(self):
         """
-        Write control data using regWrite + action (like old working code)
+        Write control data using GroupSyncWrite bulk operations
         
-        Writes BOTH goal_current and goal_position in single transaction.
-        This is critical - the old working code always updated current_limit
-        with every position command for proper force control.
+        Writes BOTH Goal PWM and goal_position using two bulk operations.
+        This is more efficient than individual writes and uses our bulk infrastructure.
         
         Position translation for grasping:
         - User command 0 (fully closed) → internal target -50
@@ -390,22 +392,44 @@ class Gripper:
         scaled_position = int(int(internal_position) * 2500 / 100)
         goal_pwm = int(int(self.target_effort) * 885 / 100)  # Scale effort to PWM (0-885 for MX-64)
         
-        # Write BOTH registers for each servo using regWrite + action
+        # Clear previous bulk write params
+        self.bulk_write_pwm.clearParam()
+        self.bulk_write_position.clearParam()
+        
+        # Add parameters for each servo
         for i in range(len(self.servos)):
             target_raw_pos = self.zero_positions[i] + scaled_position
             
-            packet_handler = self.servos[i].dyn.packetHandler
-            port_handler = self.servos[i].dyn.portHandler
-            servo_id = self.servos[i].servo_id
+            # Add Goal PWM (2 bytes)
+            pwm_param = [
+                goal_pwm & 0xFF,
+                (goal_pwm >> 8) & 0xFF
+            ]
+            self.bulk_write_pwm.addParam(self.servo_ids[i], pwm_param)
             
-            # Write Goal PWM (register 100, 2 bytes, RAM)
-            # This controls the force/torque during position control
-            packet_handler.write2ByteTxOnly(port_handler, servo_id, 100, goal_pwm)
-            
-            # Write goal_position (register 116, 4 bytes)
-            packet_handler.write4ByteTxOnly(port_handler, servo_id, 116, target_raw_pos)
+            # Add goal_position (4 bytes)
+            pos_param = [
+                target_raw_pos & 0xFF,
+                (target_raw_pos >> 8) & 0xFF,
+                (target_raw_pos >> 16) & 0xFF,
+                (target_raw_pos >> 24) & 0xFF
+            ]
+            self.bulk_write_position.addParam(self.servo_ids[i], pos_param)
             
             print(f"    ✍️  WRITE servo: pos={self.target_position}%→{target_raw_pos}, pwm={self.target_effort}%→{goal_pwm}")
+        
+        # Execute bulk writes (2 USB transactions)
+        from dynamixel_sdk import COMM_SUCCESS
+        
+        # Write Goal PWM first
+        result = self.bulk_write_pwm.txPacket()
+        if result != COMM_SUCCESS:
+            raise Exception(f"Bulk write PWM failed: {result}")
+        
+        # Write goal_position second
+        result = self.bulk_write_position.txPacket()
+        if result != COMM_SUCCESS:
+            raise Exception(f"Bulk write position failed: {result}")
 
     def _goto_position_unclamped(self, position_pct, effort_pct):
         """
