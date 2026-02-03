@@ -168,25 +168,44 @@ class Gripper:
         Writes are done by goto_position() only
         
         Returns:
-            dict: Current sensor data and collision status
+            dict: Current sensor data and collision status with timing
         """
         try:
+            loop_start = time.time()
+            
             # Step 1: Bulk read all sensor data
+            read_start = time.time()
             sensor_data = self.bulk_read_sensor_data(0)
+            read_time = (time.time() - read_start) * 1000  # ms
             self.cached_sensor_data = sensor_data
             
             # Step 2: Collision detection (if calibration active)
+            detect_time = 0
+            handle_time = 0
             if self.calibration_active:
+                detect_start = time.time()
                 collision = self._detect_collision(sensor_data)
+                detect_time = (time.time() - detect_start) * 1000  # ms
+                
                 if collision:
+                    handle_start = time.time()
                     self._handle_collision_collision(sensor_data)
+                    handle_time = (time.time() - handle_start) * 1000  # ms
+            
+            loop_time = (time.time() - loop_start) * 1000  # ms
             
             # Note: No bulk write here - only goto_position() writes to servo
             
             return {
                 'sensor_data': sensor_data,
                 'collision_detected': self.collision_detected,
-                'calibration_active': self.calibration_active
+                'calibration_active': self.calibration_active,
+                'timing': {
+                    'read_ms': read_time,
+                    'detect_ms': detect_time,
+                    'handle_ms': handle_time,
+                    'total_ms': loop_time
+                }
             }
             
         except Exception as e:
@@ -243,27 +262,34 @@ class Gripper:
 
     def bulk_read_sensor_data(self, servo_num=0):
         """
-        Read all sensor data using individual reads (for now, until bulk read is fixed)
+        Read sensor data - optimized for speed during calibration
         
         Returns:
             dict: {
                 'position': position_pct,
                 'position_raw': raw_position,
                 'current': current_ma,
-                'temperature': temp_c,
-                'voltage': voltage_v,
-                'error': error_code
+                'temperature': temp_c (only if not calibrating),
+                'voltage': voltage_v (only if not calibrating),
+                'error': error_code (only if not calibrating)
             }
         """
         sensor_data = {}
         
         try:
-            # Read all registers individually (will optimize to bulk later)
+            # Always read position and current (critical for collision detection)
             position_raw = self.servos[servo_num].read_word(132)  # present_position
             current_raw = self.servos[servo_num].read_word(126)  # present_current
-            temperature = self.servos[servo_num].read_word(146)  # present_temperature
-            voltage_raw = self.servos[servo_num].read_word(144)  # present_voltage
-            error_raw = self.servos[servo_num].read_word(70)    # hardware_error
+            
+            # Only read temperature, voltage, error when NOT calibrating (saves ~47ms)
+            if not self.calibration_active:
+                temperature = self.servos[servo_num].read_word(146)  # present_temperature
+                voltage_raw = self.servos[servo_num].read_word(144)  # present_voltage
+                error_raw = self.servos[servo_num].read_word(70)    # hardware_error
+            else:
+                temperature = 0
+                voltage_raw = 0
+                error_raw = 0
             
             # Parse position with software offset
             sensor_data['position_raw'] = position_raw
@@ -361,34 +387,47 @@ class Gripper:
         self.calibration_active = True
         self._last_position = None
         
-        # Step 1: Start from open position
-        print("  Step 1: Moving to open position (100%)...")
-        self.goto_position(100, 100)
-        
-        # Step 2: Force beyond closed for collision
-        print("  Step 2: Moving to -300% (beyond closed) until collision...")
+        # Step 1: Force beyond closed for collision (start from current position)
+        print("  Step 1: Moving to -300% (beyond closed) until collision...")
+        start_close_time = time.time()
         self.goto_position(-300, 100)
         
         # Step 3: Run main loop until collision detected
         print("  Step 3: Monitoring for collision...")
+        monitoring_start = time.time()
+        cycle_times = []
         for sample in range(50):  # Extended time
+            cycle_start = time.time()
             result = self.update_main_loop()
+            cycle_end = time.time()
+            total_cycle_time = (cycle_end - cycle_start) * 1000  # ms
+            cycle_times.append(total_cycle_time)
             
             # Check if collision was detected in this cycle
             if result and result.get('collision_detected'):
                 print("  ✅ Collision detected - calibration complete!")
                 return True
             
-            # Show progress
+            # Show progress with timing
             if result and sample % 5 == 0:
                 data = result['sensor_data']
+                timing = result.get('timing', {})
                 pos = data.get('position_raw', 0)
                 current = data.get('current', 0)
-                print(f"    Sample {sample+1}: Position={pos}, Current={current}mA")
+                print(f"    Sample {sample+1}: pos={pos}, cur={current}mA, "
+                      f"read={timing.get('read_ms', 0):.1f}ms, "
+                      f"detect={timing.get('detect_ms', 0):.1f}ms, "
+                      f"total={timing.get('total_ms', 0):.1f}ms, "
+                      f"cycle={total_cycle_time:.1f}ms")
             
             # CRITICAL: Check again after update_main_loop in case collision was just detected
             if self.collision_detected:
-                print("  ✅ Collision detected - exiting immediately!")
+                detection_time = time.time() - monitoring_start
+                avg_cycle = sum(cycle_times) / len(cycle_times) if cycle_times else 0
+                print(f"  ✅ Collision detected in {sample+1} cycles!")
+                print(f"     Detection time: {detection_time*1000:.1f}ms")
+                print(f"     Avg cycle time: {avg_cycle:.1f}ms")
+                print(f"     Cycles: {cycle_times[:sample+1]}")
                 return True
                 
             time.sleep(0.033)  # 30Hz
@@ -402,9 +441,10 @@ class Gripper:
         return self.calibrate_with_collision_detection()
 
     def get_position(self):
-        """Get current position in percent (for DDS interface)"""
-        data = self.bulk_read_sensor_data(0)
-        return data.get('position', 0.0)
+        """Get current position in percent (for DDS interface) - uses cached data"""
+        if self.cached_sensor_data:
+            return self.cached_sensor_data.get('position', 0.0)
+        return 0.0
 
     def _sign_extend_16bit(self, value):
         """Sign extend 16-bit value"""
