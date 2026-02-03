@@ -8,6 +8,7 @@ Each strategy defines what happens when a collision is detected.
 
 from abc import ABC, abstractmethod
 from typing import Dict, Any, Optional
+from .grasp_controller import GraspController, GraspState
 
 
 class CollisionReaction(ABC):
@@ -60,12 +61,14 @@ class CalibrationReaction(CollisionReaction):
         }
 
 
-class AdaptiveGripReaction(CollisionReaction):
+class GraspReaction(CollisionReaction):
     """
-    Reaction for adaptive gripping: reduce effort when contact detected
+    Simple grasping reaction - DEFAULT for production use
     
-    Use case: Gripper closing fast (100% effort) hits object, 
-    immediately reduces to holding effort (e.g., 30%)
+    Behavior:
+    - On contact: reduce effort to holding level
+    - Maintain current target position
+    - Continue monitoring for slip/changes
     """
     
     def __init__(self, holding_effort: float = 30):
@@ -74,27 +77,35 @@ class AdaptiveGripReaction(CollisionReaction):
             holding_effort: Effort to use after contact (0-100%)
         """
         self.holding_effort = holding_effort
+        self.contact_detected = False
     
     def on_collision(self, gripper, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
-        """Reduce effort to holding level, maintain position"""
-        current_position = sensor_data.get('position', 0)
+        """Reduce effort to holding level on contact"""
         
-        print(f"  ✋ Contact detected at position {current_position:.1f}%")
-        print(f"  🔽 Reducing effort: {gripper.target_effort}% → {self.holding_effort}%")
+        if not self.contact_detected:
+            self.contact_detected = True
+            current_position = sensor_data.get('position', 0)
+            
+            print(f"  ✋ Contact detected at position {current_position:.1f}%")
+            print(f"  🔽 Reducing effort: {gripper.target_effort}% → {self.holding_effort}%")
         
-        # Maintain current position but reduce effort
+        # Maintain target position but reduce effort
         gripper.goto_position(gripper.target_position, self.holding_effort)
         
         # Mark collision but continue monitoring
         gripper.collision_detected = True
         
         return {
-            'action_taken': 'adaptive_grip',
+            'action_taken': 'grasp_set',
             'new_position': gripper.target_position,
             'new_effort': self.holding_effort,
-            'stop_monitoring': False,  # Keep monitoring for slip/changes
-            'contact_position': current_position
+            'stop_monitoring': False,  # Keep monitoring
+            'contact_position': sensor_data.get('position', 0)
         }
+
+
+# Alias for backward compatibility
+AdaptiveGripReaction = GraspReaction
 
 
 class HoldPositionReaction(CollisionReaction):
@@ -170,6 +181,81 @@ class RelaxReaction(CollisionReaction):
         }
 
 
+class SmartGraspReaction(CollisionReaction):
+    """
+    Smart grasping with force curve and temperature-aware holding
+    
+    This is the DEFAULT reaction for production use.
+    
+    Features:
+    - 5-cycle moving window filter for current and position
+    - Rapid force reduction during grasp: max → 50% as position stabilizes
+    - Detects grasp set when position change = 0
+    - Temperature-aware holding algorithm
+    - Monitors temperature and adjusts force dynamically
+    
+    Use case: Fast close → contact → ramp down force → hold with temp monitoring
+    """
+    
+    def __init__(self, 
+                 max_force: float = 100,
+                 grasp_set_force: float = 50,
+                 holding_force_low: float = 30,
+                 holding_force_mid: float = 50,
+                 temp_warning: float = 60,
+                 temp_critical: float = 70):
+        """
+        Args:
+            max_force: Initial closing force (0-100%)
+            grasp_set_force: Force when grasp is set (0-100%)
+            holding_force_low: Low holding force (0-100%)
+            holding_force_mid: Mid holding force (0-100%)
+            temp_warning: Temperature warning threshold (°C)
+            temp_critical: Temperature critical threshold (°C)
+        """
+        self.controller = GraspController(
+            max_force=max_force,
+            grasp_set_force=grasp_set_force,
+            holding_force_low=holding_force_low,
+            holding_force_mid=holding_force_mid,
+            temp_warning_threshold=temp_warning,
+            temp_critical_threshold=temp_critical
+        )
+        self.initialized = False
+    
+    def on_collision(self, gripper, sensor_data: Dict[str, Any]) -> Dict[str, Any]:
+        """
+        Called every cycle during grasping operation
+        
+        Note: This is called continuously, not just once on collision.
+        The GraspController manages the state machine internally.
+        """
+        # Update controller with sensor data
+        control_output = self.controller.update(sensor_data)
+        
+        # Apply force command
+        current_position = sensor_data.get('position', 0)
+        target_force = control_output['force']
+        
+        # Command gripper with updated force
+        gripper.goto_position(current_position, target_force)
+        
+        # Check if we should stop monitoring (grasp released or error)
+        stop_monitoring = False
+        if control_output['state'] == GraspState.RELEASED:
+            stop_monitoring = True
+        
+        return {
+            'action_taken': 'smart_grasp',
+            'grasp_state': control_output['state'],
+            'current_force': target_force,
+            'new_position': current_position,
+            'new_effort': target_force,
+            'stop_monitoring': stop_monitoring,
+            'control_output': control_output
+        }
+
+
 class CustomReaction(CollisionReaction):
     """
     Custom reaction using user-provided callback
@@ -204,6 +290,7 @@ def create_reaction(reaction_type: str, **kwargs) -> CollisionReaction:
     reactions = {
         'calibration': CalibrationReaction,
         'adaptive_grip': AdaptiveGripReaction,
+        'smart_grasp': SmartGraspReaction,
         'hold': HoldPositionReaction,
         'relax': RelaxReaction,
         'custom': CustomReaction

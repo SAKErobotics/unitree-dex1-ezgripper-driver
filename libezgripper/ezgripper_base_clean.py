@@ -75,19 +75,22 @@ class Gripper:
         """Setup servos for position control - apply all settings from config"""
         print("  Setup - applying Dynamixel settings from config...")
         
-        # Register addresses for Dynamixel settings
+        # Register addresses for Dynamixel settings (MX-64 Protocol 2.0)
         REGISTER_MAP = {
-            'operating_mode': 11,        # EEPROM
-            'current_limit': 38,          # RAM
-            'velocity_limit': 44,         # EEPROM
-            'profile_acceleration': 108,  # RAM
-            'profile_velocity': 112,      # RAM
-            'return_delay_time': 5,       # EEPROM
-            'status_return_level': 16     # EEPROM
+            'operating_mode': 11,        # EEPROM, 1-byte
+            'current_limit': 38,          # RAM, 2-byte
+            'velocity_limit': 44,         # EEPROM, 4-byte
+            'profile_acceleration': 108,  # RAM, 4-byte
+            'profile_velocity': 112,      # RAM, 4-byte
+            'return_delay_time': 9,       # EEPROM, 1-byte (verified from Dynamixel Wizard)
+            'status_return_level': 68     # EEPROM, 1-byte
         }
         
+        # 1-byte registers
+        ONE_BYTE_REGISTERS = {9, 11, 68}
+        
         # EEPROM registers require torque disabled
-        EEPROM_REGISTERS = {11, 44, 5, 16}
+        EEPROM_REGISTERS = {11, 44, 9, 68}
         
         # Get settings from config
         config_settings = self.config._config.get('servo', {}).get('dynamixel_settings', {})
@@ -100,18 +103,6 @@ class Gripper:
             torque_status = servo.read_word(64)
             print(f"    Initial torque enable: {torque_status}")
             
-            # First, ensure multi-turn mode is enabled (required for EZGripper)
-            multi_turn_mode = servo.read_word(10)
-            if multi_turn_mode != 1:
-                print(f"    Setting multi-turn mode: {multi_turn_mode} -> 1")
-                if torque_status != 0:
-                    servo.write_address(64, [0])
-                    torque_status = 0
-                    time.sleep(0.05)
-                servo.write_word(10, 1)
-                time.sleep(0.05)
-                print(f"    ✅ Multi-turn mode enabled")
-            
             # Apply each setting from config
             for setting_name, target_value in config_settings.items():
                 if setting_name not in REGISTER_MAP:
@@ -119,9 +110,13 @@ class Gripper:
                 
                 register_addr = REGISTER_MAP[setting_name]
                 is_eeprom = register_addr in EEPROM_REGISTERS
+                is_one_byte = register_addr in ONE_BYTE_REGISTERS
                 
-                # Read current value
-                current_value = servo.read_word(register_addr)
+                # Read current value with correct method
+                if is_one_byte:
+                    current_value = servo.read_byte(register_addr)
+                else:
+                    current_value = servo.read_word(register_addr)
                 
                 # Check if update needed
                 if current_value == target_value:
@@ -141,8 +136,12 @@ class Gripper:
                     servo.write_word(register_addr, target_value)
                     time.sleep(0.05)
                     
-                    # Verify write
-                    verify_value = servo.read_word(register_addr)
+                    # Verify write with correct read method
+                    if is_one_byte:
+                        verify_value = servo.read_byte(register_addr)
+                    else:
+                        verify_value = servo.read_word(register_addr)
+                    
                     if verify_value == target_value:
                         print(f"    ✅ {setting_name} updated (verified: {verify_value})")
                     else:
@@ -341,10 +340,22 @@ class Gripper:
     def bulk_write_control_data(self):
         """
         Write control data - ALWAYS UNCLAMPED, goes until destination or collision
+        
+        Position translation for grasping:
+        - User command 0 (fully closed) → internal target -50
+        - This ensures gripper goes beyond calibrated zero into grasp operational space
+        - Gripper architecture extends beyond zero for proper object wrapping
         """
+        # Translate position for grasping
+        # User 0 → -50 to ensure full closure beyond zero
+        internal_position = self.target_position
+        if self.target_position == 0:
+            internal_position = -50
+            print(f"    🎯 Position translation: user 0% → internal -50% (grasp operational space)")
+        
         # Calculate goal values from target variables - UNCLAMPED
         # 0% = closed (position 0), 100% = open (position 2500)
-        scaled_position = int(int(self.target_position) * 2500 / 100)  # No clamping, no inversion
+        scaled_position = int(int(internal_position) * 2500 / 100)  # No clamping, no inversion
         
         # Write goal position - UNCLAMPED
         for i in range(len(self.servos)):
@@ -353,7 +364,7 @@ class Gripper:
             # Write goal position
             self.servos[i].write_word(116, target_raw_pos)  # goal_position register
             # Always log writes for debugging
-            print(f"    ✍️  WRITE servo: target={self.target_position}% → raw_pos={target_raw_pos} (zero={self.zero_positions[i]})")
+            print(f"    ✍️  WRITE servo: target={self.target_position}% → internal={internal_position}% → raw_pos={target_raw_pos} (zero={self.zero_positions[i]})")
 
     def _goto_position_unclamped(self, position_pct, effort_pct):
         """
@@ -396,12 +407,11 @@ class Gripper:
 
     def calibrate_with_collision_detection(self):
         """
-        Simple calibration - goto_position(-300, 100) and detect collision
+        Simple calibration - close until collision detected
         
         Strategy:
-        1. goto_position(100, 100) - Start fully open
-        2. goto_position(-300, 100) - Force beyond closed until collision
-        3. Main loop detects collision and moves to position 50
+        1. goto_position(-300, 100) - Force beyond closed until collision
+        2. Main loop detects collision and CalibrationReaction moves to position 50
         """
         print("\n=== SIMPLE CALIBRATION WITH GOTO_POSITION ===")
         
@@ -513,8 +523,6 @@ if __name__ == '__main__':
         
         print("Testing goto_position...")
         gripper.goto_position(0, 50)  # Close
-        time.sleep(2.0)
-        gripper.goto_position(100, 50)  # Open
         time.sleep(2.0)
         
     except Exception as e:

@@ -15,6 +15,7 @@ from libezgripper.config import load_config
 from libezgripper.collision_reactions import (
     CalibrationReaction,
     AdaptiveGripReaction,
+    SmartGraspReaction,
     HoldPositionReaction,
     RelaxReaction,
     CustomReaction
@@ -230,6 +231,84 @@ def example_6_dynamic_switching():
     print("\n✅ Dynamic switching complete")
 
 
+def example_7_smart_grasp():
+    """Example 7: Smart Grasp - DEFAULT production algorithm"""
+    print("\n" + "="*60)
+    print("EXAMPLE 7: Smart Grasp (Production Default)")
+    print("="*60)
+    
+    connection = create_connection(dev_name='/dev/ttyUSB0', baudrate=1000000)
+    time.sleep(1.0)
+    
+    config = load_config()
+    gripper = create_gripper(connection, 'test', [1], config)
+    
+    # Calibrate
+    print("\nCalibrating...")
+    gripper.calibrate()
+    time.sleep(1.0)
+    
+    # Open
+    print("\nOpening to 100%...")
+    gripper.goto_position(100, 50)
+    for _ in range(30):
+        gripper.update_main_loop()
+        time.sleep(0.033)
+    
+    # Set up smart grasp
+    print("\nSetting up Smart Grasp:")
+    print("  - Fast close at 100%")
+    print("  - Force reduction curve: 100% → 50%")
+    print("  - Temperature-aware holding: 30-50%")
+    
+    smart_grasp = SmartGraspReaction(
+        max_force=100,
+        grasp_set_force=50,
+        holding_force_low=30,
+        holding_force_mid=50,
+        temp_warning=60,
+        temp_critical=70
+    )
+    
+    gripper.enable_collision_monitoring(smart_grasp)
+    
+    print("\nPlace object in gripper...")
+    time.sleep(2.0)
+    
+    print("\nClosing with smart grasp algorithm...")
+    gripper.goto_position(0, 100)
+    
+    last_state = None
+    for i in range(200):
+        result = gripper.update_main_loop()
+        
+        if result and result.get('reaction_result'):
+            reaction = result['reaction_result']
+            state = reaction.get('grasp_state')
+            force = reaction.get('current_force', 0)
+            
+            if state != last_state:
+                print(f"\n  State: {state}")
+                last_state = state
+            
+            if i % 10 == 0:
+                sensor = result.get('sensor_data', {})
+                print(f"    [{i:3d}] Force: {force:5.1f}% | "
+                      f"Pos: {sensor.get('position', 0):5.1f}% | "
+                      f"Temp: {sensor.get('temperature', 0):4.1f}°C")
+            
+            if state == 'holding' and i > 100:
+                print(f"\n✅ Grasp stable in holding mode")
+                stats = smart_grasp.controller.get_statistics()
+                if 'grasp_duration' in stats:
+                    print(f"   Grasp duration: {stats['grasp_duration']:.3f}s")
+                break
+        
+        time.sleep(0.033)
+    
+    print("\n✅ Smart grasp complete")
+
+
 if __name__ == '__main__':
     print("""
 ╔══════════════════════════════════════════════════════════════╗
@@ -243,8 +322,9 @@ Choose an example:
   4. Safety Relax (open on excessive force)
   5. Custom Reaction (user-defined logic)
   6. Dynamic Switching (change reactions during operation)
+  7. Smart Grasp (DEFAULT - force curve + temp-aware holding) ⭐
   
-Enter number (1-6): """)
+Enter number (1-7): """)
     
     choice = input().strip()
     
@@ -254,7 +334,8 @@ Enter number (1-6): """)
         '3': example_3_obstacle_detection,
         '4': example_4_safety_relax,
         '5': example_5_custom_reaction,
-        '6': example_6_dynamic_switching
+        '6': example_6_dynamic_switching,
+        '7': example_7_smart_grasp
     }
     
     if choice in examples:

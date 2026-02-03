@@ -146,6 +146,11 @@ class Robotis_Servo:
         except CommunicationError:
             return [], 255  # Communication error
     
+    def read_byte(self, addr):
+        """Read 1-byte value from address"""
+        data = self.read_address(addr, 1)
+        return data[0]
+    
     def read_word(self, addr):
         """Read 2-byte word from address"""
         data = self.read_address(addr, 2)
@@ -155,7 +160,7 @@ class Robotis_Servo:
         """Write word to address with correct byte size for MX-64 Protocol 2.0"""
         # MX-64 register sizes (from control table)
         # 1-byte registers
-        ONE_BYTE_REGS = {5, 7, 8, 9, 10, 11, 13, 16, 17, 18, 19, 20}
+        ONE_BYTE_REGS = {7, 8, 9, 10, 11, 13, 68}
         # 4-byte registers
         FOUR_BYTE_REGS = {44, 48, 52, 100, 102, 104, 108, 112, 116, 120, 124, 126, 128, 132, 136, 140, 144, 146, 148, 152, 156, 160, 168, 172, 176, 180, 578, 580, 582, 584, 586, 588, 590, 592, 594, 596, 600, 604, 606, 610, 612, 614, 616}
         # Everything else is 2-byte

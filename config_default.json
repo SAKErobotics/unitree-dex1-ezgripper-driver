@@ -2,6 +2,7 @@
   "$schema": "./config_schema.json",
   "servo": {
     "model": "MX-64",
+    "operating_mode": 4,
     "current_limits": {
       "holding": 50,
       "movement": 100,
@@ -15,6 +16,7 @@
       "hardware_max": 80
     },
     "registers": {
+      "operating_mode": 11,
       "torque_enable": 64,
       "current_limit": 38,
       "profile_velocity": 112,
@@ -25,8 +27,8 @@
       "present_current": 126,
       "present_voltage": 144,
       "hardware_error": 70,
-      "return_delay_time": 5,
-      "status_return_level": 16
+      "return_delay_time": 9,
+      "status_return_level": 68
     },
     "performance": {
       "max_current_limit": 1600,
