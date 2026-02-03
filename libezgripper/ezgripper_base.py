@@ -77,41 +77,15 @@ class Gripper:
         self.config = config
         self.servos = [Robotis_Servo( connection, servo_id ) for servo_id in servo_ids]
         
-        # Check initial servo state using BULK READ (single USB transaction)
-        print(f"=== INITIAL SERVO STATE CHECK FOR {name} ===")
-        for i, servo in enumerate(self.servos):
-            print(f"Servo {i+1} (ID {servo_ids[i]}):")
-            try:
-                # Use bulk read for all sensor data
-                sensor_data = self.bulk_read_sensor_data(i)
-                
-                # Read remaining individual registers (torque and mode)
-                torque = servo.read_word(config.reg_torque_enable)
-                mode = servo.read_word(config.reg_operating_mode)
-                
-                print(f"  Position: {sensor_data['position']:.1f}%")
-                print(f"  Temperature: {sensor_data['temperature']}°C")
-                print(f"  Voltage: {sensor_data['voltage']:.1f}V")
-                print(f"  Current: {sensor_data['current']}mA")
-                print(f"  Hardware Error: {sensor_data['error']}")
-                if sensor_data['error'] != 0:
-                    print(f"    ERROR BITS: {sensor_data['error']:08b}")
-                    for error_desc in sensor_data['error_details']['errors']:
-                        print(f"      - {error_desc}")
-                    
-                    # Clear hardware error by writing 0 to error register
-                    print(f"  Clearing hardware error...")
-                    servo.write_word(config.reg_hardware_error, 0)
-                    time.sleep(0.1)
-                    
-                    # Verify error cleared
-                    new_error = servo.read_word(config.reg_hardware_error)
-                    print(f"  Error after clear: {new_error}")
-                    
-                print(f"  Torque Enable: {torque}")
-                print(f"  Operating Mode: {mode}")
-            except Exception as e:
-                print(f"  ERROR reading servo state: {e}")
+        # Initialize zero positions (software-managed, set during calibration)
+        self.zero_positions = [0] * len(servo_ids)
+        
+        # Validate zero positions start at zero (software-managed)
+        print(f"=== INITIALIZATION FOR {name} ===")
+        print(f"  Zero positions initialized: {self.zero_positions}")
+        print(f"  Servo IDs: {servo_ids}")
+        print(f"  Number of servos: {len(self.servos)}")
+        print("  Zero positions will be set during calibration")
         print("=" * 50)
         
         # Smart EEPROM initialization (read before write to prevent wear)
@@ -123,23 +97,9 @@ class Gripper:
         
         # Protocol 2.0: Set operating mode and current limit (must disable torque first)
         for i, servo in enumerate(self.servos):
-            # Monitor before initialization using BULK READ
-            try:
-                sensor_data = self.bulk_read_sensor_data(i)
-                print(f"  Pre-init status: pos={sensor_data['position']:.1f}%, temp={sensor_data['temperature']}°C, volt={sensor_data['voltage']:.1f}V, current={sensor_data['current']}mA, error={sensor_data['error']}")
-            except Exception as e:
-                print(f"  Warning: Could not read pre-init status: {e}")
-            
             print(f"  Disabling torque for initialization...")
             servo.write_address(config.reg_torque_enable, [0])  # Disable torque
             time.sleep(0.05)
-            
-            # Check status after torque disable using BULK READ
-            try:
-                sensor_data = self.bulk_read_sensor_data(i)
-                print(f"  Status after torque disable: error={sensor_data['error']}")
-            except Exception as e:
-                print(f"  Warning: Could not read status after torque disable: {e}")
             
             # Check operating mode before writing (EEPROM register 11)
             print(f"  Checking operating mode...")
@@ -173,13 +133,7 @@ class Gripper:
             servo.write_address(config.reg_torque_enable, [1])  # Re-enable torque
             time.sleep(0.05)
             
-            # Final status check using BULK READ
-            try:
-                sensor_data = self.bulk_read_sensor_data(i)
-                print(f"  Final init status: error={sensor_data['error']}")
-            except Exception as e:
-                print(f"  Warning: Could not read final status: {e}")
-        self.zero_positions = [0] * len(self.servos)
+            print("  Initialization complete")
 
     def scale(self, n, to_max):
         # Scale from 0..100 to 0..to_max
@@ -205,151 +159,123 @@ class Gripper:
         f.write("\n")
         f.flush()  # Ensure it's written immediately
 
-    def calibrate(self):
-        """Calibration on command - can be called by robot when needed"""
-        print("calibrating: " + self.name)
+    def calibrate_with_collision_detection(self):
+        """
+        Modern calibration using goto_position with collision detection.
         
-        # Create error log file
-        import datetime
-        timestamp = datetime.datetime.now().strftime("%Y%m%d_%H%M%S")
-        error_log = f"/tmp/calibration_error_{self.name}_{timestamp}.log"
+        Strategy:
+        1. Use goto_position(-300, 100) - Move to huge negative destination (close gripper)
+        2. Detect collision using OR of current spike OR position stagnation
+        3. When collision detected - immediately record offset position
+        4. Move to position 50 - take load off gripper
+        """
+        print("\n=== MODERN CALIBRATION WITH COLLISION DETECTION ===")
         
-        with open(error_log, 'w') as f:
-            f.write(f"Calibration Error Log - {self.name}\n")
-            f.write(f"Timestamp: {datetime.datetime.now()}\n")
-            f.write("=" * 50 + "\n\n")
-
-        for i, servo in enumerate(self.servos):
-            # Monitor before calibration using BULK READ
-            try:
-                sensor_data = self.bulk_read_sensor_data(i)
-                print(f"  Pre-calibration status: pos={sensor_data['position']:.1f}%, temp={sensor_data['temperature']}°C, volt={sensor_data['voltage']:.1f}V, current={sensor_data['current']}mA, error={sensor_data['error']}")
-                
-                # Log pre-calibration status
-                with open(error_log, 'a') as f:
-                    self.log_error(f, "PRE-CALIBRATION", {
-                        'position': sensor_data['position'],
-                        'temperature': sensor_data['temperature'],
-                        'voltage': sensor_data['voltage'],
-                        'current': sensor_data['current'],
-                        'hardware_error': sensor_data['error'],
-                        'error_bits': f"{sensor_data['error']:08b}" if sensor_data['error'] else "0"
-                    })
-            except Exception as e:
-                print(f"  Warning: Could not read pre-calibration status: {e}")
-                with open(error_log, 'a') as f:
-                    self.log_error(f, "PRE-CALIBRATION ERROR", {'exception': str(e)})
-            
-            # Protocol 2.0 registers - must disable torque before changing operating mode:
-            print(f"  Disabling torque...")
-            servo.write_address(self.config.reg_torque_enable, [0])
-            time.sleep(0.1)
-            
-            # Check status after torque disable
-            try:
-                error = servo.read_word(self.config.reg_hardware_error)
-                print(f"  Status after torque disable: error={error}")
-            except Exception as e:
-                print(f"  Warning: Could not read status after torque disable: {e}")
-            
-            # Keep current operating mode (should already be set during init)
-            # In PWM mode (16), we use Goal PWM instead of Goal Position
-            
-            # Re-enable torque
-            print(f"  Re-enabling torque...")
-            servo.write_address(self.config.reg_torque_enable, [1])
-            time.sleep(0.05)
-            
-            # Check status before movement
-            try:
-                error = servo.read_word(self.config.reg_hardware_error)
-                print(f"  Status before movement: error={error}")
-            except Exception as e:
-                print(f"  Warning: Could not read status before movement: {e}")
-            
-            # Use PWM mode for gentle calibration
-            if self.config.operating_mode == 16:
-                # PWM mode - use gentle negative PWM to move toward closed position
-                print(f"  Moving with PWM={-self.config.calibration_pwm} (gentle close)...")
-                servo.write_word(self.config.reg_goal_pwm, -self.config.calibration_pwm)
-            else:
-                # Position mode - use goal position
-                print(f"  Moving to calibration position {self.config.calibration_position}...")
-                servo.write_word(self.config.reg_goal_position, self.config.calibration_position)
-            
-        # Monitor position until fingers stop moving for 0.5 seconds
-        print(f"  Monitoring until fingers stop moving for 0.5s...")
-        stopped_time = 0
-        last_position = None
-        check_interval = 0.05  # Check every 50ms
-        movement_threshold = 2  # Consider stopped if moved less than 2 units
-        
+        # Ensure torque is enabled
         for servo in self.servos:
-            while stopped_time < 0.5:
-                time.sleep(check_interval)
-                
-                try:
-                    current_position = servo.read_word_signed(self.config.reg_present_position)
-                    
-                    if last_position is not None:
-                        movement = abs(current_position - last_position)
-                        
-                        if movement < movement_threshold:
-                            stopped_time += check_interval
-                            print(f"    Position stable: {current_position} (stopped for {stopped_time:.2f}s)")
-                        else:
-                            stopped_time = 0
-                            print(f"    Moving: {current_position} (moved {movement} units)")
-                    
-                    last_position = current_position
-                    
-                except Exception as e:
-                    print(f"    Error reading position: {e}")
-                    break
+            servo.write_address(self.config.reg_torque_enable, [1])
         
-        # Stop PWM movement
-        if self.config.operating_mode == 16:
-            for servo in self.servos:
-                print(f"  Stopping PWM movement...")
-                servo.write_word(self.config.reg_goal_pwm, 0)
-
-        for i in range(len(self.servos)):
-            servo = self.servos[i]
-            # Monitor before reading zero position
-            try:
-                error = servo.read_word(self.config.reg_hardware_error)
-                print(f"  Status before reading zero position: error={error}")
-            except Exception as e:
-                print(f"  ERROR: Could not read status before zero position: {e}")
-                continue
+        time.sleep(0.1)
+        
+        # Step 1: Move to negative position to find collision
+        print("  Step 1: Moving to negative position to detect collision...")
+        print("  Command: goto_position(-300, 100)")
+        
+        # Start movement
+        self.goto_position(-300, 100)
+        
+        # Step 2: Monitor for collision using bulk read @ 30Hz
+        print("  Step 2: Monitoring for collision (position stagnation OR current spike)...")
+        
+        collision_detected = False
+        last_position = None
+        position_stagnant_time = 0
+        check_interval = 0.033  # 30Hz = 33ms
+        stagnation_threshold = 2  # Consider stagnant if moved < 2 units
+        stagnation_time_threshold = 0.1  # 100ms of stagnation = collision
+        current_threshold = 800  # Current spike threshold
+        
+        start_time = time.time()
+        
+        while not collision_detected and (time.time() - start_time) < 5.0:  # 5 second timeout
+            time.sleep(check_interval)
             
-            # Read current position as zero point (no homing offset write)
             try:
-                self.zero_positions[i] = servo.read_word_signed(self.config.reg_present_position)
-                print(f"  Servo {i+1}: zero position set to {self.zero_positions[i]}")
+                # Bulk read all sensor data
+                sensor_data = self.bulk_read_sensor_data(0)
+                current_position = sensor_data.get('position_raw', 0)
+                current_current = abs(sensor_data.get('current', 0))
+                
+                # Collision detection logic (OR condition)
+                collision_reason = None
+                
+                # Check 1: Position stagnation
+                if last_position is not None:
+                    movement = abs(current_position - last_position)
+                    if movement < stagnation_threshold:
+                        position_stagnant_time += check_interval
+                        if position_stagnant_time >= stagnation_time_threshold:
+                            collision_reason = f"position stagnation for {position_stagnant_time:.3f}s"
+                            collision_detected = True
+                    else:
+                        position_stagnant_time = 0  # Reset if moving
+                
+                # Check 2: Current spike
+                if current_current > current_threshold:
+                    collision_reason = f"current spike: {current_current}mA > {current_threshold}mA"
+                    collision_detected = True
+                
+                # Debug output
+                if time.time() - start_time < 1.0:  # Only show first second
+                    print(f"    Pos: {current_position}, Current: {current_current}mA, Movement: {movement if last_position else 'N/A'}")
+                
+                last_position = current_position
+                
+                if collision_detected:
+                    print(f"  ✅ COLLISION DETECTED: {collision_reason}")
+                    print(f"     Position at collision: {current_position}")
+                    break
+                    
             except Exception as e:
-                print(f"  ERROR: Could not read zero position: {e}")
-
-        # Check final status after calibration using BULK READ
-        print("\n=== POST-CALIBRATION STATUS CHECK ===")
-        for i, servo in enumerate(self.servos):
-            print(f"Servo {i+1}:")
+                print(f"    Error reading sensor data: {e}")
+                break
+        
+        if not collision_detected:
+            print("  ⚠️  No collision detected within 5 seconds")
+            return False
+        
+        # Step 3: Record zero position from collision point
+        print("  Step 3: Recording zero position from collision...")
+        for i in range(len(self.servos)):
             try:
                 sensor_data = self.bulk_read_sensor_data(i)
-                
-                print(f"  Hardware Error: {sensor_data['error']}")
-                if sensor_data['error'] != 0:
-                    print(f"    ERROR BITS: {sensor_data['error']:08b}")
-                    for error_desc in sensor_data['error_details']['errors']:
-                        print(f"      - {error_desc}")
-                print(f"  Temperature: {sensor_data['temperature']}°C")
-                print(f"  Position: {sensor_data['position']:.1f}%")
-                print(f"  Current: {sensor_data['current']}mA")
+                collision_position = sensor_data.get('position_raw', 0)
+                self.zero_positions[i] = collision_position
+                print(f"  Servo {i+1}: zero position set to {self.zero_positions[i]} (collision point)")
             except Exception as e:
-                print(f"  ERROR reading post-calibration status: {e}")
-        print("=" * 50)
+                print(f"  ERROR: Could not record zero position: {e}")
+                return False
         
-        print("calibration done")
+        # Step 4: Move to position 50 to take load off gripper
+        print("  Step 4: Moving to position 50 to take load off gripper...")
+        self.goto_position(50, 100)
+        
+        # Wait for movement to complete
+        time.sleep(0.5)
+        
+        # Verify final position
+        try:
+            final_data = self.bulk_read_sensor_data(0)
+            final_position = final_data.get('position', 0)
+            print(f"  Final position: {final_position:.1f}%")
+        except Exception as e:
+            print(f"  Warning: Could not verify final position: {e}")
+        
+        print("  ✅ Modern calibration complete!")
+
+def calibrate(self):
+        """Modern calibration using goto_position with collision detection"""
+        return self.calibrate_with_collision_detection()
 
     def goto_position(self, position_pct, effort_pct):
         """
@@ -413,8 +339,8 @@ class Gripper:
                 'error': error_code
             }
         """
-        # TRUE BULK READ: Read all registers in one transaction
-        # Use individual register reads in single transaction
+        # TRUE BULK READ: Read all operational and status data in one transaction
+        # Read all sensor data needed for 30Hz operation
         group_sync_read = GroupSyncRead(
             self.servos[servo_num].dyn.portHandler,
             self.servos[servo_num].dyn.packetHandler,
@@ -435,33 +361,55 @@ class Gripper:
         # Parse all results from single transaction
         sensor_data = {}
         try:
-            # Get position data to test bulk read
+            # Get all operational data in single bulk read transaction
             position_data = group_sync_read.getData(param, self.config.reg_present_position, 2)
-            
-            # Debug: Check what getData actually returns
-            print(f"DEBUG: position_data type: {type(position_data)}, value: {position_data}")
+            current_data = group_sync_read.getData(param, self.config.reg_present_current, 2)
+            temperature_data = group_sync_read.getData(param, self.config.reg_present_temperature, 1)
+            voltage_data = group_sync_read.getData(param, self.config.reg_present_voltage, 2)
+            error_data = group_sync_read.getData(param, self.config.reg_hardware_error, 2)
             
             # Check if we got valid data
-            if position_data is None:
-                raise Exception("No position data returned from bulk read")
+            if None in [position_data, current_data, temperature_data, voltage_data, error_data]:
+                raise Exception("No data returned from bulk read")
             
-            # Handle different return types from getData
+            # Parse position (2 bytes) - servo position is raw, offset managed in software
             if isinstance(position_data, int):
-                # getData returned a single int, not a list
                 position_raw = position_data
             else:
-                # getData returned a list of bytes
                 position_raw = (position_data[1] << 8) | position_data[0]
+            
+            # Store raw position for calibration
+            sensor_data['position_raw'] = position_raw
+            
+            # Apply software offset for normal operation
             servo_position = position_raw - self.zero_positions[servo_num]
             raw_pct = self.down_scale(servo_position, self.config.grip_max)
             sensor_data['position'] = 100 - raw_pct  # Inverted
             
-            # For now, set other values to defaults
-            sensor_data['current'] = 0
-            sensor_data['temperature'] = 0
-            sensor_data['voltage'] = 0
-            sensor_data['error'] = 0
-            sensor_data['error_details'] = self._parse_error_bits(0)
+            # Parse current (2 bytes)
+            if isinstance(current_data, int):
+                current_raw = current_data
+            else:
+                current_raw = (current_data[1] << 8) | current_data[0]
+            sensor_data['current'] = self._sign_extend_16bit(current_raw)
+            
+            # Parse temperature (1 byte)
+            sensor_data['temperature'] = temperature_data[0] if isinstance(temperature_data, list) else temperature_data
+            
+            # Parse voltage (2 bytes)
+            if isinstance(voltage_data, int):
+                voltage_raw = voltage_data
+            else:
+                voltage_raw = (voltage_data[1] << 8) | voltage_data[0]
+            sensor_data['voltage'] = voltage_raw / 10.0  # Convert to volts
+            
+            # Parse error (2 bytes)
+            if isinstance(error_data, int):
+                error_raw = error_data
+            else:
+                error_raw = (error_data[1] << 8) | error_data[0]
+            sensor_data['error'] = error_raw
+            sensor_data['error_details'] = self._parse_error_bits(error_raw)
             
         except Exception as e:
             # No fallback - let the error propagate to identify real issues

@@ -1,5 +1,5 @@
 from .lib_robotis import create_connection, find_servos_on_all_ports
-from .ezgripper_base import Gripper
+from .ezgripper_base_clean import Gripper
 from .config import load_config
 
 # Create EzGripper class for compatibility

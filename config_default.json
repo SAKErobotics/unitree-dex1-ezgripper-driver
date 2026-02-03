@@ -2,8 +2,6 @@
   "$schema": "./config_schema.json",
   "servo": {
     "model": "MX-64",
-    "operating_mode": 4,
-    "pwm_limit": 885,
     "current_limits": {
       "holding": 252,
       "movement": 583,
@@ -17,22 +15,15 @@
       "hardware_max": 80
     },
     "registers": {
-      "operating_mode": 11,
       "torque_enable": 64,
       "current_limit": 38,
       "goal_current": 102,
-      "pwm_limit": 36,
-      "goal_pwm": 100,
-      "present_pwm": 124,
       "goal_position": 116,
       "present_position": 132,
       "present_temperature": 146,
       "present_current": 126,
       "present_voltage": 144,
       "hardware_error": 70,
-      "homing_offset": 20,
-      "velocity_limit": 44,
-      "temperature_limit": 31,
       "return_delay_time": 5,
       "status_return_level": 16
     },
@@ -40,23 +31,12 @@
       "return_delay_time": 0,
       "status_return_level": 1
     },
-    "backpressure_control": {
-      "enabled": true,
-      "fast_current_level": "max",
-      "desired_force_level": "movement", 
-      "holding_current_level": "holding",
-      "detection": {
-        "current_spike_threshold": 1000,
-        "stagnation_distance": 50,
-        "stagnation_movement": 2,
-        "monitor_frequency_hz": 100,
-        "detection_timeout_s": 5.0
-      },
-      "response": {
-        "reduction_delay_ms": 0,
-        "force_adjustment_step": 10,
-        "contact_settle_time_ms": 100
-      }
+    "collision_detection": {
+      "current_spike_threshold": 1000,
+      "stagnation_movement": 2,
+      "detection_samples": 4,
+      "response_immediate": true,
+      "monitor_frequency_hz": 30
     }
   },
   "gripper": {
@@ -70,31 +50,11 @@
       "open_radians": 5.4
     },
     "calibration": {
-      "position": -10000,
-      "pwm": 50,
-      "timeout": 0.1,
+      "goto_position_target": -300,
+      "goto_position_effort": 100,
+      "settle_position": 50,
       "auto_on_init": true
     }
-  },
-  "wave_following": {
-    "enabled": true,
-    "history_window": 10,
-    "variance_threshold": 2.0,
-    "position_tolerance": 5,
-    "mode_switch_delay": 0.5
-  },
-  "health_interface": {
-    "enabled": true,
-    "topic": "rt/gripper/health",
-    "rate_hz": 10,
-    "qos_reliability": "RELIABLE",
-    "qos_durability": "VOLATILE"
-  },
-  "error_management": {
-    "auto_recovery": true,
-    "max_attempts": 3,
-    "use_reboot": true,
-    "retry_delay": 1.0
   },
   "communication": {
     "device": "/dev/ttyUSB0",
