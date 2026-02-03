@@ -63,25 +63,12 @@ class CalibrationReaction(CollisionReaction):
         port_handler = gripper.servos[0].dyn.portHandler
         servo_id = gripper.servos[0].servo_id
         
-        # Step 1: Register write for Goal PWM (register 100, 2 bytes, RAM)
+        # Write Goal PWM (register 100, 2 bytes, RAM)
         # This controls the force/torque during position control
-        packet_handler.regWrite2ByteTxOnly(
-            port_handler,
-            servo_id,
-            100,  # Goal PWM register (RAM)
-            goal_pwm_40pct
-        )
+        packet_handler.write2ByteTxOnly(port_handler, servo_id, 100, goal_pwm_40pct)
         
-        # Step 2: Register write for goal_position (register 116, 4 bytes)
-        packet_handler.regWrite4ByteTxOnly(
-            port_handler,
-            servo_id,
-            116,  # goal_position register
-            open_position
-        )
-        
-        # Step 3: Execute BOTH writes in single transaction
-        packet_handler.action(port_handler, servo_id)
+        # Write goal_position (register 116, 4 bytes)
+        packet_handler.write4ByteTxOnly(port_handler, servo_id, 116, open_position)
         
         t_write_end = time.time()
         

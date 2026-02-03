@@ -398,15 +398,12 @@ class Gripper:
             port_handler = self.servos[i].dyn.portHandler
             servo_id = self.servos[i].servo_id
             
-            # Register write for Goal PWM (register 100, 2 bytes, RAM)
+            # Write Goal PWM (register 100, 2 bytes, RAM)
             # This controls the force/torque during position control
-            packet_handler.regWrite2ByteTxOnly(port_handler, servo_id, 100, goal_pwm)
+            packet_handler.write2ByteTxOnly(port_handler, servo_id, 100, goal_pwm)
             
-            # Register write for goal_position (register 116, 4 bytes)
-            packet_handler.regWrite4ByteTxOnly(port_handler, servo_id, 116, target_raw_pos)
-            
-            # Execute BOTH writes in single transaction
-            packet_handler.action(port_handler, servo_id)
+            # Write goal_position (register 116, 4 bytes)
+            packet_handler.write4ByteTxOnly(port_handler, servo_id, 116, target_raw_pos)
             
             print(f"    ✍️  WRITE servo: pos={self.target_position}%→{target_raw_pos}, pwm={self.target_effort}%→{goal_pwm}")
 
