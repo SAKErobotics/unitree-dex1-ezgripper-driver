@@ -17,6 +17,7 @@
     "registers": {
       "torque_enable": 64,
       "current_limit": 38,
+      "profile_velocity": 112,
       "goal_current": 102,
       "goal_position": 116,
       "present_position": 132,
@@ -27,9 +28,22 @@
       "return_delay_time": 5,
       "status_return_level": 16
     },
+    "performance": {
+      "max_current_limit": 1600,
+      "max_profile_velocity": 1023
+    },
     "eeprom_settings": {
       "return_delay_time": 0,
       "status_return_level": 1
+    },
+    "dynamixel_settings": {
+      "operating_mode": 4,
+      "current_limit": 1600,
+      "velocity_limit": 1023,
+      "profile_velocity": 0,
+      "profile_acceleration": 0,
+      "return_delay_time": 2,
+      "status_return_level": 2
     },
     "collision_detection": {
       "current_spike_threshold": 1000,

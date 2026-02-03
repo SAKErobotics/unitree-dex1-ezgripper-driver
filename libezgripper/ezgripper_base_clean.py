@@ -27,8 +27,10 @@
 # POSSIBILITY OF SUCH DAMAGE.
 ##
 
-from .lib_robotis import create_connection, Robotis_Servo
+from typing import Dict, Any, Optional
+from .lib_robotis import Robotis_Servo
 from .config import Config
+from .collision_reactions import CollisionReaction, CalibrationReaction
 from dynamixel_sdk import GroupSyncRead, COMM_SUCCESS
 import time
 import logging
@@ -42,7 +44,7 @@ def remap(x, in_min, in_max, out_min, out_max):
 class Gripper:
     """Modern EZGripper with position control and bulk operations"""
 
-    def __init__(self, connection, name, servo_ids, config: Config):
+    def __init__(self, connection, name, servo_ids, config: Config, collision_reaction: Optional[CollisionReaction] = None):
         """Initialize gripper with minimal setup"""
         self.name = name
         self.config = config
@@ -50,6 +52,14 @@ class Gripper:
         
         # Initialize zero positions (software-managed, set during calibration)
         self.zero_positions = [0] * len(servo_ids)
+        
+        # Collision detection and reaction system
+        self.collision_reaction = collision_reaction  # Pluggable reaction strategy
+        self.collision_monitoring_enabled = True  # Enable collision detection by default
+        self.collision_detected = False
+        self.calibration_active = False
+        self._last_position = None
+        self.cached_sensor_data = None
         
         print(f"=== INITIALIZATION FOR {name} ===")
         print(f"  Zero positions initialized: {self.zero_positions}")
@@ -62,80 +72,83 @@ class Gripper:
         self._setup_position_control()
 
     def _setup_position_control(self):
-        """Read current state and only write parameters that need updating"""
-        print("  Setup - checking servo configuration...")
+        """Setup servos for position control - apply all settings from config"""
+        print("  Setup - applying Dynamixel settings from config...")
         
-        # Small delay after connection before first operation
-        time.sleep(0.5)
+        # Register addresses for Dynamixel settings
+        REGISTER_MAP = {
+            'operating_mode': 11,        # EEPROM
+            'current_limit': 38,          # RAM
+            'velocity_limit': 44,         # EEPROM
+            'profile_acceleration': 108,  # RAM
+            'profile_velocity': 112,      # RAM
+            'return_delay_time': 5,       # EEPROM
+            'status_return_level': 16     # EEPROM
+        }
+        
+        # EEPROM registers require torque disabled
+        EEPROM_REGISTERS = {11, 44, 5, 16}
+        
+        # Get settings from config
+        config_settings = self.config._config.get('servo', {}).get('dynamixel_settings', {})
+        if not config_settings:
+            print("    ⚠️  No dynamixel_settings in config - using defaults")
+            return
         
         for i, servo in enumerate(self.servos):
-            # Read current torque enable status
+            # Read current torque status
             torque_status = servo.read_word(64)
-            print(f"    Torque enable: {torque_status}")
+            print(f"    Initial torque enable: {torque_status}")
             
-            # Read current multi-turn mode (REQUIRED for EZGripper)
+            # First, ensure multi-turn mode is enabled (required for EZGripper)
             multi_turn_mode = servo.read_word(10)
-            print(f"    Multi-turn mode: {multi_turn_mode}")
-            
-            # Only update multi-turn if needed
             if multi_turn_mode != 1:
-                print(f"    Updating multi-turn mode: {multi_turn_mode} -> 1")
-                
-                # Disable torque if needed for EEPROM write
+                print(f"    Setting multi-turn mode: {multi_turn_mode} -> 1")
                 if torque_status != 0:
-                    print(f"    Disabling torque for EEPROM write...")
                     servo.write_address(64, [0])
-                    torque_status = 0  # Update our cached status
+                    torque_status = 0
                     time.sleep(0.05)
-                
-                # Write multi-turn mode
                 servo.write_word(10, 1)
-                time.sleep(0.1)
+                time.sleep(0.05)
+                print(f"    ✅ Multi-turn mode enabled")
+            
+            # Apply each setting from config
+            for setting_name, target_value in config_settings.items():
+                if setting_name not in REGISTER_MAP:
+                    continue
                 
-                # Verify
-                new_mode = servo.read_word(10)
-                if new_mode != 1:
-                    print(f"    ❌ FAILED to enable multi-turn mode!")
-                else:
-                    print(f"    ✅ Multi-turn mode updated successfully")
-            else:
-                print(f"    ✅ Multi-turn mode already correct")
-            
-            # Check operating mode (should be 4 for extended position control)
-            operating_mode = servo.read_word(11)
-            print(f"    Operating mode: {operating_mode}")
-            if operating_mode != 4:
-                print(f"    Updating operating mode: {operating_mode} -> 4")
-                # Disable torque if needed for EEPROM write
-                if torque_status != 0:
-                    print(f"    Disabling torque for EEPROM write...")
+                register_addr = REGISTER_MAP[setting_name]
+                is_eeprom = register_addr in EEPROM_REGISTERS
+                
+                # Read current value
+                current_value = servo.read_word(register_addr)
+                
+                # Check if update needed
+                if current_value == target_value:
+                    print(f"    ✅ {setting_name}: {current_value} (already correct)")
+                    continue
+                
+                print(f"    Updating {setting_name}: {current_value} -> {target_value}")
+                
+                # Disable torque if writing to EEPROM
+                if is_eeprom and torque_status != 0:
                     servo.write_address(64, [0])
                     torque_status = 0
                     time.sleep(0.05)
-                servo.write_word(11, 4)
-                time.sleep(0.05)
-                print(f"    ✅ Operating mode updated")
-            else:
-                print(f"    ✅ Operating mode already correct")
-            
-            # Set current limit to safe value (register 38)
-            # 70% of hardware_max (1359) = 951 for fast movement and collision detection
-            safe_current_limit = 951  # 70% of max, enables fast movement
-            current_limit = servo.read_word(38)
-            print(f"    Current limit: {current_limit}")
-            
-            if current_limit != safe_current_limit:
-                print(f"    Updating current limit: {current_limit} -> {safe_current_limit}")
-                # Disable torque if needed for write
-                if torque_status != 0:
-                    servo.write_address(64, [0])
-                    torque_status = 0
+                
+                # Write new value
+                try:
+                    servo.write_word(register_addr, target_value)
                     time.sleep(0.05)
-                servo.write_word(38, safe_current_limit)
-                time.sleep(0.05)
-                print(f"    ✅ Current limit updated")
-            else:
-                print(f"    ✅ Current limit already correct")
+                    
+                    # Verify write
+                    verify_value = servo.read_word(register_addr)
+                    if verify_value == target_value:
+                        print(f"    ✅ {setting_name} updated (verified: {verify_value})")
+                    else:
+                        print(f"    ❌ {setting_name} write failed (read back: {verify_value})")
+                except Exception as e:
+                    print(f"    ❌ {setting_name} write error: {e}")
             
             # Ensure torque is enabled for operation
             if torque_status != 1:
@@ -143,10 +156,8 @@ class Gripper:
                 servo.write_address(64, [1])
                 time.sleep(0.05)
                 print(f"    ✅ Torque enabled")
-            else:
-                print(f"    ✅ Torque already enabled")
         
-        print("  Setup complete - all parameters verified")
+        print("  Setup complete - all settings applied")
 
     def scale(self, n, to_max):
         """Scale from 0..100 to 0..to_max"""
@@ -164,11 +175,11 @@ class Gripper:
 
     def update_main_loop(self):
         """
-        Main 30Hz loop - bulk read and collision detection only
+        Main 30Hz loop - bulk read and collision detection
         Writes are done by goto_position() only
         
         Returns:
-            dict: Current sensor data and collision status with timing
+            dict: Current sensor data, collision status, and reaction result
         """
         try:
             loop_start = time.time()
@@ -179,18 +190,25 @@ class Gripper:
             read_time = (time.time() - read_start) * 1000  # ms
             self.cached_sensor_data = sensor_data
             
-            # Step 2: Collision detection (if calibration active)
+            # Step 2: Collision detection (if monitoring enabled)
             detect_time = 0
             handle_time = 0
-            if self.calibration_active:
+            reaction_result = None
+            
+            if self.collision_monitoring_enabled and self.collision_reaction:
                 detect_start = time.time()
                 collision = self._detect_collision(sensor_data)
                 detect_time = (time.time() - detect_start) * 1000  # ms
                 
                 if collision:
                     handle_start = time.time()
-                    self._handle_collision_collision(sensor_data)
+                    # Call pluggable reaction strategy
+                    reaction_result = self.collision_reaction.on_collision(self, sensor_data)
                     handle_time = (time.time() - handle_start) * 1000  # ms
+                    
+                    # Check if reaction wants to stop monitoring
+                    if reaction_result and reaction_result.get('stop_monitoring', False):
+                        self.collision_monitoring_enabled = False
             
             loop_time = (time.time() - loop_start) * 1000  # ms
             
@@ -199,7 +217,9 @@ class Gripper:
             return {
                 'sensor_data': sensor_data,
                 'collision_detected': self.collision_detected,
+                'collision_monitoring_enabled': self.collision_monitoring_enabled,
                 'calibration_active': self.calibration_active,
+                'reaction_result': reaction_result,
                 'timing': {
                     'read_ms': read_time,
                     'detect_ms': detect_time,
@@ -244,21 +264,24 @@ class Gripper:
         self._last_position = current_position
         return False
 
-    def _handle_collision_collision(self, sensor_data):
-        """IMMEDIATE collision handling - record zero position and goto 50"""
-        if not self.collision_detected:
-            self.collision_detected = True
-            self.calibration_active = False
-            
-            # Record zero position from collision
-            collision_position = sensor_data.get('position_raw', 0)
-            self.zero_positions[0] = collision_position
-            print(f"  Zero position set to: {collision_position}")
-            
-            # IMMEDIATELY move to position 50 to reduce load
-            print("  IMMEDIATE RELAX: Moving to position 50...")
-            self.goto_position(50, 30)
-            print("  ✅ Gripper relaxed to position 50")
+    def enable_collision_monitoring(self, reaction: Optional[CollisionReaction] = None):
+        """Enable collision detection with optional reaction strategy"""
+        if reaction:
+            self.collision_reaction = reaction
+        self.collision_monitoring_enabled = True
+        self.collision_detected = False
+        self._last_position = None
+        print(f"  ✅ Collision monitoring enabled with {self.collision_reaction.__class__.__name__}")
+    
+    def disable_collision_monitoring(self):
+        """Disable collision detection"""
+        self.collision_monitoring_enabled = False
+        print(f"  ⏸️  Collision monitoring disabled")
+    
+    def set_collision_reaction(self, reaction: CollisionReaction):
+        """Change the collision reaction strategy"""
+        self.collision_reaction = reaction
+        print(f"  🔄 Collision reaction changed to {reaction.__class__.__name__}")
 
     def bulk_read_sensor_data(self, servo_num=0):
         """
@@ -392,10 +415,17 @@ class Gripper:
         start_close_time = time.time()
         self.goto_position(-300, 100)
         
+        # Enable collision monitoring with calibration reaction
+        self.enable_collision_monitoring(CalibrationReaction())
+        self.calibration_active = True
+        
         # Step 3: Run main loop until collision detected
         print("  Step 3: Monitoring for collision...")
         monitoring_start = time.time()
         cycle_times = []
+        position_history = []  # Track position over time
+        start_position = None
+        
         for sample in range(50):  # Extended time
             cycle_start = time.time()
             result = self.update_main_loop()
@@ -403,22 +433,37 @@ class Gripper:
             total_cycle_time = (cycle_end - cycle_start) * 1000  # ms
             cycle_times.append(total_cycle_time)
             
+            # Track position over time
+            if result:
+                data = result['sensor_data']
+                pos = data.get('position_raw', 0)
+                elapsed = time.time() - monitoring_start
+                position_history.append((elapsed, pos))
+                
+                if start_position is None:
+                    start_position = pos
+            
             # Check if collision was detected in this cycle
             if result and result.get('collision_detected'):
                 print("  ✅ Collision detected - calibration complete!")
                 return True
             
-            # Show progress with timing
+            # Show progress with timing and movement speed
             if result and sample % 5 == 0:
                 data = result['sensor_data']
                 timing = result.get('timing', {})
                 pos = data.get('position_raw', 0)
                 current = data.get('current', 0)
-                print(f"    Sample {sample+1}: pos={pos}, cur={current}mA, "
-                      f"read={timing.get('read_ms', 0):.1f}ms, "
-                      f"detect={timing.get('detect_ms', 0):.1f}ms, "
-                      f"total={timing.get('total_ms', 0):.1f}ms, "
-                      f"cycle={total_cycle_time:.1f}ms")
+                elapsed = time.time() - monitoring_start
+                
+                # Calculate movement speed
+                if start_position is not None:
+                    pos_change = abs(pos - start_position)
+                    speed = pos_change / elapsed if elapsed > 0 else 0
+                    print(f"    Sample {sample+1}: pos={pos}, cur={current}mA, "
+                          f"Δpos={pos_change}, speed={speed:.0f}units/s, "
+                          f"read={timing.get('read_ms', 0):.1f}ms, "
+                          f"cycle={total_cycle_time:.1f}ms")
             
             # CRITICAL: Check again after update_main_loop in case collision was just detected
             if self.collision_detected:
@@ -438,6 +483,8 @@ class Gripper:
 
     def calibrate(self):
         """Modern calibration using goto_position with collision detection"""
+        # Set calibration reaction
+        self.collision_reaction = CalibrationReaction()
         return self.calibrate_with_collision_detection()
 
     def get_position(self):

@@ -152,13 +152,22 @@ class Robotis_Servo:
         return data[0] + (data[1] << 8)
     
     def write_word(self, addr, word):
-        """Write word to address (handles both 2-byte and 4-byte registers)"""
-        # Goal Position (116) and similar registers are 4 bytes in Protocol 2.0
-        # For compatibility, write as 4 bytes for addresses >= 100
-        if addr >= 100:
+        """Write word to address with correct byte size for MX-64 Protocol 2.0"""
+        # MX-64 register sizes (from control table)
+        # 1-byte registers
+        ONE_BYTE_REGS = {5, 7, 8, 9, 10, 11, 13, 16, 17, 18, 19, 20}
+        # 4-byte registers
+        FOUR_BYTE_REGS = {44, 48, 52, 100, 102, 104, 108, 112, 116, 120, 124, 126, 128, 132, 136, 140, 144, 146, 148, 152, 156, 160, 168, 172, 176, 180, 578, 580, 582, 584, 586, 588, 590, 592, 594, 596, 600, 604, 606, 610, 612, 614, 616}
+        # Everything else is 2-byte
+        
+        if addr in ONE_BYTE_REGS:
+            data = [word & 0xFF]
+        elif addr in FOUR_BYTE_REGS:
             data = [word & 0xFF, (word >> 8) & 0xFF, (word >> 16) & 0xFF, (word >> 24) & 0xFF]
         else:
+            # Default 2-byte
             data = [word & 0xFF, (word >> 8) & 0xFF]
+        
         self.write_address(addr, data)
     
     def read_wordX(self, addr):
