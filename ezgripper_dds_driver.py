@@ -289,7 +289,17 @@ class CorrectedEZGripperDriver:
     
     def get_error_details(self):
         """Get current error details from cached sensor data"""
-        return self.current_sensor_data.get('error_details', {'errors': []})
+        if not self.current_sensor_data:
+            return {'has_error': False, 'errors': []}
+        
+        # Get error code from sensor data (not error_details)
+        error_code = self.current_sensor_data.get('error', 0)
+        has_error = error_code != 0
+        errors = []
+        if has_error:
+            errors.append(f"Hardware error code: {error_code}")
+        
+        return {'has_error': has_error, 'errors': errors}
     
     def _update_device_config(self):
         """Update device config with current device and serial number mapping"""
@@ -513,9 +523,9 @@ class CorrectedEZGripperDriver:
             cmd = self.latest_command
             
             # Position mode - use goto_position which sets target variables
-            self.logger.debug(f"🎯 EXEC: Setting target to {cmd.position_pct:.1f}%")
+            self.logger.info(f"🎯 EXEC: target={cmd.position_pct:.1f}%, effort={cmd.effort_pct:.1f}%")
             self.gripper.goto_position(cmd.position_pct, cmd.effort_pct)
-            self.logger.debug(f"   gripper.target_position = {self.gripper.target_position}%")
+            self.logger.info(f"   → gripper.target_position={self.gripper.target_position}%")
             
             if self.command_count % 30 == 0:  # Log every second at 30Hz
                 self.logger.info(f"Command received: q={cmd.position_pct:.1f}%")
@@ -609,6 +619,7 @@ class CorrectedEZGripperDriver:
             
             # Convert actual position to Dex1 units for publishing
             current_q = self.ezgripper_to_dex1(actual_pos)
+            self.logger.info(f"📤 PUBLISH: actual_pos={actual_pos:.1f}% → DDS_q={current_q:.3f}rad")
             current_tau = current_effort / 10.0
             
             # Create motor state with official SDK2 structure
@@ -696,9 +707,8 @@ class CorrectedEZGripperDriver:
                     sensor_data = self.gripper.bulk_read_sensor_data()
                     self.current_sensor_data = sensor_data  # Update cache
                     
-                    # DEBUG: Log position reads every 30 cycles (once per second)
-                    if self.command_count % 30 == 0:
-                        self.logger.info(f"📊 SENSOR: raw={sensor_data.get('position_raw', 'N/A')}, pct={sensor_data.get('position', 'N/A'):.1f}%, zero={self.gripper.zero_positions[0]}")
+                    # DEBUG: Stream sensor reads
+                    self.logger.info(f"📊 SENSOR: raw={sensor_data.get('position_raw', 'N/A')}, pct={sensor_data.get('position', 'N/A'):.1f}%")
                     
                     # Check for servo hardware errors using cache
                     self._handle_servo_errors(self.get_error_details())
@@ -707,8 +717,8 @@ class CorrectedEZGripperDriver:
                         self.actual_position_pct = self.get_position()
                         # Sync predicted position with actual (minimal prediction needed now)
                         self.predicted_position_pct = self.actual_position_pct
-                        # DEBUG
-                        self.logger.info(f"🔄 UPDATED actual_position_pct = {self.actual_position_pct:.1f}%")
+                    # DEBUG: Log every update
+                    self.logger.info(f"🔄 READ: actual_position_pct={self.actual_position_pct:.1f}%")
                     
                     # Reset communication error counters on success
                     self.comm_error_count = 0
