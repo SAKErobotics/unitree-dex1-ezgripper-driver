@@ -65,6 +65,9 @@ class Gripper:
         """Read current state and only write parameters that need updating"""
         print("  Setup - checking servo configuration...")
         
+        # Small delay after connection before first operation
+        time.sleep(0.5)
+        
         for i, servo in enumerate(self.servos):
             # Read current torque enable status
             torque_status = servo.read_word(64)
@@ -114,6 +117,25 @@ class Gripper:
                 print(f"    ✅ Operating mode updated")
             else:
                 print(f"    ✅ Operating mode already correct")
+            
+            # Set current limit to safe value (register 38)
+            # Read current limit from config (max = 200 in config_default.json)
+            safe_current_limit = 200  # ~680mA, prevents overload
+            current_limit = servo.read_word(38)
+            print(f"    Current limit: {current_limit}")
+            
+            if current_limit != safe_current_limit:
+                print(f"    Updating current limit: {current_limit} -> {safe_current_limit}")
+                # Disable torque if needed for write
+                if torque_status != 0:
+                    servo.write_address(64, [0])
+                    torque_status = 0
+                    time.sleep(0.05)
+                servo.write_word(38, safe_current_limit)
+                time.sleep(0.05)
+                print(f"    ✅ Current limit updated")
+            else:
+                print(f"    ✅ Current limit already correct")
             
             # Ensure torque is enabled for operation
             if torque_status != 1:

@@ -3,10 +3,10 @@
   "servo": {
     "model": "MX-64",
     "current_limits": {
-      "holding": 252,
-      "movement": 583,
-      "max": 1359,
-      "hardware_max": 1941
+      "holding": 50,
+      "movement": 100,
+      "max": 200,
+      "hardware_max": 300
     },
     "temperature": {
       "warning": 60,
@@ -51,7 +51,7 @@
     },
     "calibration": {
       "goto_position_target": -300,
-      "goto_position_effort": 100,
+      "goto_position_effort": 30,
       "settle_position": 50,
       "auto_on_init": true
     }
