@@ -53,45 +53,31 @@ class CalibrationReaction(CollisionReaction):
         import time
         t_write_start = time.time()
         
-        goal_pwm_40pct = int(885 * 0.4)  # 40% of max PWM (885 for MX-64) = 354
-        open_position = collision_position + 1250  # 50% open from collision point
+        # Command servo to hold at collision position (0%)
+        print(f"  🔒 Holding at 0% (position {collision_position})...")
         
-        print(f"  🔄 [{t_write_start:.6f}] Writing Goal PWM={goal_pwm_40pct} AND goal_position={open_position}...")
-        
-        # Clear and prepare bulk writes
         gripper.bulk_write_pwm.clearParam()
         gripper.bulk_write_position.clearParam()
         
-        # Add Goal PWM (2 bytes)
-        pwm_param = [
-            goal_pwm_40pct & 0xFF,
-            (goal_pwm_40pct >> 8) & 0xFF
-        ]
+        # Use 10% PWM for very gentle hold to prevent overload
+        goal_pwm = int(885 * 0.1)  # 10% PWM = 88
+        pwm_param = [goal_pwm & 0xFF, (goal_pwm >> 8) & 0xFF]
         gripper.bulk_write_pwm.addParam(gripper.servo_ids[0], pwm_param)
         
-        # Add goal_position (4 bytes)
+        # Hold at collision position
         pos_param = [
-            open_position & 0xFF,
-            (open_position >> 8) & 0xFF,
-            (open_position >> 16) & 0xFF,
-            (open_position >> 24) & 0xFF
+            collision_position & 0xFF,
+            (collision_position >> 8) & 0xFF,
+            (collision_position >> 16) & 0xFF,
+            (collision_position >> 24) & 0xFF
         ]
         gripper.bulk_write_position.addParam(gripper.servo_ids[0], pos_param)
         
-        # Execute bulk writes
         from dynamixel_sdk import COMM_SUCCESS
         gripper.bulk_write_pwm.txPacket()
         gripper.bulk_write_position.txPacket()
         
-        t_write_end = time.time()
-        
-        # Calculate total reaction time from close command to open command
-        if hasattr(gripper, 'calibration_start_time'):
-            total_time = (t_write_end - gripper.calibration_start_time) * 1000
-            write_time = (t_write_end - t_write_start) * 1000
-            print(f"  ✅ [{t_write_end:.6f}] DIRECT: Open command sent (+{write_time:.1f}ms write, {total_time:.1f}ms total from close)")
-        else:
-            print(f"  ✅ [{t_write_end:.6f}] DIRECT: Open command sent (collision={collision_position} → target={open_position})")
+        print(f"  ✅ Calibration complete - gripper at 0% (closed position)")
         
         # Stop calibration
         gripper.calibration_active = False

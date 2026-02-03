@@ -270,6 +270,14 @@ class Gripper:
         # Check 1: Current spike (IMMEDIATE collision detection)
         if current_current > current_threshold:
             print(f"\n    ✅ COLLISION DETECTED: Current spike {current_current}mA > {current_threshold}mA!")
+            
+            # IMMEDIATE STOP: Set PWM to 0 to stop servo instantly
+            self.bulk_write_pwm.clearParam()
+            pwm_param = [0, 0]  # PWM = 0
+            self.bulk_write_pwm.addParam(self.servo_ids[0], pwm_param)
+            self.bulk_write_pwm.txPacket()
+            print(f"    ⚡ IMMEDIATE STOP: PWM=0 sent")
+            
             return True
         
         # Check 2: Position stagnation (IMMEDIATE collision detection)
@@ -485,7 +493,8 @@ class Gripper:
         self.calibration_active = True
         self.zero_positions[0] = 0  # Reset to ensure proper wrap-around
         
-        # Close (will wrap around - this is required for winch/tendon)
+        # Close with 100% PWM for fast movement
+        # Immediate PWM=0 stop on collision prevents overload
         self.goto_position(-300, 100)
         self.enable_collision_monitoring(CalibrationReaction())
         
