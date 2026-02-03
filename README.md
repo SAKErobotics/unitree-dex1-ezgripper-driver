@@ -187,16 +187,23 @@ Is this mapping correct? [Y/n]
 
 ### Calibration
 
-Calibration is now tied to gripper serial numbers and stored in the device config file. Each gripper must be calibrated separately:
+Calibration is now tied to gripper serial numbers and stored in the device config file. **The driver auto-calibrates at startup by default.**
 
 **Calibrate Left Gripper:**
 ```bash
-python3 ezgripper_dds_driver.py --side left --calibrate
+python3 ezgripper_dds_driver.py --side left
+# Calibrates automatically at startup
 ```
 
 **Calibrate Right Gripper:**
 ```bash
-python3 ezgripper_dds_driver.py --side right --calibrate
+python3 ezgripper_dds_driver.py --side right
+# Calibrates automatically at startup
+```
+
+**Skip Calibration (use saved calibration):**
+```bash
+python3 ezgripper_dds_driver.py --side left --no-calibrate
 ```
 
 **Calibration Process:**
