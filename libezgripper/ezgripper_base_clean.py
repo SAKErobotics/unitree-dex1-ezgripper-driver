@@ -417,7 +417,31 @@ class Gripper:
         # Execute bulk write - SINGLE USB transaction
         result = self.bulk_write.txPacket()
         if result != COMM_SUCCESS:
+            print(f"    ❌ Bulk write FAILED: result={result}")
             raise Exception(f"Bulk write failed: {result}")
+        else:
+            print(f"    ✅ Bulk write SUCCESS: command sent to servo")
+            
+            # Verify write by reading back goal_position register (116)
+            time.sleep(0.001)  # Small delay for servo to process
+            for i in range(len(self.servos)):
+                try:
+                    # Read back goal_position (4 bytes at register 116)
+                    readback = self.servos[i].read_address(116, 4)
+                    readback_pos = readback[0] + (readback[1] << 8) + (readback[2] << 16) + (readback[3] << 24)
+                    
+                    # Handle signed 32-bit
+                    if readback_pos & 0x80000000:
+                        readback_pos = readback_pos - 0x100000000
+                    
+                    # Compare with what we wrote
+                    target_raw_pos = scaled_position - self.zero_positions[i]
+                    if readback_pos == target_raw_pos:
+                        print(f"    ✅ VERIFIED: goal_position readback={readback_pos} (matches written value)")
+                    else:
+                        print(f"    ❌ MISMATCH: wrote={target_raw_pos}, readback={readback_pos}")
+                except Exception as e:
+                    print(f"    ⚠️  Could not verify write: {e}")
 
     def _goto_position_unclamped(self, position_pct, effort_pct):
         """
