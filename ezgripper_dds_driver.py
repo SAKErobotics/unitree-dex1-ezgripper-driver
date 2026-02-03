@@ -686,6 +686,9 @@ class CorrectedEZGripperDriver:
                 self.receive_commands()
                 self.execute_command()
                 
+                # Write control data to servo (CRITICAL - actually moves the gripper)
+                self.gripper.bulk_write_control_data()
+                
                 # Read sensor data using bulk operations (every cycle = 30 Hz for accurate control)
                 # Changed from every 10 cycles (3 Hz) to every cycle (30 Hz)
                 try:
@@ -872,7 +875,7 @@ def main():
                        help="EZGripper device path (auto-discover if not specified)")
     parser.add_argument("--domain", type=int, default=0,
                        help="DDS domain")
-    parser.add_argument("--calibrate", action="store_true",
+    parser.add_argument("--no-calibrate", action="store_true",
                        help="Calibrate on startup")
     parser.add_argument("--log-level", default="INFO",
                        choices=["DEBUG", "INFO", "WARNING", "ERROR"])
@@ -909,11 +912,10 @@ def main():
         domain=args.domain
     )
     
-    # Calibrate if requested
-    if args.calibrate:
+    # Calibrate by default unless --no-calibrate is specified
+    if not args.no_calibrate:
         driver.calibrate()
-        print("Calibration completed. Exiting.")
-        return
+        print("Calibration completed. Starting DDS driver...")
     
     # Normal DDS operation mode
     try:
