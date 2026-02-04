@@ -41,7 +41,7 @@ class GraspManager:
         # Load config
         force_mgmt = config._config.get('servo', {}).get('force_management', {})
         self.MOVING_FORCE = force_mgmt.get('moving_force_pct', 80)
-        self.HOLDING_FORCE = force_mgmt.get('holding_force_pct', 30)
+        self.HOLDING_FORCE = force_mgmt.get('holding_force_pct', 20)
         
         collision = config._config.get('servo', {}).get('collision_detection', {})
         self.CURRENT_THRESHOLD_PCT = collision.get('current_spike_threshold_pct', 40)
@@ -188,14 +188,18 @@ class GraspManager:
         
         elif self.state == GraspState.GRASPING:
             # Position command (release) drives transition back to MOVING
-            # Release on ANY significant position change (open OR close)
-            if abs(dds_position - self.contact_position) > 10:
-                self.state = GraspState.MOVING
-                self.contact_position = None
+            # Release when commanded position increases (opens) relative to last command
+            if self.last_dds_position is not None:
+                position_change = dds_position - self.last_dds_position
+                # If commanded position increases (opens), transition to MOVING
+                if position_change > self.POSITION_CHANGE_THRESHOLD:
+                    self.state = GraspState.MOVING
+                    self.contact_position = None
         
         # Log state transitions
         if old_state != self.state:
-            print(f"  GM: {old_state.value} → {self.state.value} (dds={dds_position:.1f}%, pos={current_position:.1f}%)")
+            logger = logging.getLogger(__name__)
+            logger.info(f"🔄 GM STATE: {old_state.value} → {self.state.value} (dds={dds_position:.1f}%, pos={current_position:.1f}%)")
     
     def _compute_goal(self, dds_position: float, current_position: float) -> Tuple[float, float]:
         """
@@ -217,7 +221,9 @@ class GraspManager:
             return self.contact_position, self.HOLDING_FORCE
         
         elif self.state == GraspState.GRASPING:
-            # Hold at contact position, ignore DDS position
+            # Hold at contact position with reduced force
+            # Commanding the actual contact position (reachable) prevents continuous
+            # force application that causes overload
             return self.contact_position, self.HOLDING_FORCE
         
         # Fallback

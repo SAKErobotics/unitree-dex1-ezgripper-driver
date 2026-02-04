@@ -389,9 +389,10 @@ class Gripper:
             elif diff < -2147483648:
                 diff = diff + 4294967296
             
-            # Map distance to 0-100% (2500 units = 100%)
-            # Gripper range is ~2500 encoder units from closed to open
-            position_pct = (diff / 2500.0) * 100.0
+            # Map distance to 0-100% (grip_max units = 100%)
+            # Gripper range from config
+            grip_max = self.config._config.get('gripper', {}).get('grip_max', 2500)
+            position_pct = (diff / float(grip_max)) * 100.0
             
             # Clamp to 0-100%
             sensor_data['position'] = max(0.0, min(100.0, position_pct))
@@ -439,10 +440,12 @@ class Gripper:
             internal_position = -50
         
         # Calculate goal values - UNCLAMPED
-        scaled_position = int(int(internal_position) * 2500 / 100)
+        grip_max = self.config._config.get('gripper', {}).get('grip_max', 2500)
+        scaled_position = int(int(internal_position) * grip_max / 100)
         # Scale effort to current (mA) for Extended Position Control Mode
-        # Max current is 1600mA from config
-        goal_current = int(int(self.target_effort) * 1600 / 100)
+        # Get max current from config
+        max_current = self.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
+        goal_current = int(int(self.target_effort) * max_current / 100)
         
         # Clear previous bulk write params
         self.bulk_write_current.clearParam()
@@ -528,8 +531,9 @@ class Gripper:
         
         servo_id = self.servo_ids[0]
         
-        # Safe closing force (30% current = 480mA)
-        closing_current = int(1600 * 0.3)  # 30% of max current
+        # Safe closing force (30% current)
+        max_current = self.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
+        closing_current = int(max_current * 0.3)  # 30% of max current
         current_threshold_ma = 400
         
         # Read current position
@@ -602,10 +606,12 @@ class Gripper:
                                 # Move to stable 50% position with torque enabled
                                 # This prevents spring force from opening gripper uncontrollably
                                 print(f"  🎯 Moving to 50% position...")
-                                target_50pct = self.zero_positions[0] + int(2500 * 0.5)  # 50% of range
+                                grip_max = self.config._config.get('gripper', {}).get('grip_max', 2500)
+                                target_50pct = self.zero_positions[0] + int(grip_max * 0.5)  # 50% of range
                                 
                                 # Write position with moderate current
-                                moderate_current = int(1600 * 0.4)  # 40% current for stable hold
+                                max_current = self.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
+                                moderate_current = int(max_current * 0.4)  # 40% current for stable hold
                                 self.bulk_write_current.clearParam()
                                 current_param = [moderate_current & 0xFF, (moderate_current >> 8) & 0xFF]
                                 self.bulk_write_current.addParam(servo_id, current_param)

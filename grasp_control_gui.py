@@ -299,8 +299,8 @@ class GripperControlGUI:
                         # Find last telemetry line
                         for line in reversed(lines):
                             if "📡 TELEMETRY:" in line:
-                                # Parse: state=moving, pos=6.0% (cmd=5.0%), effort=80%, contact=False, temp=39.0°C
-                                match = re.search(r'state=(\w+), pos=([\d.]+)% \(cmd=([\d.]+)%\), effort=([\d.]+)%, contact=(\w+), temp=([\d.]+)°C', line)
+                                # Parse: state=moving, pos=6.0% (cmd=5.0%), effort=80%, contact=False, temp=39.0°C, error=0
+                                match = re.search(r'state=(\w+), pos=([\d.]+)% \(cmd=([\d.]+)%\), effort=([\d.]+)%, contact=(\w+), temp=([\d.]+)°C(?:, error=(\d+))?', line)
                                 if match:
                                     state = match.group(1)
                                     actual_pos = match.group(2)
@@ -308,12 +308,25 @@ class GripperControlGUI:
                                     effort = match.group(4)
                                     contact = match.group(5)
                                     temp = match.group(6)
+                                    hw_error = match.group(7) if match.group(7) else "0"
                                     
                                     error = float(cmd_pos) - float(actual_pos)
                                     
+                                    # Decode hardware error
+                                    hw_error_int = int(hw_error)
+                                    hw_error_text = ""
+                                    if hw_error_int != 0:
+                                        errors = []
+                                        if hw_error_int & 0x01: errors.append("Voltage")
+                                        if hw_error_int & 0x04: errors.append("Overheat")
+                                        if hw_error_int & 0x08: errors.append("Encoder")
+                                        if hw_error_int & 0x10: errors.append("Shock")
+                                        if hw_error_int & 0x20: errors.append("OVERLOAD")
+                                        hw_error_text = f" ⚠️ {','.join(errors)}"
+                                    
                                     # Update telemetry displays
                                     self.telemetry_position.config(
-                                        text=f"Pos: {actual_pos}% (err: {error:+.1f}%)  State: {state}  Effort: {effort}%"
+                                        text=f"Pos: {actual_pos}% (err: {error:+.1f}%)  State: {state}  Effort: {effort}%{hw_error_text}"
                                     )
                                     self.telemetry_contact.config(
                                         text=f"Contact: {contact}  Temp: {temp}°C"

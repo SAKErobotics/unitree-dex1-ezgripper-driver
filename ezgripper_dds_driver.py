@@ -498,35 +498,34 @@ class CorrectedEZGripperDriver:
     
     def dex1_to_ezgripper(self, q_radians: float) -> float:
         """
-        Convert Dex1 position to EZGripper position with safety margins.
-        Maps 0.0-5.4 rad to 5%-95% to prevent stall-induced Error 128.
+        Convert Dex1 position to EZGripper position.
+        Maps 0.0-5.4 rad to 0%-100% for full range of motion.
         
         Dex1: 0.0 rad = closed, 5.4 rad = open
-        EZGripper: 5% = closed (safe margin), 95% = open (safe margin)
+        EZGripper: 0% = closed, 100% = open
+        
+        Contact detection in GraspManager prevents stalling at limits.
         """
-        # 1. Clamp input to the known G1 range
+        # Clamp input to the known G1 range
         q_clamped = max(0.0, min(5.4, q_radians))
         
-        # 2. Map 0.0 -> 5.4 rad to 5.0% -> 95.0% 
-        # This keeps the motor away from mechanical hard-limits at both ends.
-        return 5.0 + (q_clamped / 5.4) * 90.0
+        # Map 0.0 -> 5.4 rad to 0.0% -> 100.0%
+        return (q_clamped / 5.4) * 100.0
     
     def ezgripper_to_dex1(self, position_pct: float) -> float:
         """
         Convert EZGripper position to Dex1 position (Inverse mapping).
         
-        EZGripper: 5% = closed (safe margin), 95% = open (safe margin)
+        EZGripper: 0% = closed, 100% = open
         Dex1: 0.0 rad = closed, 5.4 rad = open
         """
-        # 1. Clamp hardware percentage to our safe operational range
-        pct_clamped = max(5.0, min(95.0, position_pct))
+        # Clamp to full range
+        pct_clamped = max(0.0, min(100.0, position_pct))
         
-        # 2. Reverse the linear mapping: (pct - offset) / range * total_rad
-        rad_value = ((pct_clamped - 5.0) / 90.0) * 5.4
-        
-        return max(0.0, min(5.4, rad_value))
+        # Inverse: pct / 100 * 5.4
+        return (pct_clamped / 100.0) * 5.4
     
-    def tau_to_effort_pct(self, tau: float) -> float:
+    def dex1_to_effort(self, tau: float) -> float:
         """
         Convert Dex1 torque to gripper effort
         
@@ -686,17 +685,18 @@ class CorrectedEZGripperDriver:
             # Create telemetry from current driver state
             telemetry = GripperTelemetry.from_driver_state(self)
             
-            # Log telemetry periodically (every 0.5 seconds = 15 messages at 30Hz)
+            # Log telemetry periodically (every 0.1 seconds = 3 messages at 30Hz)
             if not hasattr(self, '_telemetry_log_count'):
                 self._telemetry_log_count = 0
             
             self._telemetry_log_count += 1
-            if self._telemetry_log_count % 15 == 0:
+            if self._telemetry_log_count % 3 == 0:
                 self.logger.info(f"📡 TELEMETRY: state={telemetry.grasp_state}, "
                                f"pos={telemetry.actual_position_pct:.1f}% (cmd={telemetry.commanded_position_pct:.1f}%), "
                                f"effort={telemetry.managed_effort_pct:.0f}%, "
                                f"contact={telemetry.contact_detected}, "
-                               f"temp={telemetry.temperature_c:.1f}°C")
+                               f"temp={telemetry.temperature_c:.1f}°C, "
+                               f"error={telemetry.hardware_error}")
             
             # TODO: Publish to DDS topic as JSON string
             # For now, telemetry is just logged and available via from_driver_state()

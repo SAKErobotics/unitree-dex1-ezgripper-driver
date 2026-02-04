@@ -47,6 +47,10 @@ class GripperTelemetry:
     is_moving: bool                     # Servo moving flag
     temperature_trend: str              # "rising", "falling", "stable"
     
+    # Servo Error Status
+    hardware_error: int                 # Dynamixel hardware error register (0 = no error)
+    hardware_error_description: str     # Human-readable error description
+    
     def to_dict(self):
         """Convert to dictionary for JSON serialization"""
         return {
@@ -72,7 +76,9 @@ class GripperTelemetry:
                 'current_ma': self.current_ma,
                 'voltage_v': self.voltage_v,
                 'is_moving': self.is_moving,
-                'temperature_trend': self.temperature_trend
+                'temperature_trend': self.temperature_trend,
+                'hardware_error': self.hardware_error,
+                'hardware_error_description': self.hardware_error_description
             }
         }
     
@@ -115,7 +121,8 @@ class GripperTelemetry:
             # Check current threshold (need sensor data)
             if driver.current_sensor_data:
                 current_ma = abs(driver.current_sensor_data.get('current', 0))
-                current_pct = (current_ma / 1600.0) * 100.0
+                max_current = driver.gripper.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
+                current_pct = (current_ma / float(max_current)) * 100.0
                 current_threshold_exceeded = current_pct > gm.CURRENT_THRESHOLD_PCT
                 
                 # Check position stagnation
@@ -139,6 +146,22 @@ class GripperTelemetry:
         if hasattr(driver, 'health_monitor'):
             temperature_trend = driver.health_monitor.get_temperature_trend()
         
+        # Get hardware error status
+        hardware_error = 0
+        hardware_error_description = "No error"
+        
+        if driver.current_sensor_data:
+            hardware_error = driver.current_sensor_data.get('error', 0)
+            if hardware_error != 0:
+                # Decode Dynamixel error bits
+                errors = []
+                if hardware_error & 0x01: errors.append("Input Voltage")
+                if hardware_error & 0x04: errors.append("Overheating")
+                if hardware_error & 0x08: errors.append("Motor Encoder")
+                if hardware_error & 0x10: errors.append("Electrical Shock")
+                if hardware_error & 0x20: errors.append("Overload")
+                hardware_error_description = ", ".join(errors) if errors else f"Error {hardware_error}"
+        
         return cls(
             timestamp=time.time(),
             commanded_position_pct=commanded_pos,
@@ -155,5 +178,7 @@ class GripperTelemetry:
             current_ma=current_ma,
             voltage_v=voltage_v,
             is_moving=is_moving,
-            temperature_trend=temperature_trend
+            temperature_trend=temperature_trend,
+            hardware_error=hardware_error,
+            hardware_error_description=hardware_error_description
         )

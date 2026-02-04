@@ -49,8 +49,8 @@
     },
     "force_management": {
       "moving_force_pct": 80,
-      "holding_force_pct": 30,
-      "contact_force_pct": 30,
+      "holding_force_pct": 10,
+      "contact_force_pct": 10,
       "idle_force_pct": 0
     },
     "collision_detection": {
