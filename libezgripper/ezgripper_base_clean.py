@@ -89,8 +89,8 @@ class Gripper:
         for servo_id in self.servo_ids:
             self.bulk_read.addParam(servo_id)
         
-        # Bulk write for Goal PWM (register 100, 2 bytes) - force control
-        self.bulk_write_pwm = GroupSyncWrite(port_handler, packet_handler, 100, 2)
+        # Bulk write for Goal Current (register 102, 2 bytes) - for Extended Position Control Mode
+        self.bulk_write_current = GroupSyncWrite(port_handler, packet_handler, 102, 2)
         
         # Bulk write for goal position (register 116, 4 bytes)
         self.bulk_write_position = GroupSyncWrite(port_handler, packet_handler, 116, 4)
@@ -123,9 +123,21 @@ class Gripper:
             return
         
         for i, servo in enumerate(self.servos):
-            # Read current torque status
-            torque_status = servo.read_word(64)
-            print(f"    Initial torque enable: {torque_status}")
+            # Read current torque status with retry (servo may not be ready immediately)
+            torque_status = None
+            for attempt in range(3):
+                try:
+                    torque_status = servo.read_word(64)
+                    print(f"    Initial torque enable: {torque_status}")
+                    break
+                except Exception as e:
+                    if attempt < 2:
+                        print(f"    Retry {attempt+1}/3: Servo not ready, waiting...")
+                        time.sleep(0.5)
+                    else:
+                        print(f"    Warning: Could not read torque status: {e}")
+                        torque_status = 0  # Assume disabled
+                        break
             
             # Apply each setting from config
             for setting_name, target_value in config_settings.items():
@@ -360,12 +372,38 @@ class Gripper:
             # Register 146: present_temperature (1 byte)
             temperature = self.bulk_read.getData(servo_id, 146, 1)
             
-            # Parse position with software offset
+            # Parse position with wrap-around handling
             sensor_data['position_raw'] = position_raw
-            servo_position = position_raw - self.zero_positions[servo_num]
-            # 0% = closed (position 0), 100% = open (position 2500)
-            raw_pct = self.down_scale(servo_position, 2500)  # grip_max from config
-            sensor_data['position'] = min(100.0, raw_pct)  # Clamp max to 100%, negative OK
+            
+            # Calculate distance from closed position with 32-bit wrap-around
+            # zero_positions[0] = closed position (our virtual zero)
+            closed_pos = self.zero_positions[servo_num]
+            
+            # Calculate signed distance handling wrap at 2^32
+            # This gives us the shortest distance from closed to current position
+            diff = position_raw - closed_pos
+            # Handle wrap-around: if diff > 2^31, we wrapped backwards
+            if diff > 2147483648:
+                diff = diff - 4294967296
+            # If diff < -2^31, we wrapped forwards  
+            elif diff < -2147483648:
+                diff = diff + 4294967296
+            
+            # Map distance to 0-100% (2500 units = 100%)
+            # Gripper range is ~2500 encoder units from closed to open
+            position_pct = (diff / 2500.0) * 100.0
+            
+            # Clamp to 0-100%
+            sensor_data['position'] = max(0.0, min(100.0, position_pct))
+            
+            # DEBUG: Log calculation details every second
+            import logging
+            logger = logging.getLogger(self.name)
+            if not hasattr(self, '_debug_counter'):
+                self._debug_counter = 0
+            self._debug_counter += 1
+            if self._debug_counter % 30 == 0:  # Log once per second at 30Hz
+                logger.info(f"🔍 POS CALC: raw={position_raw}, closed={closed_pos}, diff={diff}, pct={position_pct:.1f}%, final={sensor_data['position']:.1f}%")
             
             # Parse current
             sensor_data['current'] = self._sign_extend_16bit(current_raw)
@@ -399,26 +437,30 @@ class Gripper:
         internal_position = self.target_position
         if self.target_position == 0:
             internal_position = -50
-            print(f"    🎯 Position translation: user 0% → internal -50% (grasp operational space)")
         
         # Calculate goal values - UNCLAMPED
         scaled_position = int(int(internal_position) * 2500 / 100)
-        goal_pwm = int(int(self.target_effort) * 885 / 100)  # Scale effort to PWM (0-885 for MX-64)
+        # Scale effort to current (mA) for Extended Position Control Mode
+        # Max current is 1600mA from config
+        goal_current = int(int(self.target_effort) * 1600 / 100)
         
         # Clear previous bulk write params
-        self.bulk_write_pwm.clearParam()
+        self.bulk_write_current.clearParam()
         self.bulk_write_position.clearParam()
         
         # Add parameters for each servo
+        import logging
+        logger = logging.getLogger(self.name)
+        
         for i in range(len(self.servos)):
             target_raw_pos = self.zero_positions[i] + scaled_position
             
-            # Add Goal PWM (2 bytes)
-            pwm_param = [
-                goal_pwm & 0xFF,
-                (goal_pwm >> 8) & 0xFF
+            # Add Goal Current (2 bytes) for Extended Position Control Mode
+            current_param = [
+                goal_current & 0xFF,
+                (goal_current >> 8) & 0xFF
             ]
-            self.bulk_write_pwm.addParam(self.servo_ids[i], pwm_param)
+            self.bulk_write_current.addParam(self.servo_ids[i], current_param)
             
             # Add goal_position (4 bytes)
             pos_param = [
@@ -429,20 +471,24 @@ class Gripper:
             ]
             self.bulk_write_position.addParam(self.servo_ids[i], pos_param)
             
-            print(f"    ✍️  WRITE servo: pos={self.target_position}%→{target_raw_pos}, pwm={self.target_effort}%→{goal_pwm}")
+            logger.info(f"✍️ WRITE: pos={self.target_position}%→raw={target_raw_pos}, current={self.target_effort}%→{goal_current}mA")
         
         # Execute bulk writes (2 USB transactions)
         from dynamixel_sdk import COMM_SUCCESS
         
-        # Write Goal PWM first
-        result = self.bulk_write_pwm.txPacket()
+        # Write Goal Current first
+        result = self.bulk_write_current.txPacket()
         if result != COMM_SUCCESS:
-            raise Exception(f"Bulk write PWM failed: {result}")
+            logger.error(f"❌ Bulk write current failed: {result}")
+            raise Exception(f"Bulk write current failed: {result}")
         
         # Write goal_position second
         result = self.bulk_write_position.txPacket()
         if result != COMM_SUCCESS:
+            logger.error(f"❌ Bulk write position failed: {result}")
             raise Exception(f"Bulk write position failed: {result}")
+        
+        logger.debug(f"✅ Servo write complete")
 
     def goto_position(self, position_pct, effort_pct):
         """
@@ -454,7 +500,11 @@ class Gripper:
         """
         self.target_position = position_pct
         self.target_effort = effort_pct
-        print(f"  Target set: position={position_pct}%, effort={effort_pct}%")
+        
+        # Log to driver logger
+        import logging
+        logger = logging.getLogger(self.name)
+        logger.info(f"🎯 GOTO: position={position_pct}%, effort={effort_pct}%")
         
         # Actually write to servo
         self.bulk_write_control_data()
@@ -478,8 +528,8 @@ class Gripper:
         
         servo_id = self.servo_ids[0]
         
-        # Safe closing force (30% PWM = 266)
-        closing_pwm = int(885 * 0.3)
+        # Safe closing force (30% current = 480mA)
+        closing_current = int(1600 * 0.3)  # 30% of max current
         current_threshold_ma = 400
         
         # Read current position
@@ -490,13 +540,13 @@ class Gripper:
         
         target_pos = current_pos - 15000  # Beyond closed
         
-        print(f"  Closing: PWM={closing_pwm} (30%), threshold={current_threshold_ma}mA")
+        print(f"  Closing: current={closing_current}mA (30%), threshold={current_threshold_ma}mA")
         
-        # Write PWM
-        self.bulk_write_pwm.clearParam()
-        pwm_param = [closing_pwm & 0xFF, (closing_pwm >> 8) & 0xFF]
-        self.bulk_write_pwm.addParam(servo_id, pwm_param)
-        self.bulk_write_pwm.txPacket()
+        # Write Goal Current
+        self.bulk_write_current.clearParam()
+        current_param = [closing_current & 0xFF, (closing_current >> 8) & 0xFF]
+        self.bulk_write_current.addParam(servo_id, current_param)
+        self.bulk_write_current.txPacket()
         
         # Write position
         self.bulk_write_position.clearParam()
@@ -545,15 +595,36 @@ class Gripper:
                                 print(f"  ✅ Stable contact: {stable_count} consecutive readings")
                                 print(f"     Current: {current_ma}mA, Position: {position_raw}")
                                 
-                                # Record zero
-                                self.zero_positions[0] = -position_raw
+                                # Record zero (positive value for position calculation)
+                                self.zero_positions[0] = position_raw
                                 print(f"  📍 Zero offset: {self.zero_positions[0]}")
                                 
-                                # Release immediately: Disable torque
-                                print(f"  🔓 Releasing (torque off)...")
-                                self.servos[0].write_address(64, [0])  # Torque Enable = 0
+                                # Move to stable 50% position with torque enabled
+                                # This prevents spring force from opening gripper uncontrollably
+                                print(f"  🎯 Moving to 50% position...")
+                                target_50pct = self.zero_positions[0] + int(2500 * 0.5)  # 50% of range
                                 
-                                print(f"  ✅ Calibration complete")
+                                # Write position with moderate current
+                                moderate_current = int(1600 * 0.4)  # 40% current for stable hold
+                                self.bulk_write_current.clearParam()
+                                current_param = [moderate_current & 0xFF, (moderate_current >> 8) & 0xFF]
+                                self.bulk_write_current.addParam(servo_id, current_param)
+                                self.bulk_write_current.txPacket()
+                                
+                                self.bulk_write_position.clearParam()
+                                pos_param = [
+                                    target_50pct & 0xFF,
+                                    (target_50pct >> 8) & 0xFF,
+                                    (target_50pct >> 16) & 0xFF,
+                                    (target_50pct >> 24) & 0xFF
+                                ]
+                                self.bulk_write_position.addParam(servo_id, pos_param)
+                                self.bulk_write_position.txPacket()
+                                
+                                # Wait for movement to complete
+                                time.sleep(1.0)
+                                
+                                print(f"  ✅ Calibration complete - gripper at 50% with torque enabled")
                                 return True
                         else:
                             # Position changed - reset counter
@@ -567,9 +638,9 @@ class Gripper:
         
         # Timeout
         print(f"  ❌ Timeout - stopping")
-        self.bulk_write_pwm.clearParam()
-        self.bulk_write_pwm.addParam(servo_id, [0, 0])
-        self.bulk_write_pwm.txPacket()
+        self.bulk_write_current.clearParam()
+        self.bulk_write_current.addParam(servo_id, [0, 0])
+        self.bulk_write_current.txPacket()
         return False
 
     def get_position(self):

@@ -16,32 +16,43 @@ from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_, MotorStates_, Mot
 
 # Import for direct hardware access (calibration only)
 from libezgripper import create_connection, create_gripper
+from libezgripper.gripper_telemetry import GripperTelemetry
 
 class GripperControlGUI:
     def __init__(self, side='left', device=None, domain=0):
+        print("DEBUG: __init__ started")
         self.side = side
         self.device = device or f"/dev/ttyUSB0"  # Default device
         self.domain = domain
+        print("DEBUG: Creating tk window")
         self.window = tk.Tk()
         self.window.title(f"EZGripper Control - {side.upper()}")
-        self.window.geometry("650x750")
+        self.window.geometry("650x600")
         
+        print("DEBUG: Initializing DDS")
         # DDS setup using Unitree SDK2
         ChannelFactoryInitialize(self.domain)
+        print("DEBUG: DDS initialized")
         
         # Command publisher
+        print("DEBUG: Creating command publisher")
         cmd_topic_name = f"rt/dex1/{side}/cmd"
         self.cmd_publisher = ChannelPublisher(cmd_topic_name, MotorCmds_)
         self.cmd_publisher.Init()
+        print("DEBUG: Command publisher created")
         
-        # State subscriber
-        state_topic_name = f"rt/dex1/{side}/state"
-        self.state_subscriber = ChannelSubscriber(state_topic_name, MotorStates_)
-        self.state_subscriber.Init()
+        # State subscriber - DISABLED for now due to blocking Read() calls
+        # TODO: Implement proper non-blocking state reading with threading
+        print("DEBUG: State subscriber disabled (blocking issue)")
+        self.state_subscriber = None
         
         # Current state
         self.current_position = 50.0
         self.current_effort = 30.0
+        
+        # Telemetry state (internal)
+        self.telemetry_enabled = False
+        self.latest_telemetry = None
         
         # Command mode: continuous (G1 pattern) or on-demand (button clicks)
         self.continuous_mode = tk.BooleanVar(value=True)  # Default to G1 pattern
@@ -52,104 +63,125 @@ class GripperControlGUI:
         self.hw_gripper = None
         self.calibrating = False
         
+        print("DEBUG: Creating widgets")
         self._create_widgets()
-        self._start_state_monitor()
-        self._start_command_publisher()  # Start in continuous mode by default
+        print("DEBUG: Widgets created")
         
+        # Schedule DDS operations after window is shown
+        # This prevents blocking during initialization
+        self.window.after(100, self._init_dds_operations)
+        print("DEBUG: __init__ complete - DDS operations scheduled")
+        
+    def _init_dds_operations(self):
+        """Initialize DDS operations after window is shown"""
+        print("DEBUG: Starting state monitor")
+        self._start_state_monitor()
+        print("DEBUG: State monitor started")
+        print("DEBUG: Starting telemetry reader")
+        self._start_telemetry_reader()
+        print("DEBUG: Telemetry reader started")
+        print("DEBUG: Starting command publisher")
+        self._start_command_publisher()
+        print("DEBUG: Command publisher started")
+    
     def _create_widgets(self):
         # Title
         title = tk.Label(self.window, text=f"{self.side.upper()} Gripper Control", 
-                        font=("Arial", 16, "bold"))
-        title.pack(pady=10)
+                        font=("Arial", 12, "bold"))
+        title.pack(pady=5)
         
-        # Command mode selector
+        # Command mode selector (compact)
         mode_frame = tk.Frame(self.window)
-        mode_frame.pack(pady=5)
+        mode_frame.pack(pady=2)
         
         mode_check = tk.Checkbutton(
             mode_frame,
-            text="🔄 Continuous Mode (200Hz - G1 Pattern)",
+            text="🔄 Continuous (200Hz)",
             variable=self.continuous_mode,
             command=self._toggle_command_mode,
-            font=("Arial", 10, "bold")
+            font=("Arial", 8)
         )
         mode_check.pack()
         
-        self.mode_status = tk.Label(
-            mode_frame,
-            text="Sending commands at 200Hz continuously",
-            font=("Arial", 9),
-            fg="green"
-        )
-        self.mode_status.pack()
-        
         # Position control
-        pos_frame = tk.LabelFrame(self.window, text="Position Control", padx=20, pady=20)
-        pos_frame.pack(fill="x", padx=20, pady=10)
+        pos_frame = tk.LabelFrame(self.window, text="Position Control", padx=10, pady=5)
+        pos_frame.pack(fill="x", padx=10, pady=5)
         
-        self.pos_label = tk.Label(pos_frame, text="Position: 50%", font=("Arial", 12))
+        self.pos_label = tk.Label(pos_frame, text="Position: 50%", font=("Arial", 10))
         self.pos_label.pack()
         
         self.pos_slider = tk.Scale(pos_frame, from_=0, to=100, orient=tk.HORIZONTAL,
-                                   length=400, command=self._on_position_change)
+                                   length=500, command=self._on_position_change)
         self.pos_slider.set(50)
         self.pos_slider.pack()
         
         # Quick position buttons
         btn_frame = tk.Frame(pos_frame)
-        btn_frame.pack(pady=10)
+        btn_frame.pack(pady=5)
         
-        tk.Button(btn_frame, text="Fully Open (100%)", 
-                 command=lambda: self._set_position(100), width=15).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="Half Open (50%)", 
-                 command=lambda: self._set_position(50), width=15).pack(side=tk.LEFT, padx=5)
-        tk.Button(btn_frame, text="Closed (0%)", 
-                 command=lambda: self._set_position(0), width=15).pack(side=tk.LEFT, padx=5)
+        tk.Button(btn_frame, text="Open (100%)", 
+                 command=lambda: self._set_position(100), width=12, font=("Arial", 8)).pack(side=tk.LEFT, padx=3)
+        tk.Button(btn_frame, text="Half (50%)", 
+                 command=lambda: self._set_position(50), width=12, font=("Arial", 8)).pack(side=tk.LEFT, padx=3)
+        tk.Button(btn_frame, text="Close (0%)", 
+                 command=lambda: self._set_position(0), width=12, font=("Arial", 8)).pack(side=tk.LEFT, padx=3)
         
-        # Effort control (informational - force is managed internally)
-        effort_frame = tk.LabelFrame(self.window, text="Force (Managed by GraspManager)", 
-                                     padx=20, pady=20)
-        effort_frame.pack(fill="x", padx=20, pady=10)
         
-        info_text = ("Force is automatically managed:\n"
-                    "• MOVING: 80% force\n"
-                    "• CONTACT: 30% force (settling)\n"
-                    "• GRASPING: 30% force (holding)")
-        tk.Label(effort_frame, text=info_text, justify=tk.LEFT, 
-                font=("Arial", 10)).pack()
+        # Command Interface (xr_teleoperate echo) - compact
+        cmd_frame = tk.LabelFrame(self.window, text="DDS State", 
+                                  padx=10, pady=3)
+        cmd_frame.pack(fill="x", padx=10, pady=3)
         
-        # Current state display
-        state_frame = tk.LabelFrame(self.window, text="Current State", padx=20, pady=20)
-        state_frame.pack(fill="x", padx=20, pady=10)
-        
-        self.state_label = tk.Label(state_frame, text="Position: --%, Force: --%", 
-                                    font=("Arial", 11))
+        self.state_label = tk.Label(cmd_frame, text="Cmd: --%, Echo: --%", 
+                                    font=("Arial", 8))
         self.state_label.pack()
         
-        # Calibration section (direct hardware access)
-        calib_frame = tk.LabelFrame(self.window, text="Calibration (Direct Hardware)", 
-                                    padx=20, pady=20)
-        calib_frame.pack(fill="x", padx=20, pady=10)
+        # Internal Telemetry (real state) - compact
+        telemetry_frame = tk.LabelFrame(self.window, text="Internal State", 
+                                        padx=10, pady=3)
+        telemetry_frame.pack(fill="x", padx=10, pady=3)
         
-        # Device path input
-        device_input_frame = tk.Frame(calib_frame)
-        device_input_frame.pack(pady=5)
-        tk.Label(device_input_frame, text="Device:", font=("Arial", 10)).pack(side=tk.LEFT, padx=5)
-        self.device_entry = tk.Entry(device_input_frame, width=20, font=("Arial", 10))
+        # Compact single-line displays
+        self.telemetry_position = tk.Label(telemetry_frame, 
+                                          text="Pos: --% (err: --%)  State: --  Effort: --%",
+                                          font=("Arial", 8), anchor="w")
+        self.telemetry_position.pack(fill="x")
+        
+        self.telemetry_contact = tk.Label(telemetry_frame, 
+                                          text="Contact: --  Temp: --°C  Current: --mA",
+                                          font=("Arial", 8), anchor="w")
+        self.telemetry_contact.pack(fill="x")
+        
+        # Telemetry status (compact)
+        self.telemetry_status = tk.Label(telemetry_frame, 
+                                        text="⚠️ Telemetry: driver logs only",
+                                        font=("Arial", 7), fg="orange")
+        self.telemetry_status.pack()
+        
+        # Calibration section (compact)
+        calib_frame = tk.LabelFrame(self.window, text="Calibration", 
+                                    padx=10, pady=5)
+        calib_frame.pack(fill="x", padx=10, pady=5)
+        
+        # Device and button in one row
+        calib_row = tk.Frame(calib_frame)
+        calib_row.pack()
+        
+        tk.Label(calib_row, text="Device:", font=("Arial", 8)).pack(side=tk.LEFT, padx=2)
+        self.device_entry = tk.Entry(calib_row, width=15, font=("Arial", 8))
         self.device_entry.insert(0, self.device)
-        self.device_entry.pack(side=tk.LEFT, padx=5)
+        self.device_entry.pack(side=tk.LEFT, padx=2)
         
-        # Calibrate button
-        self.calibrate_btn = tk.Button(calib_frame, text="🔧 Calibrate Gripper", 
+        self.calibrate_btn = tk.Button(calib_row, text="🔧 Calibrate", 
                                        command=self._calibrate_hardware,
-                                       font=("Arial", 11, "bold"),
+                                       font=("Arial", 8),
                                        bg="#4CAF50", fg="white",
-                                       width=20, height=2)
-        self.calibrate_btn.pack(pady=10)
+                                       width=12)
+        self.calibrate_btn.pack(side=tk.LEFT, padx=2)
         
-        self.calib_status = tk.Label(calib_frame, text="Ready to calibrate", 
-                                     font=("Arial", 9), fg="gray")
-        self.calib_status.pack()
+        self.calib_status = tk.Label(calib_row, text="Ready", 
+                                     font=("Arial", 7), fg="gray")
+        self.calib_status.pack(side=tk.LEFT, padx=2)
         
     def _on_position_change(self, value):
         position = float(value)
@@ -160,8 +192,10 @@ class GripperControlGUI:
             self._send_command()
         
     def _set_position(self, position):
+        print(f"🔘 Button clicked: setting position to {position}%")
         self.pos_slider.set(position)
         self.current_position = position
+        print(f"   Updated self.current_position = {self.current_position}%")
         # In on-demand mode, send command immediately
         if not self.continuous_mode.get():
             self._send_command()
@@ -232,22 +266,72 @@ class GripperControlGUI:
         publish_command()
     
     def _start_state_monitor(self):
-        def update_state():
-            # Read state from DDS
-            state_msg = self.state_subscriber.Read()
-            
-            if state_msg and hasattr(state_msg, 'states') and state_msg.states and len(state_msg.states) > 0:
-                state = state_msg.states[0]
-                # Convert radians back to percentage
-                pos_pct = (state.q / 5.4) * 100.0
-                effort_pct = state.tau_est * 100.0
-                self.state_label.config(
-                    text=f"Position: {pos_pct:.1f}%, Force: {effort_pct:.0f}%"
-                )
-            
-            self.window.after(50, update_state)  # Update at 20 Hz
+        """Update display with current commanded values"""
+        def update_display():
+            # Just show commanded position (no state feedback available)
+            self.state_label.config(
+                text=f"Cmd: {self.current_position:.0f}% (no feedback)"
+            )
+            self.window.after(100, update_display)  # Update at 10 Hz
         
-        update_state()
+        # Schedule first update
+        self.window.after(100, update_display)
+    
+    def _start_telemetry_reader(self):
+        """Read telemetry from driver log file"""
+        import re
+        import os
+        
+        log_file = "/tmp/driver_output.log"
+        last_position = 0
+        
+        def read_telemetry():
+            nonlocal last_position
+            
+            try:
+                if os.path.exists(log_file):
+                    with open(log_file, 'r') as f:
+                        # Seek to last read position
+                        f.seek(last_position)
+                        lines = f.readlines()
+                        last_position = f.tell()
+                        
+                        # Find last telemetry line
+                        for line in reversed(lines):
+                            if "📡 TELEMETRY:" in line:
+                                # Parse: state=moving, pos=6.0% (cmd=5.0%), effort=80%, contact=False, temp=39.0°C
+                                match = re.search(r'state=(\w+), pos=([\d.]+)% \(cmd=([\d.]+)%\), effort=([\d.]+)%, contact=(\w+), temp=([\d.]+)°C', line)
+                                if match:
+                                    state = match.group(1)
+                                    actual_pos = match.group(2)
+                                    cmd_pos = match.group(3)
+                                    effort = match.group(4)
+                                    contact = match.group(5)
+                                    temp = match.group(6)
+                                    
+                                    error = float(cmd_pos) - float(actual_pos)
+                                    
+                                    # Update telemetry displays
+                                    self.telemetry_position.config(
+                                        text=f"Pos: {actual_pos}% (err: {error:+.1f}%)  State: {state}  Effort: {effort}%"
+                                    )
+                                    self.telemetry_contact.config(
+                                        text=f"Contact: {contact}  Temp: {temp}°C"
+                                    )
+                                    self.telemetry_status.config(
+                                        text="✅ Telemetry: live from driver logs",
+                                        fg="green"
+                                    )
+                                break
+            except Exception as e:
+                # Silently handle errors
+                pass
+            
+            # Schedule next read
+            self.window.after(500, read_telemetry)  # Read at 2 Hz
+        
+        # Schedule first read
+        self.window.after(500, read_telemetry)
         
     def _calibrate_hardware(self):
         """Calibrate gripper using direct hardware access (bypasses DDS)"""
