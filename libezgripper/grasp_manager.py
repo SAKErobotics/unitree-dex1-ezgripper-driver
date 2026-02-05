@@ -150,11 +150,12 @@ class GraspManager:
             position_stagnant = position_range < self.STALL_TOLERANCE_PCT
         
         # Criteria 2: Detect stall based on position alone (no current check)
-        # Position stopped changing while closing = either hit obstacle OR reached target
-        # Both cases should transition to GRASPING to reduce force
+        # Only trigger if position is stagnant AND far from target (gripper is stuck, not at goal)
+        # Check if gripper is stuck (position stagnant but not at target)
         position_error = abs(current_position - commanded_position)
+        is_stuck = position_stagnant and position_error > 5.0  # Stuck if >5% from target
         
-        if position_stagnant and len(self.position_history) >= 3:
+        if is_stuck and len(self.position_history) >= 3:
             self.contact_sample_count += 1
             # Log stall detection progress - only when incrementing
             logger = logging.getLogger(__name__)
@@ -164,7 +165,7 @@ class GraspManager:
             # Log when counter resets
             if self.contact_sample_count > 0:
                 logger = logging.getLogger(__name__)
-                logger.info(f"↻ STALL RESET: pos={current_position:.2f}%, error={position_error:.2f}% (moving)")
+                logger.info(f"↻ STALL RESET: pos={current_position:.2f}%, error={position_error:.2f}% (at target or moving)")
             self.contact_sample_count = 0
         
         # Require N consecutive samples before declaring contact
@@ -194,10 +195,18 @@ class GraspManager:
             if contact_detected:
                 self.state = GraspState.CONTACT
                 self.contact_position = current_position
-            # Transition to IDLE when reaching target position
-            # This prevents continuous force application at target that causes overload
+            # Directional logic: Allow IDLE transition when OPENING, but not when CLOSING
+            # Opening (increasing position) = no objects in the way, can reach target
+            # Closing (decreasing position) = may hit object, stay in MOVING until contact
             elif abs(current_position - dds_position) < self.POSITION_CHANGE_THRESHOLD:
-                self.state = GraspState.IDLE
+                # Determine direction
+                if self.last_dds_position is not None:
+                    direction = dds_position - self.last_dds_position
+                    is_opening = direction > 0  # Positive = opening (increasing %)
+                    
+                    # Only transition to IDLE when opening
+                    if is_opening:
+                        self.state = GraspState.IDLE
         
         elif self.state == GraspState.CONTACT:
             # Simple first pass: immediately transition to GRASPING
