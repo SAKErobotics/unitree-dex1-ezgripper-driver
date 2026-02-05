@@ -52,9 +52,14 @@
       "status_return_level": 2
     },
     "force_management": {
-      "moving_force_pct": 10,
-      "holding_force_pct": 10,
+      "moving_force_pct": 50,
+      "_comment_moving": "Force during MOVING state. 50% = fast movement. 50% × 1120 = 560 units = 1.88A",
+      "holding_force_pct": 20,
+      "_comment_holding": "Force during CONTACT state (holding at obstacle). 20% × 1120 = 224 units = 752mA",
+      "grasping_force_pct": 20,
+      "_comment_grasping": "Force during GRASPING state (holding at 0% after stall). 20% × 1120 = 224 units = 752mA",
       "contact_force_pct": 10,
+      "_comment_contact": "DEPRECATED - use holding_force_pct instead",
       "idle_force_pct": 0
     },
     "collision_detection": {
