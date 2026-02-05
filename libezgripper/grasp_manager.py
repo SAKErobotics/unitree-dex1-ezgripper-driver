@@ -38,20 +38,24 @@ class GraspManager:
     """
     
     def __init__(self, config):
-        # Load config
-        force_mgmt = config._config.get('servo', {}).get('force_management', {})
-        self.MOVING_FORCE = force_mgmt.get('moving_force_pct', 80)
-        self.GRASPING_FORCE = force_mgmt.get('grasping_force_pct', 10)
+        # Load config from new state-based structure
+        state_machine = config._config.get('state_machine', {})
         
-        collision = config._config.get('servo', {}).get('collision_detection', {})
-        self.CURRENT_THRESHOLD_PCT = collision.get('current_spike_threshold_pct', 40)
-        self.CONSECUTIVE_SAMPLES_REQUIRED = collision.get('consecutive_samples_required', 3)
-        self.STAGNATION_THRESHOLD = collision.get('stagnation_movement_units', 0.5)
-        self.STALL_TOLERANCE_PCT = collision.get('stall_tolerance_pct', 1.0)  # 25 ticks @ 0.04%/tick
-        self.ZERO_TARGET_TOLERANCE_PCT = collision.get('zero_target_tolerance_pct', 0.04)  # 1 tick
-        self.OBSTACLE_ERROR_THRESHOLD_PCT = collision.get('obstacle_error_threshold_pct', 5.0)
-        self.POSITION_CHANGE_THRESHOLD = collision.get('position_change_threshold_pct', 1.0)
-        self.COMMAND_CHANGE_THRESHOLD = collision.get('command_change_threshold_pct', 3.0)
+        # Force settings per state
+        self.MOVING_FORCE = state_machine.get('moving', {}).get('force_pct', 80)
+        self.GRASPING_FORCE = state_machine.get('grasping', {}).get('force_pct', 10)
+        
+        # Contact detection settings
+        detection = state_machine.get('contact', {}).get('detection', {})
+        self.CONSECUTIVE_SAMPLES_REQUIRED = detection.get('consecutive_samples_required', 3)
+        self.STALL_TOLERANCE_PCT = detection.get('stall_tolerance_pct', 1.0)
+        self.ZERO_TARGET_TOLERANCE_PCT = detection.get('zero_target_tolerance_pct', 0.04)
+        self.OBSTACLE_ERROR_THRESHOLD_PCT = detection.get('obstacle_error_threshold_pct', 5.0)
+        
+        # Transition thresholds
+        transitions = state_machine.get('transitions', {})
+        self.POSITION_CHANGE_THRESHOLD = transitions.get('position_change_threshold_pct', 1.0)
+        self.COMMAND_CHANGE_THRESHOLD = transitions.get('command_change_threshold_pct', 3.0)
         
         # State
         self.state = GraspState.IDLE
@@ -68,9 +72,8 @@ class GraspManager:
         logger = logging.getLogger(__name__)
         logger.info("  ✅ GraspManager V2 Clean Implementation Loaded")
         logger.info(f"    Forces: MOVING={self.MOVING_FORCE}%, GRASPING={self.GRASPING_FORCE}%")
-        logger.info(f"    Contact Detection: current>{self.CURRENT_THRESHOLD_PCT}%, stagnation<{self.STAGNATION_THRESHOLD}%, samples={self.CONSECUTIVE_SAMPLES_REQUIRED}")
-        logger.info(f"    Stall Tolerance: {self.STALL_TOLERANCE_PCT}% (25 ticks @ 0.04%/tick)")
-        logger.info(f"    Thresholds: position_change={self.POSITION_CHANGE_THRESHOLD}%")
+        logger.info(f"    Contact Detection: samples={self.CONSECUTIVE_SAMPLES_REQUIRED}, stall_tolerance={self.STALL_TOLERANCE_PCT}%")
+        logger.info(f"    Thresholds: position_change={self.POSITION_CHANGE_THRESHOLD}%, command_change={self.COMMAND_CHANGE_THRESHOLD}%")
     
     def process_cycle(self, 
                      sensor_data: Dict[str, Any],
