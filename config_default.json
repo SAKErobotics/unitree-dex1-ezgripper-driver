@@ -58,8 +58,6 @@
       "_comment_holding": "Force during CONTACT state (holding at obstacle). 20% × 1120 = 224 units = 752mA",
       "grasping_force_pct": 20,
       "_comment_grasping": "Force during GRASPING state (holding at 0% after stall). 20% × 1120 = 224 units = 752mA",
-      "contact_force_pct": 10,
-      "_comment_contact": "DEPRECATED - use holding_force_pct instead",
       "idle_force_pct": 0
     },
     "collision_detection": {

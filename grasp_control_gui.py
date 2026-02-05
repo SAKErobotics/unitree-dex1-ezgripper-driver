@@ -55,7 +55,7 @@ class GripperControlGUI:
         self.latest_telemetry = None
         
         # Command mode: continuous (G1 pattern) or on-demand (button clicks)
-        self.continuous_mode = tk.BooleanVar(value=True)  # Default to G1 pattern
+        self.continuous_mode = tk.BooleanVar(value=False)  # Default to off - user must enable
         self.command_publisher_active = False
         
         # Direct hardware connection (for calibration only)
@@ -229,39 +229,46 @@ class GripperControlGUI:
             # Publish command at 200Hz (G1 pattern)
             self.cmd_publisher.Write(motor_cmds)
             
+            # Debug: Log first few commands to verify publishing
+            if not hasattr(self, '_cmd_count'):
+                self._cmd_count = 0
+            self._cmd_count += 1
+            
+            if self._cmd_count <= 5 or self._cmd_count % 100 == 0:
+                print(f"📤 GUI CMD #{self._cmd_count}: Publishing {self.current_position:.0f}% → {q_rad:.3f} rad to rt/dex1/{self.side}/cmd")
+            
         except Exception as e:
             # Only log errors (not every command at 200Hz)
             if not hasattr(self, '_last_error') or self._last_error != str(e):
                 print(f"❌ Error in _send_command(): {e}")
+                import traceback
+                traceback.print_exc()
                 self._last_error = str(e)
         
     def _toggle_command_mode(self):
         """Toggle between continuous and on-demand command mode"""
         if self.continuous_mode.get():
             # Switch to continuous mode
-            self.mode_status.config(
-                text="Sending commands at 200Hz continuously",
-                fg="green"
-            )
+            print("🔄 Continuous mode enabled - sending at 200Hz")
             if not self.command_publisher_active:
                 self._start_command_publisher()
         else:
             # Switch to on-demand mode
-            self.mode_status.config(
-                text="Sending commands only on button clicks/slider changes",
-                fg="blue"
-            )
+            print("⏸️ On-demand mode enabled - sending only on changes")
             self.command_publisher_active = False
     
     def _start_command_publisher(self):
         """Publish commands continuously at 200Hz like G1 teleoperation"""
         self.command_publisher_active = True
+        print(f"🚀 Starting command publisher loop (continuous_mode={self.continuous_mode.get()})")
         
         def publish_command():
             # Only continue if continuous mode is still enabled
             if self.continuous_mode.get() and self.command_publisher_active:
                 self._send_command()
                 self.window.after(5, publish_command)  # 5ms = 200Hz
+            else:
+                print(f"⏸️ Command publisher stopped (continuous_mode={self.continuous_mode.get()}, active={self.command_publisher_active})")
         
         publish_command()
     
@@ -324,12 +331,23 @@ class GripperControlGUI:
                                         if hw_error_int & 0x20: errors.append("OVERLOAD")
                                         hw_error_text = f" ⚠️ {','.join(errors)}"
                                     
-                                    # Update telemetry displays
+                                    # Format state with color coding
+                                    state_upper = state.upper()
+                                    state_colors = {
+                                        'IDLE': 'gray',
+                                        'MOVING': 'blue',
+                                        'CONTACT': 'orange',
+                                        'GRASPING': 'green'
+                                    }
+                                    state_color = state_colors.get(state_upper, 'black')
+                                    
+                                    # Update telemetry displays with GraspManager state
                                     self.telemetry_position.config(
-                                        text=f"Pos: {actual_pos}% (err: {error:+.1f}%)  State: {state}  Effort: {effort}%{hw_error_text}"
+                                        text=f"Pos: {actual_pos}% (err: {error:+.1f}%)  Effort: {effort}%{hw_error_text}"
                                     )
                                     self.telemetry_contact.config(
-                                        text=f"Contact: {contact}  Temp: {temp}°C"
+                                        text=f"GM State: {state_upper}  Contact: {contact}  Temp: {temp}°C",
+                                        fg=state_color
                                     )
                                     self.telemetry_status.config(
                                         text="✅ Telemetry: live from driver logs",
