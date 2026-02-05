@@ -513,32 +513,35 @@ class CorrectedEZGripperDriver:
     
     def dex1_to_ezgripper(self, q_radians: float) -> float:
         """
-        Convert Dex1 position to EZGripper position.
-        Maps 0.0-5.4 rad to 0%-100% for full range of motion.
+        Convert Dex1 position to EZGripper position with INVERSION at interface.
         
-        Dex1: 0.0 rad = closed, 5.4 rad = open
-        EZGripper: 0% = closed, 100% = open
+        Unitree Dex1 convention: 0.0 rad = trigger released, 5.4 rad = trigger squeezed
+        Customer expectation: Squeezing trigger should CLOSE gripper
         
-        Contact detection in GraspManager prevents stalling at limits.
+        EZGripper internal: 0% = closed, 100% = open (unchanged)
+        
+        INVERSION ONLY AT INTERFACE:
+        - 0.0 rad (released) -> 100% (open)
+        - 5.4 rad (squeezed) -> 0% (closed)
         """
-        # Clamp input to the known G1 range
         q_clamped = max(0.0, min(5.4, q_radians))
-        
-        # Map 0.0 -> 5.4 rad to 0.0% -> 100.0%
-        return (q_clamped / 5.4) * 100.0
+        # Invert: 0 rad -> 100%, 5.4 rad -> 0%
+        return 100.0 - (q_clamped / 5.4) * 100.0
     
     def ezgripper_to_dex1(self, position_pct: float) -> float:
         """
-        Convert EZGripper position to Dex1 position (Inverse mapping).
+        Convert EZGripper position to Dex1 position with INVERSION at interface.
         
-        EZGripper: 0% = closed, 100% = open
-        Dex1: 0.0 rad = closed, 5.4 rad = open
+        EZGripper internal: 0% = closed, 100% = open (unchanged)
+        Unitree Dex1 convention: 0.0 rad = trigger released, 5.4 rad = trigger squeezed
+        
+        INVERSION ONLY AT INTERFACE:
+        - 0% (closed) -> 5.4 rad (squeezed)
+        - 100% (open) -> 0.0 rad (released)
         """
-        # Clamp to full range
         pct_clamped = max(0.0, min(100.0, position_pct))
-        
-        # Inverse: pct / 100 * 5.4
-        return (pct_clamped / 100.0) * 5.4
+        # Invert: 0% -> 5.4 rad, 100% -> 0 rad
+        return (100.0 - pct_clamped) / 100.0 * 5.4
     
     def dex1_to_effort(self, tau: float) -> float:
         """
@@ -916,6 +919,9 @@ class CorrectedEZGripperDriver:
                             # Execute managed goal to hardware
                             self.gripper.goto_position(goal_position, goal_effort)
                             
+                            # Serial bus safety: small delay to let RS485 bus settle after write
+                            time.sleep(0.005)
+                            
                             # Log periodically
                             if self.command_count % 30 == 0:  # Every second at 30Hz
                                 state_info = self.grasp_manager.get_state_info()
@@ -944,9 +950,11 @@ class CorrectedEZGripperDriver:
                         
                     except Exception as e:
                         self._handle_communication_error(e)
+                        # Clear the serial buffer to recover from noise/collisions
                         if hasattr(self.connection, 'port'):
                             try:
                                 self.connection.port.reset_input_buffer()
+                                self.logger.debug(f"Serial buffer cleared after error: {e}")
                             except:
                                 pass
                     
