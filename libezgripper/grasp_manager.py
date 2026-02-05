@@ -61,6 +61,7 @@ class GraspManager:
         self.last_dds_position = None
         self.last_servo_command = None
         self.contact_position = None
+        self.grasping_setpoint = None  # DDS command position when grasp was established
         self.last_current_pct = 0.0
         self.position_history = []  # Track last 3 positions for range check
         self.contact_sample_count = 0  # For consecutive sample filtering
@@ -229,13 +230,16 @@ class GraspManager:
             # Simple first pass: immediately transition to GRASPING
             # Future: Add settling period
             self.state = GraspState.GRASPING
+            self.grasping_setpoint = dds_position  # Remember commanded position when grasp established
         
         elif self.state == GraspState.GRASPING:
-            # Any significant command change exits GRASPING state
-            # This allows recovery after torque disable
-            if abs(dds_position - current_position) > self.POSITION_CHANGE_THRESHOLD:
+            # Exit GRASPING only on OPENING commands (dds > setpoint)
+            # Stay in GRASPING for closing/same commands (active grasp management)
+            # Continuous command stream at 30Hz: only opening overrides grasp
+            if self.grasping_setpoint is not None and dds_position > self.grasping_setpoint + self.POSITION_CHANGE_THRESHOLD:
                 self.state = GraspState.MOVING
                 self.contact_position = None
+                self.grasping_setpoint = None
         
         # Log state transitions
         if old_state != self.state:
