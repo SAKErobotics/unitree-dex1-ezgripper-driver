@@ -30,7 +30,6 @@
 from typing import Dict, Any, Optional
 from .lib_robotis import Robotis_Servo
 from .config import Config
-from .collision_reactions import CollisionReaction, CalibrationReaction
 from dynamixel_sdk import GroupSyncRead, GroupSyncWrite, COMM_SUCCESS
 import time
 import logging
@@ -44,7 +43,7 @@ def remap(x, in_min, in_max, out_min, out_max):
 class Gripper:
     """Modern EZGripper with position control and bulk operations"""
 
-    def __init__(self, connection, name, servo_ids, config: Config, collision_reaction: Optional[CollisionReaction] = None):
+    def __init__(self, connection, name, servo_ids, config: Config, collision_reaction: Optional[Any] = None):
         """Initialize gripper with minimal setup"""
         self.name = name
         self.config = config
@@ -312,7 +311,7 @@ class Gripper:
         self._last_position = current_position
         return False
 
-    def enable_collision_monitoring(self, reaction: Optional[CollisionReaction] = None):
+    def enable_collision_monitoring(self, reaction: Optional[Any] = None):
         """Enable collision detection with optional reaction strategy"""
         if reaction:
             self.collision_reaction = reaction
@@ -326,7 +325,7 @@ class Gripper:
         self.collision_monitoring_enabled = False
         print(f"  ⏸️  Collision monitoring disabled")
     
-    def set_collision_reaction(self, reaction: CollisionReaction):
+    def set_collision_reaction(self, reaction: Any):
         """Change the collision reaction strategy"""
         self.collision_reaction = reaction
         print(f"  🔄 Collision reaction changed to {reaction.__class__.__name__}")
