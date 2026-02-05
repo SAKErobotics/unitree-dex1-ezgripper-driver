@@ -241,10 +241,9 @@ class GraspManager:
             return self.contact_position, self.HOLDING_FORCE
         
         elif self.state == GraspState.GRASPING:
-            # Hold at contact position with reduced force
-            # Commanding the actual contact position (reachable) prevents continuous
-            # force application that causes overload
-            return self.contact_position, self.HOLDING_FORCE
+            # Open to 50% like calibration does to prevent overload
+            # This releases the obstacle and allows the gripper to reset
+            return 50.0, self.HOLDING_FORCE
         
         # Fallback
         return current_position, 0.0
