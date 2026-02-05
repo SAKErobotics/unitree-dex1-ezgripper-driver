@@ -261,8 +261,8 @@ class GraspManager:
             return self.contact_position, self.HOLDING_FORCE
         
         elif self.state == GraspState.GRASPING:
-            # Hold at current position with 0% force
-            # Test if we can maintain contact position without overload
+            # Hold at current position with torque disabled (0% force)
+            # This prevents overload by removing all force application
             return current_position, 0.0
         
         # Fallback
