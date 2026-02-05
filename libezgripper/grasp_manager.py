@@ -122,8 +122,10 @@ class GraspManager:
         
         # Only detect stalls when CLOSING (commanded < current)
         # Opening movements should not trigger stall detection
+        # Exception: Allow detection when at target 0% to prevent overload
         is_closing = commanded_position < current_position
-        if not is_closing:
+        at_zero_target = commanded_position < 1.0 and current_position <= 1.0
+        if not is_closing and not at_zero_target:
             self.contact_sample_count = 0
             return False
         
