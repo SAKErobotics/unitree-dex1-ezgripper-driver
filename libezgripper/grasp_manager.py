@@ -215,13 +215,10 @@ class GraspManager:
         
         elif self.state == GraspState.GRASPING:
             # Position command (release) drives transition back to MOVING
-            # Release when commanded position increases (opens) relative to last command
-            if self.last_dds_position is not None:
-                position_change = dds_position - self.last_dds_position
-                # If commanded position increases (opens), transition to MOVING
-                if position_change > self.POSITION_CHANGE_THRESHOLD:
-                    self.state = GraspState.MOVING
-                    self.contact_position = None
+            # Release when commanded position is more open than current position
+            if dds_position > current_position + self.POSITION_CHANGE_THRESHOLD:
+                self.state = GraspState.MOVING
+                self.contact_position = None
         
         # Log state transitions
         if old_state != self.state:
@@ -248,9 +245,9 @@ class GraspManager:
             return self.contact_position, self.HOLDING_FORCE
         
         elif self.state == GraspState.GRASPING:
-            # Open to 50% like calibration does to prevent overload
-            # This releases the obstacle and allows the gripper to reset
-            return 50.0, self.HOLDING_FORCE
+            # Hold at current position with minimal force to prevent overload
+            # Don't try to move - obstacle is blocking, just maintain gentle contact
+            return current_position, self.HOLDING_FORCE
         
         # Fallback
         return current_position, 0.0
