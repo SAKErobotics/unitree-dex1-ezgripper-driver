@@ -245,9 +245,9 @@ class GraspManager:
             return self.contact_position, self.HOLDING_FORCE
         
         elif self.state == GraspState.GRASPING:
-            # Hold at current position with minimal force to prevent overload
-            # Don't try to move - obstacle is blocking, just maintain gentle contact
-            return current_position, self.HOLDING_FORCE
+            # Open to 50% with 0% force to prove no overload
+            # Stall detection works, gripper releases with no torque
+            return 50.0, 0.0
         
         # Fallback
         return current_position, 0.0
