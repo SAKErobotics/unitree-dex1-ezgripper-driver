@@ -289,7 +289,7 @@ class GripperControlGUI:
         import re
         import os
         
-        log_file = "/tmp/driver_output.log"
+        log_file = "/tmp/driver_test.log"
         last_position = 0
         
         def read_telemetry():
