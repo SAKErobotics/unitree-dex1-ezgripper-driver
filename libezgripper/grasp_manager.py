@@ -150,16 +150,22 @@ class GraspManager:
             position_stagnant = position_range < self.STALL_TOLERANCE_PCT
         
         # Criteria 2: Detect stall based on position alone (no current check)
-        # Trigger if:
-        #   1. Position stagnant AND >5% from target (obstacle blocking), OR
-        #   2. Position very stable at/past target 0% (fully closed, need to reduce force)
-        #      At target means current <= target (at or more closed)
-        #      Use tight tolerance (0.04% = 1 tick) for zero target since no obstruction
+        # Two cases:
+        #   1. Obstacle blocking: Position stagnant AND >5% from target
+        #   2. Target is 0%: Position very stable AND at/past 0% (current <= 1%)
+        #      Always transition to GRASPING at 0% to prevent overload
         position_error = abs(current_position - commanded_position)
-        at_zero_target = commanded_position < 1.0 and current_position <= commanded_position + 1.0
+        
+        # Case 1: Obstacle - stuck before reaching target
+        stuck_before_target = position_stagnant and position_error > 5.0
+        
+        # Case 2: Target is 0% and reached it (at or more closed)
+        target_is_zero = commanded_position < 1.0
+        reached_zero = current_position <= 1.0  # At 0% or more closed
         very_stable = position_range < 0.04  # 1 tick = 0.04%, very tight tolerance
-        at_zero_stable = at_zero_target and very_stable
-        is_stuck = position_stagnant and (position_error > 5.0 or at_zero_stable)
+        at_zero_stable = target_is_zero and reached_zero and very_stable
+        
+        is_stuck = stuck_before_target or at_zero_stable
         
         if is_stuck and len(self.position_history) >= 3:
             self.contact_sample_count += 1
