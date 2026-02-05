@@ -892,11 +892,12 @@ class CorrectedEZGripperDriver:
                             self.current_sensor_data = sensor_data
                             
                             # Process GraspManager every 30Hz cycle (autonomous control)
-                            # Get commanded position from latest DDS command (or hold current if no command)
+                            # Get commanded position from latest DDS command (or use default target if no command)
                             if self.latest_command is not None:
                                 commanded_position = self.latest_command.position_pct
                             else:
-                                commanded_position = sensor_data.get('position', 50.0)  # Default to current position
+                                # Use target_position_pct (50%) instead of current position to allow movement after calibration
+                                commanded_position = self.target_position_pct
                             
                             sensor_data['commanded_position'] = commanded_position
                             
