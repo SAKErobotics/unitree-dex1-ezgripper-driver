@@ -1,3 +1,4 @@
 cyclonedds>=0.10.0
 pyserial>=3.5
 dynamixel-sdk>=4.0.0
+unitree-sdk2py>=1.0.0

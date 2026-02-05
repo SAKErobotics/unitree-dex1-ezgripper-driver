@@ -43,9 +43,11 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 - ✅ **Protocol 2.0 Bulk Operations** - Atomic sensor reads and writes for improved performance and efficiency
 - ✅ **Advanced Monitoring** - Contact detection, error monitoring, and thermal analysis using bulk sensor data
 - ✅ **30 Hz Bulk Sensor Reads** - Full state capture (position, current, load, temperature, errors) every control cycle
-- ✅ **Position Control Only** - Calibration and operation use 100% effort position control (no torque mode)
-- ✅ **Automatic Calibration** - Calibrates at startup using position control for consistent force definition
-- ✅ **DDS Interface** - Compatible with Unitree Dex1-1 gripper DDS topics (`HGHandCmd_`, `HGHandState_`)
+- ✅ **Current-Based Position Control (Mode 5)** - Uses Dynamixel Mode 5 for active current control under constant spring loads
+- ✅ **Automatic Calibration** - Calibrates at startup using current-based position control
+- ✅ **DDS Interface** - Compatible with Unitree G1 motor DDS topics (`MotorCmds_`, `MotorStates_`)
+- ✅ **Active Grasp Management** - State machine maintains grip until explicitly commanded to release
+- ✅ **Configurable Force Settings** - Separate force levels for moving, holding, and grasping
 - ✅ **Thread-Safe** - Lock-protected shared state with minimal contention
 - ✅ **Load-Resistant** - State publishing isolated from serial I/O blocking
 - ✅ **XR Compatible** - Matches Unitree XR teleoperate expectations (200 Hz bidirectional)
@@ -207,13 +209,15 @@ python3 ezgripper_dds_driver.py --side left --no-calibrate
 ```
 
 **Calibration Process:**
-1. Closes gripper with 100% PWM until collision detected
-2. Immediate PWM=0 stop, then drops to 15% PWM
-3. Records zero position (collision point)
-4. Opens to 50% with 100% PWM
-5. Releases gripper (PWM=0)
+1. Closes gripper with 30% current (336mA) until stable contact detected
+2. Monitors current and position for 5 consecutive stable readings
+3. Records zero position (contact point)
+4. Opens to 50% with 40% current for stable hold
+5. Waits 1 second for movement to complete
 6. Saves offset to device config by serial number
 7. Calibration persists across reboots
+
+**Note:** Uses Mode 5 current-based position control for consistent force application and thermal safety.
 
 **Note:** Calibration stays with the physical gripper (serial number), not the left/right designation. If you swap the left/right mapping, calibration automatically stays with the correct gripper.
 
@@ -239,13 +243,14 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 
 ## DDS Topics
 
-- **Left Command**: `rt/dex1/left/cmd` (HGHandCmd_)
-- **Left State**: `rt/dex1/left/state` (HGHandState_)
-- **Right Command**: `rt/dex1/right/cmd` (HGHandCmd_)
-- **Right State**: `rt/dex1/right/state` (HGHandState_)
+- **Left Command**: `rt/dex1/left/cmd` (MotorCmds_)
+- **Left State**: `rt/dex1/left/state` (MotorStates_)
+- **Right Command**: `rt/dex1/right/cmd` (MotorCmds_)
+- **Right State**: `rt/dex1/right/state` (MotorStates_)
 
 **Message Types:**
-- Uses official Unitree Dex1-1 gripper message types from `unitree_sdk2py`
+- Uses Unitree G1 motor message types from `unitree_sdk2py`
+- Single motor per gripper (motor index 0)
 - Command rate: 200 Hz (from XR teleoperate)
 - State publishing rate: 200 Hz (195 Hz actual with predictive model)
 - Bulk sensor reads: 30 Hz (position, current, load, temperature, errors)
@@ -278,7 +283,8 @@ XR Teleoperate (200 Hz) → DDS Topics → EZGripper DDS Driver → libezgripper
 
 **Control Thread (30 Hz):**
 - Receives DDS commands
-- Executes position commands via bulk write (100% effort)
+- Processes commands through GraspManager state machine
+- Executes position commands via bulk write (configurable force)
 - Reads bulk sensor data every cycle (30 Hz): position, current, load, temperature, errors
 - Updates monitoring modules (contact detection, error monitoring, thermal monitoring)
 - Syncs predicted position with actual measurements
@@ -331,6 +337,99 @@ The driver automatically monitors:
 
 All monitoring data is captured using bulk operations at 30 Hz with minimal performance impact.
 
+## GraspManager State Machine
+
+The driver includes an intelligent grasp management system that maintains grip on objects:
+
+**States:**
+- **IDLE** - Gripper at rest, minimal force (0%)
+- **MOVING** - Actively moving to commanded position (17% force = ~640mA actual)
+- **CONTACT** - Detected obstacle, transitioning to grasp (10% force)
+- **GRASPING** - Holding object at detected position (10% force = ~110mA actual)
+
+**Active Grasp Management:**
+- Continuous command stream at 30Hz from XR teleoperate
+- GRASPING state maintains grip despite continuous close commands
+- Only exits GRASPING on opening commands (position > grasping setpoint)
+- Prevents oscillation and overload from repeated stall detection
+
+**Stall Detection:**
+- Monitors position stagnation (3 consecutive samples within 2.0% range)
+- Triggers CONTACT → GRASPING transition
+- Reduces force from 17% (moving) to 10% (grasping) to prevent overload
+
+## Force Configuration
+
+Force settings are configurable in `config_default.json`:
+
+```json
+"force_management": {
+  "moving_force_pct": 17,      // 17% = 190mA commanded, ~640mA actual
+  "holding_force_pct": 10,     // 10% = 112mA commanded, ~110mA actual  
+  "grasping_force_pct": 10,    // 10% = 112mA commanded, ~110mA actual
+  "idle_force_pct": 0          // 0% = no force when idle
+}
+```
+
+**Current Multiplier:**
+- MOVING state: ~3.2-3.4x commanded current (fighting spring force)
+- GRASPING state: ~1.0x commanded current (at equilibrium)
+- Example: 17% command = 190mA → ~640mA actual when closing
+
+**Thermal Considerations:**
+- Lower forces reduce heat generation
+- Temperature monitored at 30Hz
+- Overload protection triggers at ~70-80°C
+
+## Operating Mode 5 (Current-Based Position Control)
+
+The driver uses Dynamixel Operating Mode 5 for optimal performance:
+
+**Why Mode 5:**
+- Designed for joints with constant loads (gravity, springs)
+- Active current control prevents overload under sustained force
+- Used in humanoid robots (soccer players) for similar applications
+- Reference: ROBOTIS gripper RH-P12-RN uses Mode 5 exclusively
+
+**Control Flow:**
+```
+Position PID → Desired Current → Goal Current Limit → Current Controller → PWM → Motor
+```
+
+**Mode 5 vs Mode 4:**
+- Mode 4: PID outputs PWM directly, Goal Current is just a limit
+- Mode 5: PID outputs desired current, current controller actively manages torque
+- Mode 5 prevents unlimited current draw when position cannot be reached
+
+**Automatic Parameter Reset:**
+- Switching to Mode 5 automatically resets Position PID Gain and PWM Limit
+- Values optimized by ROBOTIS for current control
+- Should not be manually overridden unless necessary
+
+## GUI Control Tool
+
+A GUI tool is provided for testing and manual control:
+
+```bash
+python3 grasp_control_gui.py --side left
+```
+
+**Features:**
+- Position slider (0-100%)
+- Quick position buttons (Open 100%, Half 50%, Close 0%)
+- Live telemetry display:
+  - GraspManager state (IDLE/MOVING/CONTACT/GRASPING) with color coding
+  - Position, effort, temperature
+  - Contact detection status
+  - Hardware errors
+- Continuous command mode (200Hz) or on-demand
+- Direct hardware calibration button
+
+**Telemetry Display:**
+- Reads from `/tmp/driver_test.log`
+- Updates at 2Hz
+- Color-coded states: IDLE (gray), MOVING (blue), CONTACT (orange), GRASPING (green)
+
 ## Configuration
 
 See [CONFIGURATION.md](./CONFIGURATION.md) for detailed configuration options including:
@@ -338,6 +437,8 @@ See [CONFIGURATION.md](./CONFIGURATION.md) for detailed configuration options in
 - Communication settings
 - Monitoring thresholds
 - Calibration parameters
+- Force management settings
+- Stall detection parameters
 
 ## Servo Reset and Recovery
 
@@ -404,7 +505,7 @@ This section provides key information for robots and autonomous systems integrat
 **DDS Topics:**
 - Commands: `rt/dex1/{side}/cmd` (MotorCmds_)
 - State: `rt/dex1/{side}/state` (MotorStates_)
-- Compatible with Unitree Dex1_1 specification
+- Compatible with Unitree G1 motor specification
 
 **Position Feedback:**
 - Real-time position updates at 30 Hz from servo
@@ -424,6 +525,34 @@ This section provides key information for robots and autonomous systems integrat
 3. **Use calibration on startup** - Ensures consistent zero position
 4. **Monitor position feedback** - Verify commands are being executed
 5. **Check state publishing rate** - Should maintain ~200 Hz
+
+## Known Limitations
+
+**Present Current Register (Mode 5):**
+- Register 126 (Present Current) may report 0mA during active position control
+- This is a Mode 5 firmware behavior, not a driver bug
+- Current is being applied (you can feel the force), but register doesn't reflect it
+- Stall detection uses position stagnation instead of current monitoring
+
+**Spring Force Current Multiplier:**
+- Gripper has internal spring that resists closing
+- Actual current draw is 3.2-3.4x commanded when fighting spring
+- Example: 17% command (190mA) → ~640mA actual current
+- This is normal behavior, not a malfunction
+- Force settings account for this multiplier
+
+**Temperature Monitoring:**
+- Continuous high force can cause thermal overload
+- Monitor temperature (register 146) at 30Hz
+- Overload typically triggers at 70-80°C
+- Reduce forces if temperature rises rapidly
+- Allow servo to cool between intensive operations
+
+**Calibration Time:**
+- Takes 2-4 seconds depending on starting position
+- Requires 5 consecutive stable readings (165ms minimum)
+- 1 second hardcoded wait after moving to 50%
+- Cannot be significantly accelerated without reducing reliability
 
 ## Troubleshooting
 
