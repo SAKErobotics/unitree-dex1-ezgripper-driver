@@ -40,7 +40,8 @@
     },
     "dynamixel_settings": {
       "operating_mode": 4,
-      "current_limit": 1600,
+      "current_limit": 1120,
+      "_comment_current_limit": "70% of max (1600). 1120 units × 3.36mA = 3763mA (3.76A) hardware limit",
       "velocity_limit": 1023,
       "profile_velocity": 0,
       "profile_acceleration": 0,

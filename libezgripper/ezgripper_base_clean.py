@@ -397,17 +397,20 @@ class Gripper:
             # Clamp to 0-100%
             sensor_data['position'] = max(0.0, min(100.0, position_pct))
             
-            # DEBUG: Log calculation details every second
+            # Parse current - MX-64: 1 unit = 3.36 mA
+            current_signed = self._sign_extend_16bit(current_raw)
+            sensor_data['current'] = abs(current_signed) * 3.36  # Convert to mA
+            
+            # DEBUG: Log sensor data including current
             import logging
             logger = logging.getLogger(self.name)
             if not hasattr(self, '_debug_counter'):
                 self._debug_counter = 0
             self._debug_counter += 1
+            
             if self._debug_counter % 30 == 0:  # Log once per second at 30Hz
                 logger.info(f"🔍 POS CALC: raw={position_raw}, closed={closed_pos}, diff={diff}, pct={position_pct:.1f}%, final={sensor_data['position']:.1f}%")
-            
-            # Parse current
-            sensor_data['current'] = self._sign_extend_16bit(current_raw)
+                logger.info(f"🔍 CURRENT: raw={current_raw}, signed={current_signed}, mA={sensor_data['current']:.1f}, temp={temperature}°C")
             
             # Parse temperature
             sensor_data['temperature'] = temperature
@@ -493,6 +496,22 @@ class Gripper:
         
         logger.debug(f"✅ Servo write complete")
 
+    def set_torque_enable(self, enable):
+        """
+        Enable or disable servo torque
+        
+        Args:
+            enable: True to enable torque, False to disable
+        """
+        import logging
+        logger = logging.getLogger(self.name)
+        
+        value = 1 if enable else 0
+        for servo in self.servos:
+            servo.write_address(64, [value])  # Torque Enable register
+        
+        logger.info(f"🔌 TORQUE: {'ENABLED' if enable else 'DISABLED'}")
+    
     def goto_position(self, position_pct, effort_pct):
         """
         Set target position - ALWAYS UNCLAMPED, goes until destination or collision
@@ -500,6 +519,7 @@ class Gripper:
         Args:
             position_pct: Target position (0% = closed, 100% = open, can be negative)
             effort_pct: Effort/current limit (0-100%)
+                       Special case: 0% disables torque completely (TESTING ONLY)
         """
         self.target_position = position_pct
         self.target_effort = effort_pct
@@ -509,8 +529,15 @@ class Gripper:
         logger = logging.getLogger(self.name)
         logger.info(f"🎯 GOTO: position={position_pct}%, effort={effort_pct}%")
         
-        # Actually write to servo
-        self.bulk_write_control_data()
+        # TESTING ONLY: 0% effort disables torque to verify no overload
+        # TODO: Replace with proper holding force once testing confirms no overload
+        if effort_pct == 0.0:
+            self.set_torque_enable(False)
+        else:
+            # Ensure torque is enabled before writing position/current
+            self.set_torque_enable(True)
+            # Actually write to servo
+            self.bulk_write_control_data()
 
     def calibrate(self):
         """
