@@ -89,7 +89,7 @@ class GraspManager:
         current_pct = (current_ma / hardware_current_limit_ma) * 100.0
         
         # Detect contact from servo state
-        contact_detected = self._detect_contact(current_position, current_pct)
+        contact_detected = self._detect_contact(current_position, current_pct, commanded_position)
         
         # Update state machine (driven by position commands AND servo state)
         self._update_state(commanded_position, current_position, contact_detected)
@@ -103,13 +103,14 @@ class GraspManager:
         
         return goal_position, goal_effort
     
-    def _detect_contact(self, current_position: float, current_pct: float) -> bool:
+    def _detect_contact(self, current_position: float, current_pct: float, commanded_position: float) -> bool:
         """
         Stall detection based purely on position (no current check):
         1. Only check when in MOVING state
         2. Track last 3 positions
         3. If all 3 positions are within 25 ticks (1.0%) of each other → stalled
-        4. Require 3 consecutive stalled readings to trigger
+        4. Only trigger if position error > 5% (gripper stuck, not at target)
+        5. Require 2 consecutive stalled readings to trigger
         
         This is separate from collision detection (which uses current).
         Stall detection triggers before overload can occur.
@@ -142,18 +143,22 @@ class GraspManager:
             position_stagnant = position_range < self.STALL_TOLERANCE_PCT
         
         # Criteria 2: Detect stall based on position alone (no current check)
-        # This triggers before overload can occur
-        if position_stagnant and len(self.position_history) >= 3:
+        # Only trigger if position is stagnant AND far from target (gripper is stuck, not at goal)
+        # Check if gripper is stuck (position stagnant but not at target)
+        position_error = abs(current_position - commanded_position)
+        is_stuck = position_stagnant and position_error > 5.0  # Stuck if >5% from target
+        
+        if is_stuck and len(self.position_history) >= 3:
             self.contact_sample_count += 1
             # Log stall detection progress - only when incrementing
             logger = logging.getLogger(__name__)
-            logger.info(f"🔍 STALL: pos={current_position:.2f}%, range={position_range:.2f}%, "
-                       f"current={current_pct:.1f}%, count={self.contact_sample_count}/{self.CONSECUTIVE_SAMPLES_REQUIRED}")
+            logger.info(f"🔍 STALL: pos={current_position:.2f}%, target={commanded_position:.2f}%, error={position_error:.2f}%, "
+                       f"range={position_range:.2f}%, count={self.contact_sample_count}/{self.CONSECUTIVE_SAMPLES_REQUIRED}")
         else:
             # Log when counter resets
             if self.contact_sample_count > 0:
                 logger = logging.getLogger(__name__)
-                logger.info(f"↻ STALL RESET: pos={current_position:.2f}%, range={position_range:.2f}% (> {self.STALL_TOLERANCE_PCT}%)")
+                logger.info(f"↻ STALL RESET: pos={current_position:.2f}%, error={position_error:.2f}% (at target or moving)")
             self.contact_sample_count = 0
         
         # Require N consecutive samples before declaring contact
