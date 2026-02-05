@@ -48,7 +48,7 @@
       "status_return_level": 2
     },
     "force_management": {
-      "moving_force_pct": 20,
+      "moving_force_pct": 10,
       "holding_force_pct": 10,
       "contact_force_pct": 10,
       "idle_force_pct": 0
@@ -60,6 +60,14 @@
       "consecutive_samples_required": 2,
       "stall_tolerance_pct": 1.0,
       "_comment_stall_tolerance": "Percentage tolerance for stall detection. Servo range: 2500 ticks = 100%, resolution: 1 tick = 0.04%. Value of 1.0% = 25 ticks. If 3 consecutive positions are all within 25 ticks of each other (max-min < 1.0%), they are considered the same position (stalled).",
+      "zero_target_tolerance_pct": 0.04,
+      "_comment_zero_tolerance": "Tight tolerance for detecting stable position at target 0%. Value of 0.04% = 1 tick. Used to trigger GRASPING when fully closed.",
+      "obstacle_error_threshold_pct": 5.0,
+      "_comment_obstacle_threshold": "Position error threshold for obstacle detection. If position stagnant and >5% from target, obstacle detected.",
+      "position_change_threshold_pct": 1.0,
+      "_comment_position_change": "Threshold for state transitions. Position must change by >1% to trigger state change.",
+      "command_change_threshold_pct": 3.0,
+      "_comment_command_change": "Threshold for sending new servo commands. Only send if position changes by >3%.",
       "monitor_frequency_hz": 30
     }
   },

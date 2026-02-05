@@ -48,8 +48,10 @@ class GraspManager:
         self.CONSECUTIVE_SAMPLES_REQUIRED = collision.get('consecutive_samples_required', 3)
         self.STAGNATION_THRESHOLD = collision.get('stagnation_movement_units', 0.5)
         self.STALL_TOLERANCE_PCT = collision.get('stall_tolerance_pct', 1.0)  # 25 ticks @ 0.04%/tick
-        self.POSITION_CHANGE_THRESHOLD = 1.0  # % - significant position change (lowered for responsiveness)
-        self.COMMAND_CHANGE_THRESHOLD = 3.0   # % - when to send new servo command
+        self.ZERO_TARGET_TOLERANCE_PCT = collision.get('zero_target_tolerance_pct', 0.04)  # 1 tick
+        self.OBSTACLE_ERROR_THRESHOLD_PCT = collision.get('obstacle_error_threshold_pct', 5.0)
+        self.POSITION_CHANGE_THRESHOLD = collision.get('position_change_threshold_pct', 1.0)
+        self.COMMAND_CHANGE_THRESHOLD = collision.get('command_change_threshold_pct', 3.0)
         
         # State
         self.state = GraspState.IDLE
@@ -159,12 +161,12 @@ class GraspManager:
         position_error = abs(current_position - commanded_position)
         
         # Case 1: Obstacle - stuck before reaching target
-        stuck_before_target = position_stagnant and position_error > 5.0
+        stuck_before_target = position_stagnant and position_error > self.OBSTACLE_ERROR_THRESHOLD_PCT
         
         # Case 2: Target is 0% and reached it (at or more closed)
         target_is_zero = commanded_position < 1.0
         reached_zero = current_position <= 1.0  # At 0% or more closed
-        very_stable = position_range < 0.04  # 1 tick = 0.04%, very tight tolerance
+        very_stable = position_range < self.ZERO_TARGET_TOLERANCE_PCT  # 1 tick = 0.04%, very tight tolerance
         at_zero_stable = target_is_zero and reached_zero and very_stable
         
         is_stuck = stuck_before_target or at_zero_stable
