@@ -268,9 +268,10 @@ class GraspManager:
             return self.contact_position, self.GRASPING_FORCE
         
         elif self.state == GraspState.GRASPING:
-            # Hold at current position with configured grasping force
+            # Hold at commanded position with configured grasping force
+            # This allows gripper to maintain closing pressure against object
             # Mode 5 current control prevents overload
-            return current_position, self.GRASPING_FORCE
+            return dds_position, self.GRASPING_FORCE
         
         # Fallback
         return current_position, 0.0
