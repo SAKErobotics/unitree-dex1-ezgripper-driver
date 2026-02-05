@@ -47,6 +47,7 @@ class GraspManager:
         self.CURRENT_THRESHOLD_PCT = collision.get('current_spike_threshold_pct', 40)
         self.CONSECUTIVE_SAMPLES_REQUIRED = collision.get('consecutive_samples_required', 3)
         self.STAGNATION_THRESHOLD = collision.get('stagnation_movement_units', 0.5)
+        self.STALL_TOLERANCE_PCT = collision.get('stall_tolerance_pct', 1.0)  # 25 ticks @ 0.04%/tick
         self.POSITION_CHANGE_THRESHOLD = 1.0  # % - significant position change (lowered for responsiveness)
         self.COMMAND_CHANGE_THRESHOLD = 3.0   # % - when to send new servo command
         
@@ -58,13 +59,14 @@ class GraspManager:
         self.last_servo_command = None
         self.contact_position = None
         self.last_current_pct = 0.0
-        self.last_position = None  # For stagnation detection
+        self.position_history = []  # Track last 3 positions for range check
         self.contact_sample_count = 0  # For consecutive sample filtering
         
         logger = logging.getLogger(__name__)
         logger.info("  ✅ GraspManager V2 Clean Implementation Loaded")
         logger.info(f"    Forces: MOVING={self.MOVING_FORCE}%, HOLDING={self.HOLDING_FORCE}%")
         logger.info(f"    Contact Detection: current>{self.CURRENT_THRESHOLD_PCT}%, stagnation<{self.STAGNATION_THRESHOLD}%, samples={self.CONSECUTIVE_SAMPLES_REQUIRED}")
+        logger.info(f"    Stall Tolerance: {self.STALL_TOLERANCE_PCT}% (25 ticks @ 0.04%/tick)")
         logger.info(f"    Thresholds: position_change={self.POSITION_CHANGE_THRESHOLD}%")
     
     def process_cycle(self, 
@@ -103,51 +105,64 @@ class GraspManager:
     
     def _detect_contact(self, current_position: float, current_pct: float) -> bool:
         """
-        Robust contact detection with multiple criteria:
-        1. Only check when in MOVING state (avoid false positives during acceleration)
-        2. High current (exceeds threshold)
-        3. Position stagnation (gripper stuck, not moving)
-        4. Consecutive samples (filter transient spikes)
+        Stall detection based purely on position (no current check):
+        1. Only check when in MOVING state
+        2. Track last 3 positions
+        3. If all 3 positions are within 25 ticks (1.0%) of each other → stalled
+        4. Require 3 consecutive stalled readings to trigger
         
-        This eliminates oscillation from instantaneous current spikes during movement.
+        This is separate from collision detection (which uses current).
+        Stall detection triggers before overload can occur.
         """
         # Only check for contact when actively moving
         if self.state != GraspState.MOVING:
             self.contact_sample_count = 0
             return False
         
-        # Criteria 1: High current
-        high_current = current_pct > self.CURRENT_THRESHOLD_PCT
+        # Debug: Log every call when in MOVING state
+        logger = logging.getLogger(__name__)
+        if len(self.position_history) == 0 or len(self.position_history) % 30 == 0:  # Log every second
+            logger.info(f"🔧 DETECT_CONTACT called: pos={current_position:.2f}%, state={self.state.value}, history_len={len(self.position_history)}")
         
-        # Criteria 2: Position stagnation (not moving despite command)
-        if self.last_position is not None:
-            position_change = abs(current_position - self.last_position)
-            position_stagnant = position_change < self.STAGNATION_THRESHOLD
-        else:
-            # First cycle - initialize tracking
-            position_stagnant = False
-            self.last_position = current_position
-            return False
+        # Criteria 1: Position stagnation - range check across 3 samples
+        # Track last 3 positions and check if they're all within tolerance of each other
+        # Tolerance: 25 ticks = 1.0% (if max-min < 1.0%, positions are "the same")
+        self.position_history.append(current_position)
+        if len(self.position_history) > 3:
+            self.position_history.pop(0)
         
-        # Update position tracking
-        self.last_position = current_position
+        position_stagnant = False
+        position_range = 0.0
         
-        # Criteria 3: Consecutive samples (both high current AND stagnation)
-        if high_current and position_stagnant:
+        if len(self.position_history) >= 3:
+            # Check if all 3 positions are within tolerance of each other
+            pos_min = min(self.position_history)
+            pos_max = max(self.position_history)
+            position_range = pos_max - pos_min
+            position_stagnant = position_range < self.STALL_TOLERANCE_PCT
+        
+        # Criteria 2: Detect stall based on position alone (no current check)
+        # This triggers before overload can occur
+        if position_stagnant and len(self.position_history) >= 3:
             self.contact_sample_count += 1
+            # Log stall detection progress - only when incrementing
+            logger = logging.getLogger(__name__)
+            logger.info(f"🔍 STALL: pos={current_position:.2f}%, range={position_range:.2f}%, "
+                       f"current={current_pct:.1f}%, count={self.contact_sample_count}/{self.CONSECUTIVE_SAMPLES_REQUIRED}")
         else:
+            # Log when counter resets
+            if self.contact_sample_count > 0:
+                logger = logging.getLogger(__name__)
+                logger.info(f"↻ STALL RESET: pos={current_position:.2f}%, range={position_range:.2f}% (> {self.STALL_TOLERANCE_PCT}%)")
             self.contact_sample_count = 0
         
-        # Debug logging for contact detection
-        if self.state == GraspState.MOVING and (high_current or position_stagnant):
-            logger = logging.getLogger(__name__)
-            logger.info(f"🔍 CONTACT CHECK: current={current_pct:.1f}% (thresh={self.CURRENT_THRESHOLD_PCT}%), "
-                       f"pos_change={position_change:.2f}% (thresh={self.STAGNATION_THRESHOLD}%), "
-                       f"samples={self.contact_sample_count}/{self.CONSECUTIVE_SAMPLES_REQUIRED}")
-        
         # Require N consecutive samples before declaring contact
-        # This filters out transient spikes during acceleration
-        return self.contact_sample_count >= self.CONSECUTIVE_SAMPLES_REQUIRED
+        contact_triggered = self.contact_sample_count >= self.CONSECUTIVE_SAMPLES_REQUIRED
+        if contact_triggered:
+            logger = logging.getLogger(__name__)
+            logger.info(f"🖐️ CONTACT DETECTED at {current_position:.2f}%")
+        
+        return contact_triggered
     
     def _update_state(self, dds_position: float, current_position: float, contact_detected: bool):
         """

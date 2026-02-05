@@ -48,16 +48,18 @@
       "status_return_level": 2
     },
     "force_management": {
-      "moving_force_pct": 80,
+      "moving_force_pct": 20,
       "holding_force_pct": 10,
       "contact_force_pct": 10,
       "idle_force_pct": 0
     },
     "collision_detection": {
-      "current_spike_threshold_pct": 40,
+      "enabled": true,
+      "current_spike_threshold_pct": 25,
       "stagnation_movement_units": 0.5,
-      "consecutive_samples_required": 3,
-      "settling_cycles": 10,
+      "consecutive_samples_required": 2,
+      "stall_tolerance_pct": 1.0,
+      "_comment_stall_tolerance": "Percentage tolerance for stall detection. Servo range: 2500 ticks = 100%, resolution: 1 tick = 0.04%. Value of 1.0% = 25 ticks. If 3 consecutive positions are all within 25 ticks of each other (max-min < 1.0%), they are considered the same position (stalled).",
       "monitor_frequency_hz": 30
     }
   },
@@ -90,7 +92,9 @@
     "enabled": true,
     "topic_prefix": "rt/gripper",
     "rate_hz": 30,
-    "qos_reliability": "RELIABLE"
+    "qos_reliability": "RELIABLE",
+    "debug_enabled": false,
+    "debug_topic_prefix": "rt/gripper/debug"
   },
   "logging": {
     "enabled": true,
