@@ -121,28 +121,6 @@ config = load_config()  # Uses config_default.json
   - **timeout**: Wait time at hard stop
   - **auto_on_init**: Auto-calibrate on startup (false = manual)
 
-### Wave-Following Configuration
-
-```json
-{
-  "wave_following": {
-    "enabled": true,
-    "history_window": 10,
-    "variance_threshold": 2.0,
-    "position_tolerance": 5,
-    "mode_switch_delay": 0.5
-  }
-}
-```
-
-#### Parameters
-- **enabled**: Enable wave-following algorithm
-- **history_window**: Number of commands to analyze (10 = last 10 commands)
-- **variance_threshold**: Variance below this = steady state (2.0 units²)
-- **position_tolerance**: Position error tolerance for "at goal" (5 units)
-- **mode_switch_delay**: Delay before switching to holding mode (0.5 sec)
-  - Prevents rapid oscillation between modes
-
 ### Health Interface Configuration
 
 ```json
@@ -270,10 +248,6 @@ print(f"Goal position: {config.reg_goal_position}")
 # Gripper parameters
 print(f"Grip max: {config.grip_max}")
 print(f"Dex1 open: {config.dex1_open_radians} rad")
-
-# Wave-following
-print(f"Wave enabled: {config.wave_following_enabled}")
-print(f"Variance threshold: {config.wave_variance_threshold}")
 ```
 
 ## Validation
