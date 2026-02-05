@@ -565,7 +565,7 @@ class Gripper:
         self.bulk_write_position.addParam(servo_id, pos_param)
         self.bulk_write_position.txPacket()
         
-        # Monitor until stable contact
+        # Monitor until stable contact (position stagnation detection)
         stable_count = 0
         stable_required = 5  # Require 5 consecutive stable readings (165ms)
         last_position = None
@@ -574,75 +574,64 @@ class Gripper:
         for cycle in range(200):  # 6.6 second timeout
             time.sleep(0.033)
             
-            # Read current and position
+            # Read position only - MX-64 in Mode 5 doesn't return actual current
             result = self.bulk_read.txRxPacket()
             if result == COMM_SUCCESS:
-                current_raw = self.bulk_read.getData(servo_id, 126, 2)
-                current_ma = abs(self._sign_extend_16bit(current_raw))
                 position_raw = self.bulk_read.getData(servo_id, 132, 4)
                 
-                # Log every cycle when current is high to see variance
-                if current_ma > 300:  # Start logging near threshold
-                    position_change = abs(position_raw - last_position) if last_position is not None else 0
-                    print(f"    {cycle}: current={current_ma}mA, pos={position_raw}, change={position_change}, stable={stable_count}")
-                elif cycle % 10 == 0:
-                    print(f"    {cycle}: current={current_ma}mA, pos={position_raw}, stable={stable_count}")
-                
-                # Check if position is stable AND current is high
-                if current_ma > current_threshold_ma:
-                    if last_position is not None:
-                        position_change = abs(position_raw - last_position)
-                        
-                        if position_change <= position_threshold:
-                            # Position stable, current high - increment counter
-                            stable_count += 1
-                            
-                            if stable_count >= stable_required:
-                                print(f"  ✅ Stable contact: {stable_count} consecutive readings")
-                                print(f"     Current: {current_ma}mA, Position: {position_raw}")
-                                
-                                # Record zero (positive value for position calculation)
-                                self.zero_positions[0] = position_raw
-                                print(f"  📍 Zero offset: {self.zero_positions[0]}")
-                                
-                                # Move to stable 50% position with torque enabled
-                                # This prevents spring force from opening gripper uncontrollably
-                                print(f"  🎯 Moving to 50% position...")
-                                grip_max = self.config._config.get('gripper', {}).get('grip_max', 2500)
-                                target_50pct = self.zero_positions[0] + int(grip_max * 0.5)  # 50% of range
-                                
-                                # Write position with moderate current
-                                max_current = self.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
-                                moderate_current = int(max_current * 0.4)  # 40% current for stable hold
-                                self.bulk_write_current.clearParam()
-                                current_param = [moderate_current & 0xFF, (moderate_current >> 8) & 0xFF]
-                                self.bulk_write_current.addParam(servo_id, current_param)
-                                self.bulk_write_current.txPacket()
-                                
-                                self.bulk_write_position.clearParam()
-                                pos_param = [
-                                    target_50pct & 0xFF,
-                                    (target_50pct >> 8) & 0xFF,
-                                    (target_50pct >> 16) & 0xFF,
-                                    (target_50pct >> 24) & 0xFF
-                                ]
-                                self.bulk_write_position.addParam(servo_id, pos_param)
-                                self.bulk_write_position.txPacket()
-                                
-                                # Wait for movement to complete
-                                time.sleep(1.0)
-                                
-                                print(f"  ✅ Calibration complete - gripper at 50% with torque enabled")
-                                return True
-                        else:
-                            # Position changed - reset counter
-                            stable_count = 0
+                # Check if position is stable (stagnant = contact detected)
+                if last_position is not None:
+                    position_change = abs(position_raw - last_position)
                     
-                    last_position = position_raw
-                else:
-                    # Current dropped - reset counter
-                    stable_count = 0
-                    last_position = position_raw
+                    if position_change <= position_threshold:
+                        # Position stable - increment counter
+                        stable_count += 1
+                        
+                        if cycle % 5 == 0:  # Log every 5 cycles
+                            print(f"    {cycle}: pos={position_raw}, change={position_change}, stable={stable_count}/{stable_required}")
+                        
+                        if stable_count >= stable_required:
+                            print(f"  ✅ Stable contact: {stable_count} consecutive readings")
+                            print(f"     Position: {position_raw}")
+                            
+                            # Record zero (positive value for position calculation)
+                            self.zero_positions[0] = position_raw
+                            print(f"  📍 Zero offset: {self.zero_positions[0]}")
+                            
+                            # Move to stable 50% position with torque enabled
+                            # This prevents spring force from opening gripper uncontrollably
+                            print(f"  🎯 Moving to 50% position...")
+                            grip_max = self.config._config.get('gripper', {}).get('grip_max', 2500)
+                            target_50pct = self.zero_positions[0] + int(grip_max * 0.5)  # 50% of range
+                            
+                            # Write position with moderate current
+                            max_current = self.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
+                            moderate_current = int(max_current * 0.4)  # 40% current for stable hold
+                            self.bulk_write_current.clearParam()
+                            current_param = [moderate_current & 0xFF, (moderate_current >> 8) & 0xFF]
+                            self.bulk_write_current.addParam(servo_id, current_param)
+                            self.bulk_write_current.txPacket()
+                            
+                            self.bulk_write_position.clearParam()
+                            pos_param = [
+                                target_50pct & 0xFF,
+                                (target_50pct >> 8) & 0xFF,
+                                (target_50pct >> 16) & 0xFF,
+                                (target_50pct >> 24) & 0xFF
+                            ]
+                            self.bulk_write_position.addParam(servo_id, pos_param)
+                            self.bulk_write_position.txPacket()
+                            
+                            # Wait for movement to complete
+                            time.sleep(1.0)
+                            
+                            print(f"  ✅ Calibration complete - gripper at 50% with torque enabled")
+                            return True
+                    else:
+                        # Position changed - reset counter
+                        stable_count = 0
+                
+                last_position = position_raw
         
         # Timeout
         print(f"  ❌ Timeout - stopping")
