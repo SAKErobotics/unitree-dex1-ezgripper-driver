@@ -496,22 +496,6 @@ class Gripper:
         
         logger.debug(f"✅ Servo write complete")
 
-    def set_torque_enable(self, enable):
-        """
-        Enable or disable servo torque
-        
-        Args:
-            enable: True to enable torque, False to disable
-        """
-        import logging
-        logger = logging.getLogger(self.name)
-        
-        value = 1 if enable else 0
-        for servo in self.servos:
-            servo.write_address(64, [value])  # Torque Enable register
-        
-        logger.info(f"🔌 TORQUE: {'ENABLED' if enable else 'DISABLED'}")
-    
     def goto_position(self, position_pct, effort_pct):
         """
         Set target position - ALWAYS UNCLAMPED, goes until destination or collision
@@ -519,7 +503,6 @@ class Gripper:
         Args:
             position_pct: Target position (0% = closed, 100% = open, can be negative)
             effort_pct: Effort/current limit (0-100%)
-                       Special case: 0% disables torque completely (TESTING ONLY)
         """
         self.target_position = position_pct
         self.target_effort = effort_pct
@@ -529,15 +512,8 @@ class Gripper:
         logger = logging.getLogger(self.name)
         logger.info(f"🎯 GOTO: position={position_pct}%, effort={effort_pct}%")
         
-        # TESTING ONLY: 0% effort disables torque to verify no overload
-        # TODO: Replace with proper holding force once testing confirms no overload
-        if effort_pct == 0.0:
-            self.set_torque_enable(False)
-        else:
-            # Ensure torque is enabled before writing position/current
-            self.set_torque_enable(True)
-            # Actually write to servo
-            self.bulk_write_control_data()
+        # Actually write to servo
+        self.bulk_write_control_data()
 
     def calibrate(self):
         """

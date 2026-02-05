@@ -230,9 +230,9 @@ class GraspManager:
             self.state = GraspState.GRASPING
         
         elif self.state == GraspState.GRASPING:
-            # Position command (release) drives transition back to MOVING
-            # Release when commanded position is more open than current position
-            if dds_position > current_position + self.POSITION_CHANGE_THRESHOLD:
+            # Any significant command change exits GRASPING state
+            # This allows recovery after torque disable
+            if abs(dds_position - current_position) > self.POSITION_CHANGE_THRESHOLD:
                 self.state = GraspState.MOVING
                 self.contact_position = None
         
@@ -261,9 +261,9 @@ class GraspManager:
             return self.contact_position, self.HOLDING_FORCE
         
         elif self.state == GraspState.GRASPING:
-            # Hold at current position with torque disabled (0% force)
-            # This prevents overload by removing all force application
-            return current_position, 0.0
+            # Hold at current position with 10% force
+            # Testing if 10% with 70% current limit prevents overload
+            return current_position, 10.0
         
         # Fallback
         return current_position, 0.0
