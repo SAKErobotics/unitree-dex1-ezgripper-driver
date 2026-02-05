@@ -41,7 +41,6 @@ class GraspManager:
         # Load config
         force_mgmt = config._config.get('servo', {}).get('force_management', {})
         self.MOVING_FORCE = force_mgmt.get('moving_force_pct', 80)
-        self.HOLDING_FORCE = force_mgmt.get('holding_force_pct', 20)
         self.GRASPING_FORCE = force_mgmt.get('grasping_force_pct', 10)
         
         collision = config._config.get('servo', {}).get('collision_detection', {})
@@ -68,7 +67,7 @@ class GraspManager:
         
         logger = logging.getLogger(__name__)
         logger.info("  ✅ GraspManager V2 Clean Implementation Loaded")
-        logger.info(f"    Forces: MOVING={self.MOVING_FORCE}%, HOLDING={self.HOLDING_FORCE}%, GRASPING={self.GRASPING_FORCE}%")
+        logger.info(f"    Forces: MOVING={self.MOVING_FORCE}%, GRASPING={self.GRASPING_FORCE}%")
         logger.info(f"    Contact Detection: current>{self.CURRENT_THRESHOLD_PCT}%, stagnation<{self.STAGNATION_THRESHOLD}%, samples={self.CONSECUTIVE_SAMPLES_REQUIRED}")
         logger.info(f"    Stall Tolerance: {self.STALL_TOLERANCE_PCT}% (25 ticks @ 0.04%/tick)")
         logger.info(f"    Thresholds: position_change={self.POSITION_CHANGE_THRESHOLD}%")
@@ -262,8 +261,8 @@ class GraspManager:
             return dds_position, self.MOVING_FORCE
         
         elif self.state == GraspState.CONTACT:
-            # Hold at contact position
-            return self.contact_position, self.HOLDING_FORCE
+            # Hold at contact position (brief transition state before GRASPING)
+            return self.contact_position, self.GRASPING_FORCE
         
         elif self.state == GraspState.GRASPING:
             # Hold at current position with configured grasping force
