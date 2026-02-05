@@ -12,7 +12,6 @@ import time
 import math
 import argparse
 import logging
-import sys
 import os
 import json
 import threading
@@ -33,6 +32,13 @@ from libezgripper.grasp_manager import GraspManager
 from libezgripper.gripper_telemetry import GripperTelemetry
 from libezgripper.health_monitor import HealthMonitor
 import serial.tools.list_ports
+import importlib
+import sys
+
+# Force reload of grasp_manager to ensure latest code is used
+if 'libezgripper.grasp_manager' in sys.modules:
+    importlib.reload(sys.modules['libezgripper.grasp_manager'])
+    from libezgripper.grasp_manager import GraspManager  # Re-import after reload
 
 
 @dataclass
@@ -450,18 +456,27 @@ class CorrectedEZGripperDriver:
         self.state_publisher = ChannelPublisher(state_topic_name, MotorStates_)
         self.state_publisher.Init()
         
-        # Setup telemetry publisher if enabled
+        # Setup telemetry publisher - always enabled for monitoring
         telemetry_config = self.gripper.config._config.get('telemetry', {})
-        self.telemetry_enabled = telemetry_config.get('enabled', False)
+        topic_prefix = telemetry_config.get('topic_prefix', 'rt/gripper')
+        telemetry_topic = f"{topic_prefix}/{self.side}/telemetry"
         
-        if self.telemetry_enabled:
-            topic_prefix = telemetry_config.get('topic_prefix', 'rt/gripper')
-            telemetry_topic = f"{topic_prefix}/{self.side}/telemetry"
-            
-            # Note: Using JSON string publishing since we don't have a DDS IDL for custom message
-            # The telemetry will be published as JSON for flexibility
-            self.logger.info(f"Telemetry enabled: {telemetry_topic} @ 30Hz")
+        # Create telemetry publisher using String_ type for JSON
+        from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
+        self.telemetry_publisher = ChannelPublisher(telemetry_topic, String_)
+        self.telemetry_publisher.Init()
+        self.telemetry_enabled = True
         
+        # Setup debug telemetry publisher if enabled
+        self.debug_telemetry_enabled = telemetry_config.get('debug_enabled', False)
+        if self.debug_telemetry_enabled:
+            debug_topic_prefix = telemetry_config.get('debug_topic_prefix', 'rt/gripper/debug')
+            debug_topic = f"{debug_topic_prefix}/{self.side}"
+            self.debug_telemetry_publisher = ChannelPublisher(debug_topic, String_)
+            self.debug_telemetry_publisher.Init()
+            self.logger.info(f"Debug telemetry publisher ready: {debug_topic} @ 30Hz")
+        
+        self.logger.info(f"Telemetry publisher ready: {telemetry_topic} @ 30Hz")
         self.logger.info(f"DDS ready: {cmd_topic_name} → {state_topic_name}")
     
     def calibrate(self):
@@ -544,7 +559,9 @@ class CorrectedEZGripperDriver:
     def command_reception_loop(self):
         """Dedicated thread for DDS command reception (blocking Read() is OK here)"""
         self.logger.info("Starting command reception thread...")
+        self.logger.info(f"Listening on topic: rt/dex1/{self.side}/cmd")
         
+        cmd_count = 0
         while self.running:
             try:
                 # ChannelSubscriber.Read() blocks until message arrives - that's OK in this thread
@@ -552,10 +569,14 @@ class CorrectedEZGripperDriver:
                 
                 if cmd_msg and hasattr(cmd_msg, 'cmds') and cmd_msg.cmds and len(cmd_msg.cmds) > 0:
                     motor_cmd = cmd_msg.cmds[0]
+                    cmd_count += 1
                     
                     # Convert Dex1 command to gripper parameters
                     target_position = self.dex1_to_ezgripper(motor_cmd.q)
-                    self.logger.info(f"📥 DDS CMD: q={motor_cmd.q:.3f} rad → {target_position:.1f}%")
+                    
+                    # Log every command for debugging (will reduce later)
+                    if cmd_count % 10 == 1:  # Log every 10th command
+                        self.logger.info(f"📥 DDS CMD #{cmd_count}: q={motor_cmd.q:.3f} rad → {target_position:.1f}%")
                     
                     # Position commands ALWAYS use 100% effort
                     actual_effort = 100.0
@@ -568,13 +589,19 @@ class CorrectedEZGripperDriver:
                         q_radians=motor_cmd.q,
                         tau=motor_cmd.tau
                     )
+                else:
+                    # Log when we get a message but it's empty/invalid
+                    if cmd_count == 0:  # Only log if we haven't received any valid commands yet
+                        self.logger.warning(f"Received invalid/empty command message: {cmd_msg}")
             
             except Exception as e:
                 if self.running:  # Only log if not shutting down
                     self.logger.error(f"Command reception error: {e}")
+                    import traceback
+                    self.logger.error(traceback.format_exc())
                     time.sleep(0.1)  # Brief pause on error
         
-        self.logger.info("Command reception thread stopped")
+        self.logger.info(f"Command reception thread stopped (received {cmd_count} commands total)")
     
     def execute_command(self):
         """
@@ -624,6 +651,10 @@ class CorrectedEZGripperDriver:
             
             # Track managed effort for telemetry
             self.managed_effort = goal_effort
+            
+            # Publish debug telemetry if enabled
+            if self.debug_telemetry_enabled:
+                self._publish_debug_telemetry(cmd, sensor_data, goal_position, goal_effort)
             
             self.gripper.goto_position(goal_position, goal_effort)
             
@@ -679,6 +710,30 @@ class CorrectedEZGripperDriver:
                 direction = 1.0 if position_error > 0 else -1.0
                 self.predicted_position_pct += direction * max_delta
     
+    def _publish_debug_telemetry(self, cmd, sensor_data, goal_position, goal_effort):
+        """Publish debug telemetry to DDS for contact detection analysis"""
+        try:
+            import json
+            from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
+            
+            debug_info = self.grasp_manager.get_debug_info()
+            debug_data = {
+                'timestamp': time.time(),
+                'commanded_position': cmd.position_pct,
+                'actual_position': sensor_data.get('position', 0.0),
+                'goal_position': goal_position,
+                'goal_effort': goal_effort,
+                'current_ma': abs(sensor_data.get('current', 0)),
+                'grasp_manager': debug_info
+            }
+            
+            json_str = json.dumps(debug_data)
+            msg = String_(data=json_str)
+            self.debug_telemetry_publisher.Write(msg)
+            
+        except Exception as e:
+            self.logger.error(f"Debug telemetry publishing failed: {e}")
+    
     def _publish_telemetry(self):
         """Publish internal telemetry at 30Hz (called from control loop)"""
         try:
@@ -698,9 +753,16 @@ class CorrectedEZGripperDriver:
                                f"temp={telemetry.temperature_c:.1f}°C, "
                                f"error={telemetry.hardware_error}")
             
-            # TODO: Publish to DDS topic as JSON string
-            # For now, telemetry is just logged and available via from_driver_state()
-            # Full DDS publishing would require a string topic or custom IDL
+            # Publish to DDS as JSON string
+            if self.telemetry_enabled and self.telemetry_publisher:
+                import json
+                from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
+                
+                telemetry_dict = telemetry.to_dict()
+                json_str = json.dumps(telemetry_dict)
+                
+                msg = String_(data=json_str)
+                self.telemetry_publisher.Write(msg)
             
         except Exception as e:
             self.logger.error(f"Telemetry publishing failed: {e}")
@@ -821,9 +883,6 @@ class CorrectedEZGripperDriver:
         try:
             while self.running:
                 try:
-                    # Execute latest command (received by separate thread)
-                    self.execute_command()
-                    
                     # Read sensor data + collision detection (continuous at 30 Hz)
                     try:
                         result = self.gripper.update_main_loop()
@@ -832,7 +891,39 @@ class CorrectedEZGripperDriver:
                             sensor_data = result['sensor_data']
                             self.current_sensor_data = sensor_data
                             
-                            self.logger.info(f"📊 SENSOR: raw={sensor_data.get('position_raw', 'N/A')}, pct={sensor_data.get('position', 'N/A'):.1f}%")
+                            # Process GraspManager every 30Hz cycle (autonomous control)
+                            # Get commanded position from latest DDS command (or hold current if no command)
+                            if self.latest_command is not None:
+                                commanded_position = self.latest_command.position_pct
+                            else:
+                                commanded_position = sensor_data.get('position', 50.0)  # Default to current position
+                            
+                            sensor_data['commanded_position'] = commanded_position
+                            
+                            # Get hardware current limit from config
+                            hardware_current_limit = self.gripper.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
+                            
+                            # GraspManager runs every cycle for autonomous stall detection
+                            goal_position, goal_effort = self.grasp_manager.process_cycle(
+                                sensor_data=sensor_data,
+                                hardware_current_limit_ma=hardware_current_limit
+                            )
+                            
+                            # Track managed effort for telemetry
+                            self.managed_effort = goal_effort
+                            
+                            # Execute managed goal to hardware
+                            self.gripper.goto_position(goal_position, goal_effort)
+                            
+                            # Log periodically
+                            if self.command_count % 30 == 0:  # Every second at 30Hz
+                                state_info = self.grasp_manager.get_state_info()
+                                self.logger.info(f"🎯 AUTONOMOUS: pos={goal_position:.1f}%, effort={goal_effort:.1f}%, state={state_info.get('state', 'UNKNOWN')}")
+                            
+                            self.command_count += 1
+                            
+                            current_ma = sensor_data.get('current', 0)
+                            self.logger.info(f"📊 SENSOR: raw={sensor_data.get('position_raw', 'N/A')}, pct={sensor_data.get('position', 'N/A'):.1f}%, current={current_ma}mA")
                             
                             self._handle_servo_errors(self.get_error_details())
                             
@@ -848,6 +939,7 @@ class CorrectedEZGripperDriver:
                             
                             self.comm_error_count = 0
                             self.last_successful_comm = time.time()
+                            self.hardware_healthy = True  # Reset health on successful communication
                         
                     except Exception as e:
                         self._handle_communication_error(e)
@@ -963,7 +1055,9 @@ class CorrectedEZGripperDriver:
             
             # Wait for threads to stop
             if self.command_thread and self.command_thread.is_alive():
-                self.command_thread.join(timeout=1.0)
+                self.config_path = config_path or self.DEFAULT_CONFIG_PATH
+            self.config = GripperConfig(self.config_path)
+            config = self.config # Keep local variable for existing code
             if self.control_thread and self.control_thread.is_alive():
                 self.control_thread.join(timeout=1.5)
             if self.state_thread and self.state_thread.is_alive():
