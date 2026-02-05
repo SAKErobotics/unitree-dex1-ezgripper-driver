@@ -123,12 +123,14 @@ class GripperTelemetry:
                 current_ma = abs(driver.current_sensor_data.get('current', 0))
                 max_current = driver.gripper.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
                 current_pct = (current_ma / float(max_current)) * 100.0
-                current_threshold_exceeded = current_pct > gm.CURRENT_THRESHOLD_PCT
+                # Note: Current threshold detection removed - not used in stall-based detection
+                current_threshold_exceeded = False
                 
                 # Check position stagnation
                 if hasattr(gm, 'last_position') and gm.last_position is not None:
                     position_change = abs(actual_pos - gm.last_position)
-                    position_stagnant = position_change < gm.STAGNATION_THRESHOLD
+                    # Use POSITION_CHANGE_THRESHOLD instead of removed STAGNATION_THRESHOLD
+                    position_stagnant = position_change < gm.POSITION_CHANGE_THRESHOLD
         
         # Get health data
         temperature_c = -1.0

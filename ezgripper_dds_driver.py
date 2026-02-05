@@ -1055,9 +1055,7 @@ class CorrectedEZGripperDriver:
             
             # Wait for threads to stop
             if self.command_thread and self.command_thread.is_alive():
-                self.config_path = config_path or self.DEFAULT_CONFIG_PATH
-            self.config = GripperConfig(self.config_path)
-            config = self.config # Keep local variable for existing code
+                self.command_thread.join(timeout=1.5)
             if self.control_thread and self.control_thread.is_alive():
                 self.control_thread.join(timeout=1.5)
             if self.state_thread and self.state_thread.is_alive():
