@@ -290,18 +290,18 @@ class GripperControlGUI:
         import os
         
         log_file = "/tmp/driver_test.log"
-        last_position = 0
         
         def read_telemetry():
-            nonlocal last_position
-            
             try:
                 if os.path.exists(log_file):
                     with open(log_file, 'r') as f:
-                        # Seek to last read position
-                        f.seek(last_position)
+                        # Read last 100 lines to find most recent telemetry
+                        f.seek(0, 2)  # Seek to end
+                        file_size = f.tell()
+                        # Read last ~10KB (enough for ~100 lines)
+                        read_size = min(10000, file_size)
+                        f.seek(file_size - read_size)
                         lines = f.readlines()
-                        last_position = f.tell()
                         
                         # Find last telemetry line
                         for line in reversed(lines):
