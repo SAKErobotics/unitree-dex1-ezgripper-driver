@@ -120,10 +120,17 @@ class GraspManager:
             self.contact_sample_count = 0
             return False
         
+        # Only detect stalls when CLOSING (commanded < current)
+        # Opening movements should not trigger stall detection
+        is_closing = commanded_position < current_position
+        if not is_closing:
+            self.contact_sample_count = 0
+            return False
+        
         # Debug: Log every call when in MOVING state
         logger = logging.getLogger(__name__)
         if len(self.position_history) == 0 or len(self.position_history) % 30 == 0:  # Log every second
-            logger.info(f"🔧 DETECT_CONTACT called: pos={current_position:.2f}%, state={self.state.value}, history_len={len(self.position_history)}")
+            logger.info(f"🔧 DETECT_CONTACT called: pos={current_position:.2f}%, target={commanded_position:.2f}%, closing={is_closing}")
         
         # Criteria 1: Position stagnation - range check across 3 samples
         # Track last 3 positions and check if they're all within tolerance of each other
