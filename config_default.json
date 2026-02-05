@@ -39,7 +39,8 @@
       "status_return_level": 1
     },
     "dynamixel_settings": {
-      "operating_mode": 4,
+      "operating_mode": 5,
+      "_comment_operating_mode": "Mode 5: Current-based Position Control - used in humanoid robots for constant loads. PID outputs desired current (not PWM), then current controller manages torque. Prevents overload with spring force.",
       "current_limit": 1120,
       "_comment_current_limit": "70% of max (1600). 1120 units × 3.36mA = 3763mA (3.76A) hardware limit",
       "velocity_limit": 1023,
