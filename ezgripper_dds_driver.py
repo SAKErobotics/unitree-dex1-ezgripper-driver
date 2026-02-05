@@ -1169,13 +1169,4 @@ def main():
 
 
 if __name__ == "__main__":
-    # Clear log file at startup for clean test runs
-    log_file = '/tmp/driver_test.log'
-    if os.path.exists(log_file):
-        try:
-            os.remove(log_file)
-            print(f"Cleared previous log file: {log_file}")
-        except Exception as e:
-            print(f"Warning: Could not clear log file: {e}")
-    
     main()
