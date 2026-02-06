@@ -49,7 +49,7 @@ class GraspManager:
         detection = state_machine.get('contact', {}).get('detection', {})
         self.CONSECUTIVE_SAMPLES_REQUIRED = detection.get('consecutive_samples_required', 3)
         self.STALL_TOLERANCE_PCT = detection.get('stall_tolerance_pct', 1.0)
-        self.ZERO_TARGET_TOLERANCE_PCT = detection.get('zero_target_tolerance_pct', 0.04)
+        self.ZERO_TARGET_TOLERANCE_PCT = detection.get('zero_target_tolerance_pct', 3.0)  # Increased to handle sensor jitter at 0%
         self.OBSTACLE_ERROR_THRESHOLD_PCT = detection.get('obstacle_error_threshold_pct', 5.0)
         
         # Transition thresholds
@@ -211,7 +211,6 @@ class GraspManager:
         elif self.state == GraspState.MOVING:
             # Servo state (contact) drives transition to CONTACT
             # If gripper cannot reach commanded position, contact detection will trigger
-            # (high current + position stagnation = object blocking movement)
             if contact_detected:
                 self.state = GraspState.CONTACT
                 self.contact_position = current_position
