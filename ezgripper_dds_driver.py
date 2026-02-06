@@ -520,21 +520,19 @@ class CorrectedEZGripperDriver:
     
     def dex1_to_ezgripper(self, q_radians: float) -> float:
         """
-        Convert Dex1 position to EZGripper position with INVERSION at interface.
+        Convert Dex1 position to EZGripper position - direct mapping.
         
-        Unitree Dex1 convention: 0.0 rad = trigger released, 5.4 rad = trigger squeezed
-        Customer expectation: Squeezing trigger should CLOSE gripper
-        
+        Unitree Dex1 convention: 0.0 rad = closed, 5.4 rad = open
         EZGripper internal: 0% = closed, max_open_percent = open
         Commands are scaled: 100% input → max_open_percent output
         
-        INVERSION ONLY AT INTERFACE:
-        - 0.0 rad (released) -> max_open_percent (open)
-        - 5.4 rad (squeezed) -> 0% (closed)
+        Direct mapping:
+        - 0.0 rad -> 0% (closed)
+        - 5.4 rad -> max_open_percent (open)
         """
         q_clamped = max(0.0, min(5.4, q_radians))
-        # Invert: 0 rad -> 100%, 5.4 rad -> 0%
-        position_100 = 100.0 - (q_clamped / 5.4) * 100.0
+        # Direct mapping: 0 rad -> 0%, 5.4 rad -> 100%
+        position_100 = (q_clamped / 5.4) * 100.0
         
         # Scale to max_open_percent: 100% input → max_open_percent output
         max_open = self.gripper.config.max_open_percent
@@ -544,22 +542,23 @@ class CorrectedEZGripperDriver:
     
     def ezgripper_to_dex1(self, position_pct: float) -> float:
         """
-        Convert EZGripper position to Dex1 position with INVERSION at interface.
+        Convert EZGripper position to Dex1 position - direct mapping.
         
         EZGripper internal: 0% = closed, max_open_percent = open
-        Unitree Dex1 convention: 0.0 rad = trigger released, 5.4 rad = trigger squeezed
+        Unitree Dex1 convention: 0.0 rad = closed, 5.4 rad = open
         
-        INVERSION ONLY AT INTERFACE:
-        - 0% (closed) -> 5.4 rad (squeezed)
-        - max_open_percent (open) -> 0.0 rad (released)
+        Direct mapping:
+        - 0% (closed) -> 0.0 rad
+        - max_open_percent (open) -> 5.4 rad
         """
-        # Reverse scaling: max_open_percent → 100% for feedback
         max_open = self.gripper.config.max_open_percent
-        position_100 = (position_pct / max_open) * 100.0 if max_open > 0 else 0.0
-        position_100 = max(0.0, min(100.0, position_100))
         
-        # Invert: 100% -> 0 rad, 0% -> 5.4 rad
-        return (100.0 - position_100) / 100.0 * 5.4
+        # Unscale from max_open_percent to 0-100%
+        position_100 = (position_pct / max_open) * 100.0
+        pct_clamped = max(0.0, min(100.0, position_100))
+        
+        # Direct mapping: 0% -> 0 rad, 100% -> 5.4 rad
+        return (pct_clamped / 100.0) * 5.4
     
     def dex1_to_effort(self, tau: float) -> float:
         """

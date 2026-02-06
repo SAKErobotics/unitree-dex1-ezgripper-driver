@@ -203,11 +203,11 @@ class GripperControlGUI:
         
     def _send_command(self):
         try:
-            # Convert percentage (0-100) to radians (0-5.4) with INVERSION
+            # Convert percentage (0-100) to radians (0-5.4) - direct mapping
             # GUI shows: 0% = closed, 100% = open
-            # DDS expects: 0 rad = open (trigger released), 5.4 rad = closed (trigger squeezed)
-            # INVERT: 0% -> 5.4 rad, 100% -> 0 rad
-            q_rad = (100.0 - self.current_position) / 100.0 * 5.4
+            # DDS expects: 0 rad = closed, 5.4 rad = open
+            # Direct: 0% -> 0 rad, 100% -> 5.4 rad
+            q_rad = (self.current_position / 100.0) * 5.4
             
             # Effort is informational only - GraspManager manages force internally
             # Send nominal 30% effort (will be overridden by state machine)
