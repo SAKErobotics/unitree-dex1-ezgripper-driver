@@ -161,12 +161,8 @@ class Config:
         return self._config['gripper']['grip_max']
     
     @property
-    def position_input_range(self) -> tuple:
-        return tuple(self._config['gripper']['position_scaling']['input_range'])
-    
-    @property
-    def position_output_range(self) -> tuple:
-        return tuple(self._config['gripper']['position_scaling']['output_range'])
+    def max_open_percent(self) -> int:
+        return self._config['gripper']['position_scaling']['max_open_percent']
     
     @property
     def dex1_open_radians(self) -> float:
@@ -406,8 +402,7 @@ def get_gripper_config(config: Config) -> Dict[str, Any]:
     return {
         'grip_max': config.grip_max,
         'position_scaling': {
-            'input_range': config.position_input_range,
-            'output_range': config.position_output_range
+            'max_open_percent': config.max_open_percent
         },
         'dex1_mapping': {
             'open_radians': config.dex1_open_radians,

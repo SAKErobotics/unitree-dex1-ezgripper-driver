@@ -79,8 +79,8 @@
   "gripper": {
     "grip_max": 2500,
     "position_scaling": {
-      "input_range": [0, 100],
-      "output_range": [0, 100]
+      "max_open_percent": 100,
+      "_comment": "Maximum open position. 0% is always fully closed. Commands are scaled: 100% input → max_open_percent output"
     },
     "dex1_mapping": {
       "close_radians": 0.0,
@@ -89,7 +89,7 @@
     "calibration": {
       "goto_position_target": -300,
       "goto_position_effort": 30,
-      "settle_position": 50,
+      "settle_position": 35,
       "auto_on_init": true
     }
   },

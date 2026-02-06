@@ -525,30 +525,41 @@ class CorrectedEZGripperDriver:
         Unitree Dex1 convention: 0.0 rad = trigger released, 5.4 rad = trigger squeezed
         Customer expectation: Squeezing trigger should CLOSE gripper
         
-        EZGripper internal: 0% = closed, 100% = open (unchanged)
+        EZGripper internal: 0% = closed, max_open_percent = open
+        Commands are scaled: 100% input → max_open_percent output
         
         INVERSION ONLY AT INTERFACE:
-        - 0.0 rad (released) -> 100% (open)
+        - 0.0 rad (released) -> max_open_percent (open)
         - 5.4 rad (squeezed) -> 0% (closed)
         """
         q_clamped = max(0.0, min(5.4, q_radians))
         # Invert: 0 rad -> 100%, 5.4 rad -> 0%
-        return 100.0 - (q_clamped / 5.4) * 100.0
+        position_100 = 100.0 - (q_clamped / 5.4) * 100.0
+        
+        # Scale to max_open_percent: 100% input → max_open_percent output
+        max_open = self.gripper.config.max_open_percent
+        scaled_position = (position_100 / 100.0) * max_open
+        
+        return max(0.0, min(max_open, scaled_position))
     
     def ezgripper_to_dex1(self, position_pct: float) -> float:
         """
         Convert EZGripper position to Dex1 position with INVERSION at interface.
         
-        EZGripper internal: 0% = closed, 100% = open (unchanged)
+        EZGripper internal: 0% = closed, max_open_percent = open
         Unitree Dex1 convention: 0.0 rad = trigger released, 5.4 rad = trigger squeezed
         
         INVERSION ONLY AT INTERFACE:
         - 0% (closed) -> 5.4 rad (squeezed)
-        - 100% (open) -> 0.0 rad (released)
+        - max_open_percent (open) -> 0.0 rad (released)
         """
-        pct_clamped = max(0.0, min(100.0, position_pct))
-        # Invert: 0% -> 5.4 rad, 100% -> 0 rad
-        return (100.0 - pct_clamped) / 100.0 * 5.4
+        # Reverse scaling: max_open_percent → 100% for feedback
+        max_open = self.gripper.config.max_open_percent
+        position_100 = (position_pct / max_open) * 100.0 if max_open > 0 else 0.0
+        position_100 = max(0.0, min(100.0, position_100))
+        
+        # Invert: 100% -> 0 rad, 0% -> 5.4 rad
+        return (100.0 - position_100) / 100.0 * 5.4
     
     def dex1_to_effort(self, tau: float) -> float:
         """
