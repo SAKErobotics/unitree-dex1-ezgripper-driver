@@ -174,6 +174,13 @@ class CorrectedEZGripperDriver:
         # Setup logging
         self.logger = logging.getLogger(f"ezgripper_{side}")
         
+        # Add file handler for GUI telemetry reading
+        file_handler = logging.FileHandler('/tmp/driver_test.log')
+        file_handler.setLevel(logging.INFO)
+        formatter = logging.Formatter('%(asctime)s - %(name)s - %(levelname)s - %(message)s')
+        file_handler.setFormatter(formatter)
+        self.logger.addHandler(file_handler)
+        
         # Hardware state
         self.gripper = None
         self.connection = None
@@ -581,13 +588,10 @@ class CorrectedEZGripperDriver:
                     if cmd_count % 10 == 1:  # Log every 10th command
                         self.logger.info(f"📥 DDS CMD #{cmd_count}: q={motor_cmd.q:.3f} rad → {target_position:.1f}%")
                     
-                    # Position commands ALWAYS use 100% effort
-                    actual_effort = 100.0
-                    
-                    # Store latest command (thread-safe with timestamp)
+                    # Store latest command (effort will be managed by GraspManager)
                     self.latest_command = GripperCommand(
                         position_pct=target_position,
-                        effort_pct=actual_effort,
+                        effort_pct=0.0,  # Effort managed by GraspManager
                         timestamp=time.time(),
                         q_radians=motor_cmd.q,
                         tau=motor_cmd.tau
@@ -616,13 +620,9 @@ class CorrectedEZGripperDriver:
         if self.latest_command is None:
             return
         
-        # HEARTBEAT CHECK: Prevent phantom movements from stale commands
-        # If the last DDS command is older than 250ms, the teleop has likely stopped.
-        # We stop sending serial commands to avoid bus contention or "phantom" movements.
-        if time.time() - self.latest_command.timestamp > 0.25:
-            if self.command_count % 100 == 0:  # Log only occasionally to avoid spam
-                self.logger.warning("Teleop heartbeat lost. Standing by...")
-            return
+        # HEARTBEAT CHECK: Removed for GUI operation
+        # GraspManager state machine properly handles command gaps
+        # Previous 250ms timeout was blocking button clicks after continuous mode
         
         # PROTECTION: Don't execute commands if hardware is unhealthy
         if not self.hardware_healthy:
@@ -649,7 +649,7 @@ class CorrectedEZGripperDriver:
             )
             
             # Execute the MANAGED goal (not raw DDS command)
-            self.logger.info(f"🎯 DDS INPUT: pos={cmd.position_pct:.1f}%, effort={cmd.effort_pct:.1f}%")
+            self.logger.info(f"🎯 DDS INPUT: pos={cmd.position_pct:.1f}%")
             self.logger.info(f"🎯 MANAGED GOAL: pos={goal_position:.1f}%, effort={goal_effort:.1f}%")
             
             # Track managed effort for telemetry
@@ -811,14 +811,32 @@ class CorrectedEZGripperDriver:
             
             # Convert actual position to Dex1 units for publishing
             current_q = self.ezgripper_to_dex1(actual_pos)
-            self.logger.info(f"📤 PUBLISH: actual_pos={actual_pos:.1f}% → DDS_q={current_q:.3f}rad")
             current_tau = current_effort / 10.0
+            
+            # Get GraspManager state for GUI display
+            grasp_state_info = self.grasp_manager.get_state_info()
+            grasp_state = grasp_state_info.get('state', 'UNKNOWN')
+            
+            # Map GraspState to motor mode for GUI visibility
+            state_to_mode = {
+                'idle': 0,
+                'moving': 1, 
+                'contact': 2,
+                'grasping': 3
+            }
+            mode_for_gui = state_to_mode.get(grasp_state, 1)  # Default to MOVING
+            
+            # Log state mapping for debugging
+            if self.state_publish_count % 50 == 0:  # Every 250ms at 200Hz
+                self.logger.info(f"🔄 GUI STATE: {grasp_state} → mode={mode_for_gui}")
+            
+            self.logger.info(f"📤 PUBLISH: actual_pos={actual_pos:.1f}% → DDS_q={current_q:.3f}rad, state={grasp_state}")
             
             # Create motor state with official SDK2 structure
             # ENFORCE DDS CONTRACT: Clamp to valid range [0.0, 5.4] before writing to DDS
             clamped_q = max(0.0, min(5.4, current_q))
             motor_state = MotorState_(
-                mode=0,                           # Position control mode
+                mode=mode_for_gui,                 # GraspManager state for GUI
                 q=clamped_q,                      # Position feedback
                 dq=0.0,                           # No velocity data
                 ddq=0.0,                          # No acceleration data

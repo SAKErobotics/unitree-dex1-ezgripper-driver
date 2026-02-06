@@ -38,24 +38,24 @@ class GraspManager:
     """
     
     def __init__(self, config):
-        # Load config from new state-based structure
-        state_machine = config._config.get('state_machine', {})
+        # Load config from servo.force_management structure (not state_machine)
+        force_mgmt = config._config.get('servo', {}).get('force_management', {})
         
         # Force settings per state
-        self.MOVING_FORCE = state_machine.get('moving', {}).get('force_pct', 80)
-        self.GRASPING_FORCE = state_machine.get('grasping', {}).get('force_pct', 10)
+        self.MOVING_FORCE = force_mgmt.get('moving_force_pct', 17)
+        self.GRASPING_FORCE = force_mgmt.get('grasping_force_pct', 10)
+        self.IDLE_FORCE = force_mgmt.get('idle_force_pct', 0)
         
-        # Contact detection settings
-        detection = state_machine.get('contact', {}).get('detection', {})
-        self.CONSECUTIVE_SAMPLES_REQUIRED = detection.get('consecutive_samples_required', 3)
-        self.STALL_TOLERANCE_PCT = detection.get('stall_tolerance_pct', 1.0)
-        self.ZERO_TARGET_TOLERANCE_PCT = detection.get('zero_target_tolerance_pct', 3.0)  # Increased to handle sensor jitter at 0%
-        self.OBSTACLE_ERROR_THRESHOLD_PCT = detection.get('obstacle_error_threshold_pct', 5.0)
+        # Contact detection settings - read from collision_detection
+        collision = config._config.get('servo', {}).get('collision_detection', {})
+        self.CONSECUTIVE_SAMPLES_REQUIRED = collision.get('consecutive_samples_required', 3)
+        self.STALL_TOLERANCE_PCT = collision.get('stall_tolerance_pct', 2.0)
+        self.ZERO_TARGET_TOLERANCE_PCT = collision.get('zero_target_tolerance_pct', 0.04)
+        self.OBSTACLE_ERROR_THRESHOLD_PCT = collision.get('obstacle_error_threshold_pct', 5.0)
         
-        # Transition thresholds
-        transitions = state_machine.get('transitions', {})
-        self.POSITION_CHANGE_THRESHOLD = transitions.get('position_change_threshold_pct', 1.0)
-        self.COMMAND_CHANGE_THRESHOLD = transitions.get('command_change_threshold_pct', 3.0)
+        # Transition thresholds - read from collision_detection
+        self.POSITION_CHANGE_THRESHOLD = collision.get('position_change_threshold_pct', 1.0)
+        self.COMMAND_CHANGE_THRESHOLD = collision.get('command_change_threshold_pct', 3.0)
         
         # State
         self.state = GraspState.IDLE
@@ -71,7 +71,7 @@ class GraspManager:
         
         logger = logging.getLogger(__name__)
         logger.info("  ✅ GraspManager V2 Clean Implementation Loaded")
-        logger.info(f"    Forces: MOVING={self.MOVING_FORCE}%, GRASPING={self.GRASPING_FORCE}%")
+        logger.info(f"    Forces: MOVING={self.MOVING_FORCE}%, GRASPING={self.GRASPING_FORCE}%, IDLE={self.IDLE_FORCE}%")
         logger.info(f"    Contact Detection: samples={self.CONSECUTIVE_SAMPLES_REQUIRED}, stall_tolerance={self.STALL_TOLERANCE_PCT}%")
         logger.info(f"    Thresholds: position_change={self.POSITION_CHANGE_THRESHOLD}%, command_change={self.COMMAND_CHANGE_THRESHOLD}%")
     
@@ -256,7 +256,7 @@ class GraspManager:
         """
         if self.state == GraspState.IDLE:
             # No active command - stay at current position with minimal holding force
-            return current_position, 10.0
+            return current_position, self.IDLE_FORCE
         
         elif self.state == GraspState.MOVING:
             # Follow DDS position command

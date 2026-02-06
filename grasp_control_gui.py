@@ -41,10 +41,17 @@ class GripperControlGUI:
         self.cmd_publisher.Init()
         print("DEBUG: Command publisher created")
         
-        # State subscriber - DISABLED for now due to blocking Read() calls
-        # TODO: Implement proper non-blocking state reading with threading
-        print("DEBUG: State subscriber disabled (blocking issue)")
-        self.state_subscriber = None
+        # State subscriber - enabled for proper DDS state feedback
+        print("DEBUG: Creating state subscriber")
+        state_topic_name = f"rt/dex1/{side}/state"
+        self.state_subscriber = ChannelSubscriber(state_topic_name, MotorStates_)
+        self.state_subscriber.Init()
+        print("DEBUG: State subscriber created")
+        
+        # Start non-blocking state reading thread
+        self.state_thread_running = True
+        self.state_thread = threading.Thread(target=self._read_state_loop, daemon=True)
+        self.state_thread.start()
         
         # Current state
         self.current_position = 50.0
@@ -74,15 +81,9 @@ class GripperControlGUI:
         
     def _init_dds_operations(self):
         """Initialize DDS operations after window is shown"""
-        print("DEBUG: Starting state monitor")
-        self._start_state_monitor()
-        print("DEBUG: State monitor started")
-        print("DEBUG: Starting telemetry reader")
-        self._start_telemetry_reader()
-        print("DEBUG: Telemetry reader started")
-        print("DEBUG: Starting command publisher")
-        self._start_command_publisher()
-        print("DEBUG: Command publisher started")
+        print("DEBUG: Starting GUI update loop")
+        self._start_gui_update_loop()
+        print("DEBUG: GUI update loop started")
     
     def _create_widgets(self):
         # Title
@@ -273,98 +274,29 @@ class GripperControlGUI:
         
         publish_command()
     
-    def _start_state_monitor(self):
-        """Update display with current commanded values"""
+    def _start_gui_update_loop(self):
+        """Simple GUI update loop - state comes from DDS now"""
         def update_display():
-            # Just show commanded position (no state feedback available)
-            self.state_label.config(
-                text=f"Cmd: {self.current_position:.0f}% (no feedback)"
-            )
-            self.window.after(100, update_display)  # Update at 10 Hz
+            if hasattr(self, 'window') and self.window.winfo_exists():
+                # GUI updates now handled by DDS state reading thread
+                self.window.after(100, update_display)  # Update at 10 Hz
         
         # Schedule first update
         self.window.after(100, update_display)
     
-    def _start_telemetry_reader(self):
-        """Read telemetry from driver log file"""
-        import re
-        import os
+    def cleanup(self):
+        """Clean up DDS resources and threads"""
+        print("Cleaning up GUI resources...")
+        self.state_thread_running = False
+        self.command_publisher_active = False
         
-        log_file = "/tmp/driver_test.log"
+        if hasattr(self, 'state_thread') and self.state_thread:
+            self.state_thread.join(timeout=1.0)
         
-        def read_telemetry():
-            try:
-                if os.path.exists(log_file):
-                    with open(log_file, 'r') as f:
-                        # Read last 100 lines to find most recent telemetry
-                        f.seek(0, 2)  # Seek to end
-                        file_size = f.tell()
-                        # Read last ~10KB (enough for ~100 lines)
-                        read_size = min(10000, file_size)
-                        f.seek(file_size - read_size)
-                        lines = f.readlines()
-                        
-                        # Find last telemetry line
-                        for line in reversed(lines):
-                            if "📡 TELEMETRY:" in line:
-                                # Parse: state=moving, pos=6.0% (cmd=5.0%), effort=80%, contact=False, temp=39.0°C, error=0
-                                match = re.search(r'state=(\w+), pos=([\d.]+)% \(cmd=([\d.]+)%\), effort=([\d.]+)%, contact=(\w+), temp=([\d.]+)°C(?:, error=(\d+))?', line)
-                                if match:
-                                    state = match.group(1)
-                                    actual_pos = match.group(2)
-                                    cmd_pos = match.group(3)
-                                    effort = match.group(4)
-                                    contact = match.group(5)
-                                    temp = match.group(6)
-                                    hw_error = match.group(7) if match.group(7) else "0"
-                                    
-                                    error = float(cmd_pos) - float(actual_pos)
-                                    
-                                    # Decode hardware error
-                                    hw_error_int = int(hw_error)
-                                    hw_error_text = ""
-                                    if hw_error_int != 0:
-                                        errors = []
-                                        if hw_error_int & 0x01: errors.append("Voltage")
-                                        if hw_error_int & 0x04: errors.append("Overheat")
-                                        if hw_error_int & 0x08: errors.append("Encoder")
-                                        if hw_error_int & 0x10: errors.append("Shock")
-                                        if hw_error_int & 0x20: errors.append("OVERLOAD")
-                                        hw_error_text = f" ⚠️ {','.join(errors)}"
-                                    
-                                    # Format state with color coding
-                                    state_upper = state.upper()
-                                    state_colors = {
-                                        'IDLE': 'gray',
-                                        'MOVING': 'blue',
-                                        'CONTACT': 'orange',
-                                        'GRASPING': 'green'
-                                    }
-                                    state_color = state_colors.get(state_upper, 'black')
-                                    
-                                    # Update telemetry displays with GraspManager state
-                                    self.telemetry_position.config(
-                                        text=f"Pos: {actual_pos}% (err: {error:+.1f}%)  Effort: {effort}%{hw_error_text}"
-                                    )
-                                    self.telemetry_contact.config(
-                                        text=f"GM State: {state_upper}  Contact: {contact}  Temp: {temp}°C",
-                                        fg=state_color
-                                    )
-                                    self.telemetry_status.config(
-                                        text="✅ Telemetry: live from driver logs",
-                                        fg="green"
-                                    )
-                                break
-            except Exception as e:
-                # Silently handle errors
-                pass
-            
-            # Schedule next read
-            self.window.after(500, read_telemetry)  # Read at 2 Hz
-        
-        # Schedule first read
-        self.window.after(500, read_telemetry)
-        
+        if hasattr(self, 'cmd_publisher') and self.cmd_publisher:
+            # Unitree SDK2 cleanup is handled automatically
+            pass
+    
     def _calibrate_hardware(self):
         """Calibrate gripper using direct hardware access (bypasses DDS)"""
         if self.calibrating:
@@ -451,6 +383,62 @@ class GripperControlGUI:
         # Start calibration thread
         thread = threading.Thread(target=calibrate_thread, daemon=True)
         thread.start()
+    
+    def _read_state_loop(self):
+        """Non-blocking DDS state reading loop"""
+        while self.state_thread_running:
+            try:
+                if self.state_subscriber:
+                    state_msg = self.state_subscriber.Read()
+                    if state_msg and state_msg.states and len(state_msg.states) > 0:
+                        motor_state = state_msg.states[0]
+                        
+                        # Map mode back to GraspManager state
+                        mode_to_state = {
+                            0: 'idle',
+                            1: 'moving',
+                            2: 'contact', 
+                            3: 'grasping'
+                        }
+                        grasp_state = mode_to_state.get(motor_state.mode, 'unknown')
+                        
+                        # Convert position back to percentage
+                        position_pct = (motor_state.q / 5.4) * 100.0
+                        effort_pct = motor_state.tau_est * 10.0  # Convert back from torque units
+                        
+                        # Update GUI state in main thread
+                        self.window.after(0, self._update_state_display, grasp_state, position_pct, effort_pct, motor_state.temperature)
+                        
+            except Exception as e:
+                if self.state_thread_running:
+                    print(f"State reading error: {e}")
+                    time.sleep(0.1)
+    
+    def _update_state_display(self, grasp_state, position_pct, effort_pct, temperature):
+        """Update GUI state display from DDS data"""
+        try:
+            # Update internal telemetry display
+            state_colors = {
+                'IDLE': 'blue',
+                'MOVING': 'green', 
+                'CONTACT': 'orange',
+                'GRASPING': 'red',
+                'UNKNOWN': 'black'
+            }
+            state_color = state_colors.get(grasp_state.upper(), 'black')
+            
+            self.telemetry_label.config(
+                text=f"GM State: {grasp_state.upper()}  Pos: {position_pct:.1f}%  Effort: {effort_pct:.0f}%  Temp: {temperature}°C",
+                fg=state_color
+            )
+            
+            # Update command echo display
+            self.state_label.config(
+                text=f"Pos: {position_pct:.1f}%  Effort: {effort_pct:.0f}%  State: {grasp_state.upper()}"
+            )
+            
+        except Exception as e:
+            print(f"Display update error: {e}")
     
     def run(self):
         self.window.mainloop()
