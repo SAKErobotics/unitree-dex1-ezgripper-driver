@@ -56,7 +56,8 @@
       "_comment_moving": "Force during MOVING state. 17% = slower movement to reduce current. 17% × 1120 = 190 units = 638mA",
       "grasping_force_pct": 10,
       "_comment_grasping": "Force during GRASPING state (holding after contact/stall). 10% × 1120 = 112 units = 376mA",
-      "idle_force_pct": 0
+      "idle_force_pct": 0,
+      "_comment_idle": "Force during IDLE state. 0% = no holding force, minimal current consumption"
     },
     "collision_detection": {
       "enabled": true,
@@ -78,44 +79,70 @@
   },
   "gripper": {
     "grip_max": 2500,
+    "_comment_grip_max": "Maximum position range in servo units. MX-64: 0-4095, but EZGripper typically uses 0-2500 for practical range.",
     "position_scaling": {
       "max_open_percent": 100,
-      "_comment": "Maximum open position. 0% is always fully closed. Commands are scaled: 100% input → max_open_percent output"
+      "_comment_position_scaling": "Simplified position scaling. 0% is always fully closed (cannot be configured for safety). Commands are scaled: 100% input → max_open_percent output. Set to 70 for limited range, 100 for full range. This provides fine control over maximum opening while preserving full closing capability.",
+      "_comment_examples": "Examples: max_open_percent=70 means 100% GUI command → 70% hardware output. max_open_percent=50 means 100% GUI command → 50% hardware output. 0% always → 0% (fully closed)."
     },
     "dex1_mapping": {
       "close_radians": 0.0,
-      "open_radians": 5.4
+      "open_radians": 5.4,
+      "_comment_dex1_mapping": "Mapping to Dex1 hand radians. 0.0 rad = trigger released (gripper open), 5.4 rad = trigger squeezed (gripper closed). Note: This is inverted in the driver to match user expectations - squeezing trigger closes gripper."
     },
     "calibration": {
       "goto_position_target": -300,
+      "_comment_goto_target": "Target position for calibration goto sequence. Negative value ensures full range movement.",
       "goto_position_effort": 30,
+      "_comment_goto_effort": "Effort level for calibration goto sequence. Moderate force to overcome resistance.",
       "settle_position": 35,
-      "auto_on_init": true
+      "_comment_settle_position": "Position where gripper settles after calibration. Middle of typical range.",
+      "auto_on_init": true,
+      "_comment_auto_calib": "Automatically run calibration sequence on driver initialization."
     }
   },
   "communication": {
     "device": "/dev/ttyUSB0",
+    "_comment_device": "Serial device path for USB connection to Dynamixel servo.",
     "baudrate": 1000000,
+    "_comment_baudrate": "Serial communication speed. 1Mbps is standard for Dynamixel servos.",
     "protocol_version": 2.0,
+    "_comment_protocol": "Dynamixel Protocol 2.0 for MX-64 servos. Provides better error detection and larger data packets.",
     "servo_id": 1,
+    "_comment_servo_id": "Dynamixel servo ID. Must match physical servo configuration.",
     "timeout": 0.5,
-    "smart_init": true
+    "_comment_timeout": "Serial communication timeout in seconds. 0.5s provides good balance of responsiveness and reliability.",
+    "smart_init": true,
+    "_comment_smart_init": "Enable smart initialization with automatic device detection and error recovery."
   },
   "telemetry": {
     "enabled": true,
+    "_comment_enabled": "Enable telemetry data publishing for monitoring and debugging.",
     "topic_prefix": "rt/gripper",
+    "_comment_topic": "DDS topic prefix for telemetry messages.",
     "rate_hz": 30,
+    "_comment_rate": "Telemetry publish rate in Hz. 30Hz matches control loop frequency.",
     "qos_reliability": "RELIABLE",
+    "_comment_qos": "DDS Quality of Service setting. RELIABLE ensures message delivery.",
     "debug_enabled": false,
-    "debug_topic_prefix": "rt/gripper/debug"
+    "_comment_debug": "Enable additional debug telemetry for detailed troubleshooting.",
+    "debug_topic_prefix": "rt/gripper/debug",
+    "_comment_debug_topic": "DDS topic prefix for debug telemetry messages."
   },
   "logging": {
     "enabled": true,
+    "_comment_enabled": "Enable system logging for operation monitoring and debugging.",
     "level": "INFO",
+    "_comment_level": "Logging level: DEBUG, INFO, WARNING, ERROR. INFO provides good balance of detail.",
     "log_errors": true,
+    "_comment_log_errors": "Log error conditions for troubleshooting.",
     "log_temperature": true,
+    "_comment_log_temp": "Log temperature warnings and advisories for thermal management.",
     "log_current": false,
+    "_comment_log_current": "Log current usage data. Disabled by default to reduce log volume.",
     "log_file": "/var/log/ezgripper.log",
-    "max_log_size_mb": 100
+    "_comment_log_file": "System log file path. Ensure write permissions and log rotation.",
+    "max_log_size_mb": 100,
+    "_comment_log_size": "Maximum log file size before rotation. 100MB provides good history."
   }
 }
