@@ -39,22 +39,22 @@ class GraspManager:
     
     def __init__(self, config):
         # Load config from servo.force_management structure (not state_machine)
-        force_mgmt = config._config.get('servo', {}).get('force_management', {})
+        force_mgmt = config._config['servo']['force_management']
         
-        # Force settings per state
-        self.MOVING_FORCE = force_mgmt.get('moving_force_pct', 17)
-        self.GRASPING_FORCE = force_mgmt.get('grasping_force_pct', 10)
-        self.IDLE_FORCE = force_mgmt.get('idle_force_pct', 0)
+        # Force settings per state - no fallbacks, config is single source of truth
+        self.MOVING_FORCE = force_mgmt['moving_force_pct']
+        self.GRASPING_FORCE = force_mgmt['grasping_force_pct']
+        self.IDLE_FORCE = force_mgmt['idle_force_pct']
         
         # Contact detection settings - read from collision_detection
-        collision = config._config.get('servo', {}).get('collision_detection', {})
-        self.CONSECUTIVE_SAMPLES_REQUIRED = collision.get('consecutive_samples_required', 3)
-        self.STALL_TOLERANCE_PCT = collision.get('stall_tolerance_pct', 2.0)
-        self.ZERO_TARGET_TOLERANCE_PCT = collision.get('zero_target_tolerance_pct', 0.04)
+        collision = config._config['servo']['collision_detection']
+        self.CONSECUTIVE_SAMPLES_REQUIRED = collision['consecutive_samples_required']
+        self.STALL_TOLERANCE_PCT = collision['stall_tolerance_pct']
+        self.ZERO_TARGET_TOLERANCE_PCT = collision['zero_target_tolerance_pct']
         
         # Transition thresholds - read from collision_detection
-        self.POSITION_CHANGE_THRESHOLD = collision.get('position_change_threshold_pct', 1.0)
-        self.COMMAND_CHANGE_THRESHOLD = collision.get('command_change_threshold_pct', 3.0)
+        self.POSITION_CHANGE_THRESHOLD = collision['position_change_threshold_pct']
+        self.COMMAND_CHANGE_THRESHOLD = collision['command_change_threshold_pct']
         
         # Contact settling delay - wait for stable grasp before transitioning to GRASPING
         self.CONTACT_SETTLING_DELAY = 0.5  # seconds
@@ -270,26 +270,25 @@ class GraspManager:
             (position, effort): Goal for servo
         """
         if self.state == GraspState.IDLE:
-            # No active command - stay at current position with minimal holding force
+            # No active command - stay at current position with IDLE_FORCE (10% from config)
             return current_position, self.IDLE_FORCE
         
         elif self.state == GraspState.MOVING:
-            # Follow DDS position command
+            # Follow DDS position command with MOVING_FORCE (17% from config)
             return dds_position, self.MOVING_FORCE
         
         elif self.state == GraspState.CONTACT:
-            # Hold at contact position with MOVING force during settling period
+            # Hold at contact position with MOVING_FORCE (17%) during settling period
             # This maintains the closing force until grasp is verified stable
             return self.contact_position, self.MOVING_FORCE
         
         elif self.state == GraspState.GRASPING:
-            # Hold at commanded position with configured grasping force
-            # This allows gripper to maintain closing pressure against object
-            # Mode 5 current control prevents overload
+            # Hold at commanded position with GRASPING_FORCE (configured per test)
+            # Test script sets this to 15%, 20%, or 25% via config file
             return dds_position, self.GRASPING_FORCE
         
-        # Fallback
-        return current_position, 0.0
+        # No fallback - config must provide all values
+        raise RuntimeError(f"Invalid state: {self.state}")
     
     def should_send_command(self, goal_position: float) -> bool:
         """
