@@ -275,15 +275,17 @@ class ThermalGraspDDS:
             '--dev', device
         ]
         
-        self.driver_process = subprocess.Popen(
-            cmd,
-            stdout=subprocess.PIPE,
-            stderr=subprocess.STDOUT,
-            text=True
-        )
+        # Start driver without capturing output so we can see errors
+        self.driver_process = subprocess.Popen(cmd)
         
-        # Wait for driver to initialize
-        time.sleep(5.0)
+        # Wait longer for driver to initialize (calibration takes time)
+        self.logger.info("Waiting for driver to initialize (calibration may take 10-15s)...")
+        time.sleep(15.0)
+        
+        # Check if driver is still running
+        if self.driver_process.poll() is not None:
+            raise RuntimeError(f"Driver process exited with code {self.driver_process.returncode}")
+        
         self.logger.info("Driver started")
     
     def _restart_driver_with_force(self, grasping_force_pct: float, device: str = '/dev/ttyUSB0'):
