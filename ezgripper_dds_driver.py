@@ -759,15 +759,9 @@ class CorrectedEZGripperDriver:
                 # Mark hardware as unhealthy
                 self.hardware_healthy = False
                 
-                # Attempt automatic recovery for overload errors
-                if self.error_status.overload_error and not self.error_recovery.recovery_in_progress:
-                    self.logger.info("Attempting automatic recovery from overload error")
-                    success = self.error_recovery.execute_recovery(servo, ErrorRecoveryCommand.TORQUE_CYCLE)
-                    if success:
-                        self.logger.info("Automatic recovery successful")
-                        self.hardware_healthy = True
-                    else:
-                        self.logger.error("Automatic recovery failed")
+                # Log error for system-level response - no automatic recovery
+                self.logger.info(f"Error detected - recovery available via DDS interface")
+                self.logger.info(f"Send recovery command via DDS: tau=1 (CLEAR), 2 (TORQUE_CYCLE), 3 (REBOOT), 4 (FULL_RECOVERY)")
         
         except Exception as e:
             self.logger.error(f"Error checking failed: {e}")
@@ -786,7 +780,7 @@ class CorrectedEZGripperDriver:
             success = self.error_recovery.execute_recovery(servo, command)
             if success:
                 self.logger.info(f"Recovery command {command.name} completed successfully")
-                self.hardware_healthy = True
+                self.logger.info(f"Hardware recovered - system should verify health status")
             else:
                 self.logger.error(f"Recovery command {command.name} failed")
         
