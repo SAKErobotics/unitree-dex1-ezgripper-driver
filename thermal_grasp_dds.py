@@ -685,6 +685,8 @@ def main():
     parser.add_argument('--dev', default='/dev/ttyUSB0',
                        help='USB device (default: /dev/ttyUSB0)')
     parser.add_argument('--output', default=None)
+    parser.add_argument('--single-force', type=float,
+                       help='Run single test at specified force level (e.g., 15, 20, 25)')
     
     args = parser.parse_args()
     
@@ -694,16 +696,33 @@ def main():
     print(f"Side: {args.side}")
     print(f"Base force: {args.base_force}%")
     print(f"Temp rise target: {args.temp_rise}°C")
-    print("")
-    print("NOTE: Driver will be automatically restarted with correct force")
-    print("      settings for each test level.")
+    
+    if args.single_force:
+        print(f"Single test mode: {args.single_force}% force")
+        print("")
+        print("NOTE: Make sure driver is running with grasping_force_pct")
+        print(f"      set to {args.single_force}% in config file!")
+    else:
+        print("")
+        print("NOTE: Driver will be automatically restarted with correct force")
+        print("      settings for each test level.")
     print("="*70 + "\n")
     
     test = ThermalGraspDDS(side=args.side)
-    test.run_calibration(base_force=args.base_force,
-                        temp_rise=args.temp_rise,
-                        device=args.dev)
-    test.save_results(base_filename=args.output)
+    
+    if args.single_force:
+        # Run single test without driver restart
+        result = test.run_thermal_test(args.single_force, 
+                                      args.single_force / args.base_force,
+                                      args.temp_rise)
+        test.test_results = [result]
+        test.save_results(base_filename=args.output)
+    else:
+        # Run full calibration with automatic driver restarts
+        test.run_calibration(base_force=args.base_force,
+                            temp_rise=args.temp_rise,
+                            device=args.dev)
+        test.save_results(base_filename=args.output)
 
 
 if __name__ == '__main__':
