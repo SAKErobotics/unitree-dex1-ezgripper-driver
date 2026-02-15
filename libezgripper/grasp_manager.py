@@ -57,6 +57,9 @@ class GraspManager:
         self.POSITION_CHANGE_THRESHOLD = collision.get('position_change_threshold_pct', 1.0)
         self.COMMAND_CHANGE_THRESHOLD = collision.get('command_change_threshold_pct', 3.0)
         
+        # Contact settling delay - wait for stable grasp before transitioning to GRASPING
+        self.CONTACT_SETTLING_DELAY = 0.5  # seconds
+        
         # State
         self.state = GraspState.IDLE
         
@@ -64,6 +67,7 @@ class GraspManager:
         self.last_dds_position = None
         self.last_servo_command = None
         self.contact_position = None
+        self.contact_time = None  # Time when contact was detected
         self.grasping_setpoint = None  # DDS command position when grasp was established
         self.last_current_pct = 0.0
         self.position_history = []  # Track last 3 positions for range check
@@ -214,6 +218,7 @@ class GraspManager:
             if contact_detected:
                 self.state = GraspState.CONTACT
                 self.contact_position = current_position
+                self.contact_time = time.time()  # Record when contact was detected
             # Directional logic: Allow IDLE transition when OPENING, but not when CLOSING
             # Opening (increasing position) = no objects in the way, can reach target
             # Closing (decreasing position) = may hit object, stay in MOVING until contact
@@ -228,10 +233,17 @@ class GraspManager:
                         self.state = GraspState.IDLE
         
         elif self.state == GraspState.CONTACT:
-            # Simple first pass: immediately transition to GRASPING
-            # Future: Add settling period
-            self.state = GraspState.GRASPING
-            self.grasping_setpoint = dds_position  # Remember commanded position when grasp established
+            # Wait for settling period before transitioning to GRASPING
+            # This ensures stable contact before force changes
+            if self.contact_time is None:
+                self.contact_time = time.time()
+            
+            elapsed = time.time() - self.contact_time
+            if elapsed >= self.CONTACT_SETTLING_DELAY:
+                self.state = GraspState.GRASPING
+                self.grasping_setpoint = dds_position  # Remember commanded position when grasp established
+                logger = logging.getLogger(__name__)
+                logger.info(f"⏱️  Contact settled after {elapsed:.3f}s, transitioning to GRASPING")
         
         elif self.state == GraspState.GRASPING:
             # Exit GRASPING only on OPENING commands (dds > setpoint)
@@ -263,8 +275,9 @@ class GraspManager:
             return dds_position, self.MOVING_FORCE
         
         elif self.state == GraspState.CONTACT:
-            # Hold at contact position (brief transition state before GRASPING)
-            return self.contact_position, self.GRASPING_FORCE
+            # Hold at contact position with MOVING force during settling period
+            # This maintains the closing force until grasp is verified stable
+            return self.contact_position, self.MOVING_FORCE
         
         elif self.state == GraspState.GRASPING:
             # Hold at commanded position with configured grasping force
