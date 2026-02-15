@@ -1,0 +1,15 @@
+{
+  "base_force": 25.0,
+  "forces": [
+    25.0
+  ],
+  "wall_times": [
+    600.0183136463165
+  ],
+  "heating_rates": [
+    0.006666463187918324
+  ],
+  "relative_powers": [
+    0.0
+  ]
+}

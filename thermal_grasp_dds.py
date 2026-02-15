@@ -409,6 +409,11 @@ class ThermalGraspDDS:
         last_position = None
         last_temp = start_temp
         
+        # Equilibrium detection variables
+        equilibrium_start_time = None
+        equilibrium_threshold = 0.5  # Temperature variation threshold (°C)
+        equilibrium_duration = 300   # 5 minutes in seconds
+        
         while True:
             # Send hold command
             self.send_position_command(0.0, force_pct)
@@ -435,6 +440,23 @@ class ThermalGraspDDS:
             if state['lost'] > 0:
                 self._emergency_stop(f"Communication error detected (lost={state['lost']})")
                 raise RuntimeError("DDS communication failure")
+            
+            # EQUILIBRIUM DETECTION: Check if temperature is stable
+            temp_variation = abs(current_temp - last_temp)
+            if temp_variation <= equilibrium_threshold:
+                if equilibrium_start_time is None:
+                    equilibrium_start_time = time.time()
+                    self.logger.info(f"🌡️  Temperature stabilizing... monitoring for equilibrium")
+                elif time.time() - equilibrium_start_time >= equilibrium_duration:
+                    equilibrium_time = time.time() - equilibrium_start_time
+                    self.logger.info(f"✅ THERMAL EQUILIBRIUM REACHED after {equilibrium_time/60:.1f} minutes")
+                    self.logger.info(f"   Stable temperature: {current_temp:.1f}°C (±{equilibrium_threshold}°C for {equilibrium_duration/60:.0f} min)")
+                    wall_time = elapsed
+                    break
+            else:
+                if equilibrium_start_time is not None:
+                    self.logger.info(f"🌡️  Temperature variation detected ({temp_variation:.1f}°C), resetting equilibrium timer")
+                equilibrium_start_time = None
             
             # SAFETY: Position stability check (warn only, only after initial position established)
             if last_position is not None and abs(state['position'] - last_position) > 5.0:
