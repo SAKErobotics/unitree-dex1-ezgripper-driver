@@ -410,9 +410,10 @@ class ThermalGraspDDS:
         last_temp = start_temp
         
         # Equilibrium detection variables
-        equilibrium_start_time = None
+        stable_temp_history = []  # List of stable temperature readings
         equilibrium_threshold = 0.5  # Temperature variation threshold (°C)
         equilibrium_duration = 300   # 5 minutes in seconds
+        equilibrium_start_time = None
         
         while True:
             # Send hold command
@@ -441,22 +442,37 @@ class ThermalGraspDDS:
                 self._emergency_stop(f"Communication error detected (lost={state['lost']})")
                 raise RuntimeError("DDS communication failure")
             
-            # EQUILIBRIUM DETECTION: Check if temperature is stable
-            temp_variation = abs(current_temp - last_temp)
-            if temp_variation <= equilibrium_threshold:
-                if equilibrium_start_time is None:
-                    equilibrium_start_time = time.time()
-                    self.logger.info(f"🌡️  Temperature stabilizing... monitoring for equilibrium")
-                elif time.time() - equilibrium_start_time >= equilibrium_duration:
-                    equilibrium_time = time.time() - equilibrium_start_time
-                    self.logger.info(f"✅ THERMAL EQUILIBRIUM REACHED after {equilibrium_time/60:.1f} minutes")
-                    self.logger.info(f"   Stable temperature: {current_temp:.1f}°C (±{equilibrium_threshold}°C for {equilibrium_duration/60:.0f} min)")
-                    wall_time = elapsed
-                    break
+            # EQUILIBRIUM DETECTION: Maintain stable temperature history
+            if not stable_temp_history:
+                # First reading - start history
+                stable_temp_history.append(current_temp)
+                equilibrium_start_time = time.time()
+                self.logger.info(f"🌡️  Starting equilibrium detection at {current_temp:.1f}°C")
             else:
-                if equilibrium_start_time is not None:
-                    self.logger.info(f"🌡️  Temperature variation detected ({temp_variation:.1f}°C), resetting equilibrium timer")
-                equilibrium_start_time = None
+                # Check if current temp is within threshold of history
+                avg_stable_temp = sum(stable_temp_history) / len(stable_temp_history)
+                temp_variation = abs(current_temp - avg_stable_temp)
+                
+                if temp_variation <= equilibrium_threshold:
+                    # Temperature is stable - add to history
+                    stable_temp_history.append(current_temp)
+                    
+                    # Check if we've been stable for 5 minutes
+                    if time.time() - equilibrium_start_time >= equilibrium_duration:
+                        equilibrium_time = time.time() - equilibrium_start_time
+                        final_avg_temp = sum(stable_temp_history) / len(stable_temp_history)
+                        self.logger.info(f"✅ THERMAL EQUILIBRIUM REACHED after {equilibrium_time/60:.1f} minutes")
+                        self.logger.info(f"   Stable temperature: {final_avg_temp:.1f}°C (±{equilibrium_threshold}°C for {equilibrium_duration/60:.0f} min)")
+                        self.logger.info(f"   History size: {len(stable_temp_history)} readings")
+                        wall_time = elapsed
+                        break
+                else:
+                    # Temperature fluctuated - reset history
+                    if len(stable_temp_history) > 10:  # Only log if we had substantial history
+                        self.logger.info(f"🌡️  Temperature fluctuated {temp_variation:.1f}°C, resetting equilibrium history")
+                        self.logger.info(f"   Was stable for {(time.time() - equilibrium_start_time)/60:.1f} minutes")
+                    stable_temp_history = [current_temp]  # Restart with current temp
+                    equilibrium_start_time = time.time()
             
             # SAFETY: Position stability check (warn only, only after initial position established)
             if last_position is not None and abs(state['position'] - last_position) > 5.0:

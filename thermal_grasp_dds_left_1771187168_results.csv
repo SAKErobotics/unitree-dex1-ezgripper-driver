@@ -1,0 +1,2 @@
+force_pct,force_multiplier,start_temp_c,end_temp_c,temp_rise_c,wall_time_sec,heating_rate_c_per_sec,relative_power
+25.0,1.6666666666666667,46,51,5,600.0272054672241,0.008332955496753922,0.0
