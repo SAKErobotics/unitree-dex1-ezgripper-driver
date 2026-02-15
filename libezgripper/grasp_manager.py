@@ -50,8 +50,6 @@ class GraspManager:
         collision = config._config.get('servo', {}).get('collision_detection', {})
         self.CONSECUTIVE_SAMPLES_REQUIRED = collision.get('consecutive_samples_required', 3)
         self.STALL_TOLERANCE_PCT = collision.get('stall_tolerance_pct', 2.0)
-        self.ZERO_TARGET_TOLERANCE_PCT = collision.get('zero_target_tolerance_pct', 0.04)
-        self.OBSTACLE_ERROR_THRESHOLD_PCT = collision.get('obstacle_error_threshold_pct', 5.0)
         
         # Transition thresholds - read from collision_detection
         self.POSITION_CHANGE_THRESHOLD = collision.get('position_change_threshold_pct', 1.0)
@@ -76,7 +74,7 @@ class GraspManager:
         logger = logging.getLogger(__name__)
         logger.info("  ✅ GraspManager V2 Clean Implementation Loaded")
         logger.info(f"    Forces: MOVING={self.MOVING_FORCE}%, GRASPING={self.GRASPING_FORCE}%, IDLE={self.IDLE_FORCE}%")
-        logger.info(f"    Contact Detection: samples={self.CONSECUTIVE_SAMPLES_REQUIRED}, stall_tolerance={self.STALL_TOLERANCE_PCT}%")
+        logger.info(f"    Contact Detection: samples={self.CONSECUTIVE_SAMPLES_REQUIRED}, stall_tolerance={self.STALL_TOLERANCE_PCT}% (position stagnation only)")
         logger.info(f"    Thresholds: position_change={self.POSITION_CHANGE_THRESHOLD}%, command_change={self.COMMAND_CHANGE_THRESHOLD}%")
     
     def process_cycle(self, 
@@ -118,9 +116,9 @@ class GraspManager:
         Stall detection based purely on position (no current check):
         1. Only check when in MOVING state
         2. Track last 3 positions
-        3. If all 3 positions are within 25 ticks (1.0%) of each other → stalled
-        4. Only trigger if position error > 5% (gripper stuck, not at target)
-        5. Require 2 consecutive stalled readings to trigger
+        3. If all 3 positions are within stall tolerance (2.0%) of each other → stagnant
+        4. If stagnant while closing → contact detected (independent of target position)
+        5. Require N consecutive stagnant readings to trigger
         
         This is separate from collision detection (which uses current).
         Stall detection triggers before overload can occur.
@@ -132,10 +130,8 @@ class GraspManager:
         
         # Only detect stalls when CLOSING (commanded < current)
         # Opening movements should not trigger stall detection
-        # Exception: Allow detection when at target 0% to prevent overload
         is_closing = commanded_position < current_position
-        at_zero_target = commanded_position < 1.0 and current_position <= 1.0
-        if not is_closing and not at_zero_target:
+        if not is_closing:
             self.contact_sample_count = 0
             return False
         
@@ -144,9 +140,8 @@ class GraspManager:
         if len(self.position_history) == 0 or len(self.position_history) % 30 == 0:  # Log every second
             logger.info(f"🔧 DETECT_CONTACT called: pos={current_position:.2f}%, target={commanded_position:.2f}%, closing={is_closing}")
         
-        # Criteria 1: Position stagnation - range check across 3 samples
-        # Track last 3 positions and check if they're all within tolerance of each other
-        # Tolerance: 25 ticks = 1.0% (if max-min < 1.0%, positions are "the same")
+        # Criteria: Position stagnation - range check across 3 samples
+        # Track last 3 positions and check if they're all within stall tolerance
         self.position_history.append(current_position)
         if len(self.position_history) > 3:
             self.position_history.pop(0)
@@ -155,41 +150,27 @@ class GraspManager:
         position_range = 0.0
         
         if len(self.position_history) >= 3:
-            # Check if all 3 positions are within tolerance of each other
+            # Check if all 3 positions are within stall tolerance of each other
             pos_min = min(self.position_history)
             pos_max = max(self.position_history)
             position_range = pos_max - pos_min
             position_stagnant = position_range < self.STALL_TOLERANCE_PCT
         
-        # Criteria 2: Detect stall based on position alone (no current check)
-        # Two cases:
-        #   1. Obstacle blocking: Position stagnant AND >5% from target
-        #   2. Target is 0%: Position very stable AND at/past 0% (current <= 1%)
-        #      Always transition to GRASPING at 0% to prevent overload
-        position_error = abs(current_position - commanded_position)
-        
-        # Case 1: Obstacle - stuck before reaching target
-        stuck_before_target = position_stagnant and position_error > self.OBSTACLE_ERROR_THRESHOLD_PCT
-        
-        # Case 2: Target is 0% and reached it (at or more closed)
-        target_is_zero = commanded_position < 1.0
-        reached_zero = current_position <= 1.0  # At 0% or more closed
-        very_stable = position_range < self.ZERO_TARGET_TOLERANCE_PCT  # 1 tick = 0.04%, very tight tolerance
-        at_zero_stable = target_is_zero and reached_zero and very_stable
-        
-        is_stuck = stuck_before_target or at_zero_stable
+        # Simplified stall detection: if the gripper is closing and the position
+        # is stagnant, it has made contact. This is independent of the target position.
+        is_stuck = position_stagnant
         
         if is_stuck and len(self.position_history) >= 3:
             self.contact_sample_count += 1
             # Log stall detection progress - only when incrementing
             logger = logging.getLogger(__name__)
-            logger.info(f"🔍 STALL: pos={current_position:.2f}%, target={commanded_position:.2f}%, error={position_error:.2f}%, "
+            logger.info(f"🔍 STALL: pos={current_position:.2f}%, target={commanded_position:.2f}%, "
                        f"range={position_range:.2f}%, count={self.contact_sample_count}/{self.CONSECUTIVE_SAMPLES_REQUIRED}")
         else:
             # Log when counter resets
             if self.contact_sample_count > 0:
                 logger = logging.getLogger(__name__)
-                logger.info(f"↻ STALL RESET: pos={current_position:.2f}%, error={position_error:.2f}% (at target or moving)")
+                logger.info(f"↻ STALL RESET: pos={current_position:.2f}% (moving or opening)")
             self.contact_sample_count = 0
         
         # Require N consecutive samples before declaring contact
