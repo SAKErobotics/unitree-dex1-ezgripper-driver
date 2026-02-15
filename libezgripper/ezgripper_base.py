@@ -330,13 +330,17 @@ def calibrate(self):
         """
         Read all sensor data in single USB transaction for efficiency
         
+        ⚠️ WARNING: 'current' value is NOT real current measurement on MX series!
+        It's the target current from PID controller, not actual current draw.
+        Do NOT use for safety decisions or overload detection.
+        
         Returns:
             dict: {
-                'position': position_pct,
-                'current': current_ma,
-                'temperature': temp_c,
-                'voltage': voltage_v,
-                'error': error_code
+                'position': position_pct,           # Real encoder position
+                'current': current_ma,              # ESTIMATED - NOT REAL on MX series
+                'temperature': temp_c,              # Real temperature sensor
+                'voltage': voltage_v,               # Real voltage measurement
+                'error': error_code                 # Real hardware error status
             }
         """
         # TRUE BULK READ: Read all operational and status data in one transaction

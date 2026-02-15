@@ -1,5 +1,7 @@
 # EZGripper Configuration Guide
 
+⚠️ **CRITICAL:** MX series servos do NOT have real current sensing. See [MX_CURRENT_SENSING_LIMITATIONS.md](MX_CURRENT_SENSING_LIMITATIONS.md) for details. Current limits in config are command limits only, not hardware protection.
+
 ## Overview
 
 The EZGripper driver uses JSON-based configuration to externalize all parameters. This allows easy tuning without code changes and enables LLM-based systems to understand and modify gripper behavior.

@@ -2,6 +2,8 @@
 
 CycloneDDS driver for EZGripper control on Unitree G1 robots using the Dex1 DDS interface.
 
+⚠️ **IMPORTANT:** MX series servos do NOT have real current sensing. See [MX_CURRENT_SENSING_LIMITATIONS.md](MX_CURRENT_SENSING_LIMITATIONS.md) for critical safety information.
+
 ## Quick Start
 
 Get up and running in 5 minutes:
@@ -42,7 +44,7 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 - ✅ **Predictive Position Model** - Smooth position feedback at 200 Hz between actual hardware reads (30 Hz)
 - ✅ **Protocol 2.0 Bulk Operations** - Atomic sensor reads and writes for improved performance and efficiency
 - ✅ **Advanced Monitoring** - Contact detection, error monitoring, and thermal analysis using bulk sensor data
-- ✅ **30 Hz Bulk Sensor Reads** - Full state capture (position, current, load, temperature, errors) every control cycle
+- ✅ **30 Hz Bulk Sensor Reads** - Full state capture (position, estimated current, load, temperature, errors) every control cycle
 - ✅ **Current-Based Position Control (Mode 5)** - Uses Dynamixel Mode 5 for active current control under constant spring loads
 - ✅ **Automatic Calibration** - Calibrates at startup using current-based position control
 - ✅ **DDS Interface** - Compatible with Unitree G1 motor DDS topics (`MotorCmds_`, `MotorStates_`)
