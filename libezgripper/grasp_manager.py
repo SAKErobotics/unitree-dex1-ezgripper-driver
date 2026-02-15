@@ -50,6 +50,7 @@ class GraspManager:
         collision = config._config.get('servo', {}).get('collision_detection', {})
         self.CONSECUTIVE_SAMPLES_REQUIRED = collision.get('consecutive_samples_required', 3)
         self.STALL_TOLERANCE_PCT = collision.get('stall_tolerance_pct', 2.0)
+        self.ZERO_TARGET_TOLERANCE_PCT = collision.get('zero_target_tolerance_pct', 0.04)
         
         # Transition thresholds - read from collision_detection
         self.POSITION_CHANGE_THRESHOLD = collision.get('position_change_threshold_pct', 1.0)
@@ -117,8 +118,13 @@ class GraspManager:
         1. Only check when in MOVING state
         2. Track last 3 positions
         3. If all 3 positions are within stall tolerance (2.0%) of each other → stagnant
-        4. If stagnant while closing → contact detected (independent of target position)
+        4. Contact detection:
+           - Normal closing: If stagnant while closing → contact detected
+           - Zero target special case: Allow grasping beyond zero with very tight tolerance
         5. Require N consecutive stagnant readings to trigger
+        
+        The zero target special case enables strong grasp on objects that can be
+        compressed or have geometry allowing fingers to close past nominal zero.
         
         This is separate from collision detection (which uses current).
         Stall detection triggers before overload can occur.
@@ -130,8 +136,10 @@ class GraspManager:
         
         # Only detect stalls when CLOSING (commanded < current)
         # Opening movements should not trigger stall detection
+        # Exception: Allow detection when at target 0% to enable grasping beyond zero
         is_closing = commanded_position < current_position
-        if not is_closing:
+        at_zero_target = commanded_position < 1.0 and current_position <= 1.0
+        if not is_closing and not at_zero_target:
             self.contact_sample_count = 0
             return False
         
@@ -156,16 +164,30 @@ class GraspManager:
             position_range = pos_max - pos_min
             position_stagnant = position_range < self.STALL_TOLERANCE_PCT
         
-        # Simplified stall detection: if the gripper is closing and the position
-        # is stagnant, it has made contact. This is independent of the target position.
-        is_stuck = position_stagnant
+        # Detect stall based on position stagnation:
+        # Case 1: Closing to any position - if stagnant, contact detected
+        # Case 2: At zero target - allow grasping beyond zero with very tight tolerance
+        target_is_zero = commanded_position < 1.0
+        reached_zero = current_position <= 1.0  # At 0% or more closed
+        very_stable = position_range < self.ZERO_TARGET_TOLERANCE_PCT  # 1 tick = 0.04%, very tight tolerance
+        
+        if target_is_zero and reached_zero and very_stable:
+            # Special case: at zero target, allow grasping beyond zero
+            is_stuck = True
+        else:
+            # Normal case: any position stagnation while closing
+            is_stuck = position_stagnant
         
         if is_stuck and len(self.position_history) >= 3:
             self.contact_sample_count += 1
             # Log stall detection progress - only when incrementing
             logger = logging.getLogger(__name__)
-            logger.info(f"🔍 STALL: pos={current_position:.2f}%, target={commanded_position:.2f}%, "
-                       f"range={position_range:.2f}%, count={self.contact_sample_count}/{self.CONSECUTIVE_SAMPLES_REQUIRED}")
+            if target_is_zero and reached_zero and very_stable:
+                logger.info(f"🔍 STALL (ZERO TARGET): pos={current_position:.2f}%, target={commanded_position:.2f}%, "
+                           f"range={position_range:.4f}%, count={self.contact_sample_count}/{self.CONSECUTIVE_SAMPLES_REQUIRED}")
+            else:
+                logger.info(f"🔍 STALL: pos={current_position:.2f}%, target={commanded_position:.2f}%, "
+                           f"range={position_range:.2f}%, count={self.contact_sample_count}/{self.CONSECUTIVE_SAMPLES_REQUIRED}")
         else:
             # Log when counter resets
             if self.contact_sample_count > 0:
