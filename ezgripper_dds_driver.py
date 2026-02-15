@@ -759,6 +759,17 @@ class CorrectedEZGripperDriver:
                 # Mark hardware as unhealthy
                 self.hardware_healthy = False
                 
+                # CRITICAL SAFETY: Immediately release torque on dangerous errors to prevent servo damage
+                if self.error_status.overload_error or self.error_status.overheating_error:
+                    error_type = "OVERLOAD" if self.error_status.overload_error else "OVERHEATING"
+                    self.logger.critical(f"{error_type} ERROR DETECTED - IMMEDIATELY RELEASING TORQUE TO PROTECT SERVO")
+                    try:
+                        for servo in self.gripper.servos:
+                            servo.write_address(self.gripper.config.reg_torque_enable, [0])
+                        self.logger.critical(f"Torque released - servo protected from damage")
+                    except Exception as e:
+                        self.logger.error(f"Failed to release torque: {e}")
+                
                 # Log error for system-level response - no automatic recovery
                 self.logger.info(f"Error detected - recovery available via DDS interface")
                 self.logger.info(f"Send recovery command via DDS: tau=1 (CLEAR), 2 (TORQUE_CYCLE), 3 (REBOOT), 4 (FULL_RECOVERY)")
