@@ -41,10 +41,10 @@
     "dynamixel_settings": {
       "operating_mode": 5,
       "_comment_operating_mode": "Mode 5: Current-based Position Control Mode - CRITICAL for gripper with spring force at 0% position",
-      "_comment_why_mode_5": "Research: Humanoid robots (soccer players) use Mode 5 for joints with constant loads (gravity/spring). Control flow: PID→Desired Current→Goal Current Limit→Current Controller→PWM→PWM Limit→Motor. In Mode 4, PID outputs PWM directly and Goal Current is just a limit (servo draws unlimited current). In Mode 5, PID outputs desired current and current controller actively manages torque. See: https://emanual.robotis.com/docs/en/dxl/mx/mx-64-2/ Position PID Gain section. ROBOTIS gripper RH-P12-RN uses Mode 5 exclusively.",
+      "_comment_why_mode_5": "Research: Humanoid robots (soccer players) use Mode 5 for joints with constant loads (gravity/spring). Control flow: PID\u2192Desired Current\u2192Goal Current Limit\u2192Current Controller\u2192PWM\u2192PWM Limit\u2192Motor. In Mode 4, PID outputs PWM directly and Goal Current is just a limit (servo draws unlimited current). In Mode 5, PID outputs desired current and current controller actively manages torque. See: https://emanual.robotis.com/docs/en/dxl/mx/mx-64-2/ Position PID Gain section. ROBOTIS gripper RH-P12-RN uses Mode 5 exclusively.",
       "_comment_mode_5_reset": "IMPORTANT: Switching to Mode 5 automatically resets Position PID Gain(80,82,84) and PWM Limit(36) to values optimized for current control. These are tuned by ROBOTIS and should not be manually overridden unless necessary.",
       "current_limit": 1120,
-      "_comment_current_limit": "70% of max (1600). 1120 units × 3.36mA = 3763mA (3.76A) hardware limit. Dual-limit system: Goal Current (from force_pct) limits desired current, then PWM Limit limits final PWM output.",
+      "_comment_current_limit": "70% of max (1600). 1120 units \u00d7 3.36mA = 3763mA (3.76A) hardware limit. Dual-limit system: Goal Current (from force_pct) limits desired current, then PWM Limit limits final PWM output.",
       "velocity_limit": 1023,
       "profile_velocity": 0,
       "profile_acceleration": 0,
@@ -53,11 +53,11 @@
     },
     "force_management": {
       "moving_force_pct": 17,
-      "_comment_moving": "Force during MOVING state. 17% = slower movement to reduce current. 17% × 1120 = 190 units = 638mA",
-      "grasping_force_pct": 10,
-      "_comment_grasping": "Force during GRASPING state (holding after contact/stall). 10% × 1120 = 112 units = 376mA",
-      "idle_force_pct": 0,
-      "_comment_idle": "Force during IDLE state. 0% = no holding force, minimal current consumption"
+      "_comment_moving": "Force during MOVING state. 17% = slower movement to reduce current. 17% \u00d7 1120 = 190 units = 638mA",
+      "grasping_force_pct": 20.0,
+      "_comment_grasping": "Force during GRASPING state (holding after contact/stall). 10% \u00d7 1120 = 112 units = 376mA",
+      "idle_force_pct": 10,
+      "_comment_idle": "Force during IDLE state. 10% = minimal holding force to maintain position against spring"
     },
     "collision_detection": {
       "enabled": true,
@@ -82,8 +82,8 @@
     "_comment_grip_max": "Maximum position range in servo units. MX-64: 0-4095, but EZGripper typically uses 0-2500 for practical range.",
     "position_scaling": {
       "max_open_percent": 100,
-      "_comment_position_scaling": "Simplified position scaling. 0% is always fully closed (cannot be configured for safety). Commands are scaled: 100% input → max_open_percent output. Set to 70 for limited range, 100 for full range. This provides fine control over maximum opening while preserving full closing capability.",
-      "_comment_examples": "Examples: max_open_percent=70 means 100% GUI command → 70% hardware output. max_open_percent=50 means 100% GUI command → 50% hardware output. 0% always → 0% (fully closed)."
+      "_comment_position_scaling": "Simplified position scaling. 0% is always fully closed (cannot be configured for safety). Commands are scaled: 100% input \u2192 max_open_percent output. Set to 70 for limited range, 100 for full range. This provides fine control over maximum opening while preserving full closing capability.",
+      "_comment_examples": "Examples: max_open_percent=70 means 100% GUI command \u2192 70% hardware output. max_open_percent=50 means 100% GUI command \u2192 50% hardware output. 0% always \u2192 0% (fully closed)."
     },
     "dex1_mapping": {
       "close_radians": 0.0,

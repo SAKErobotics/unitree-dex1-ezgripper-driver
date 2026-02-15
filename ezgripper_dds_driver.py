@@ -40,6 +40,9 @@ if 'libezgripper.grasp_manager' in sys.modules:
     importlib.reload(sys.modules['libezgripper.grasp_manager'])
     from libezgripper.grasp_manager import GraspManager  # Re-import after reload
 
+# Error recovery handling
+from error_recovery_enhancement import ErrorRecoveryHandler, ErrorRecoveryCommand, ErrorStatus
+
 
 @dataclass
 class GripperCommand:
@@ -253,6 +256,14 @@ class CorrectedEZGripperDriver:
         if self.gripper.servos:
             self.health_monitor = HealthMonitor(self.gripper.servos[0], self.gripper.config)
             self.logger.info("Health monitor initialized for telemetry")
+        
+        # Initialize error recovery handler
+        self.error_recovery = ErrorRecoveryHandler(self.logger)
+        self.last_error_check_time = time.time()
+        self.error_check_interval = 0.1  # Check errors every 100ms
+        self.error_status = None
+        self.error_recovery_enabled = True
+        self.logger.info("Error recovery handler initialized")
         
         # Auto-calibrate at startup if enabled (but not if manual calibration will be done)
         if self.gripper.config.calibration_auto_on_init:
@@ -591,6 +602,15 @@ class CorrectedEZGripperDriver:
                     motor_cmd = cmd_msg.cmds[0]
                     cmd_count += 1
                     
+                    # Check for error recovery command (using tau field as command)
+                    # tau > 0 indicates error recovery command (0-4)
+                    if motor_cmd.tau > 0 and motor_cmd.tau <= 4:
+                        recovery_cmd = ErrorRecoveryCommand(int(motor_cmd.tau))
+                        if recovery_cmd != ErrorRecoveryCommand.NO_OP:
+                            self.logger.info(f"📥 DDS RECOVERY CMD #{cmd_count}: {recovery_cmd.name}")
+                            self.handle_error_recovery_command(recovery_cmd)
+                            continue  # Skip normal command processing
+                    
                     # Convert Dex1 command to gripper parameters
                     target_position = self.dex1_to_ezgripper(motor_cmd.q)
                     
@@ -633,6 +653,9 @@ class CorrectedEZGripperDriver:
         # HEARTBEAT CHECK: Removed for GUI operation
         # GraspManager state machine properly handles command gaps
         # Previous 250ms timeout was blocking button clicks after continuous mode
+        
+        # Check for errors before executing command
+        self.check_and_handle_errors()
         
         # PROTECTION: Don't execute commands if hardware is unhealthy
         if not self.hardware_healthy:
@@ -699,6 +722,77 @@ class CorrectedEZGripperDriver:
             self.logger.error(f"Exception type: {type(e)}")
             import traceback
             self.logger.error(f"Traceback: {traceback.format_exc()}")
+    
+    def check_and_handle_errors(self):
+        """Monitor for hardware errors and handle them"""
+        if not self.error_recovery_enabled or not self.gripper or not self.gripper.servos:
+            return
+            
+        current_time = time.time()
+        if current_time - self.last_error_check_time < self.error_check_interval:
+            return
+            
+        self.last_error_check_time = current_time
+        
+        try:
+            # Read error status from first servo
+            servo = self.gripper.servos[0]
+            self.error_status = self.error_recovery.read_error_status(servo)
+            
+            # Log errors if detected
+            if self.error_recovery.has_error(self.error_status):
+                error_list = []
+                if self.error_status.overload_error:
+                    error_list.append("OVERLOAD")
+                if self.error_status.overheating_error:
+                    error_list.append("OVERHEATING")
+                if self.error_status.voltage_error:
+                    error_list.append("VOLTAGE")
+                if self.error_status.hardware_error:
+                    error_list.append("HARDWARE")
+                if self.error_status.servo_in_shutdown:
+                    error_list.append("SHUTDOWN")
+                
+                self.logger.warning(f"Hardware error detected: {', '.join(error_list)} "
+                                  f"(status=0x{self.error_status.error_bits:04X})")
+                
+                # Mark hardware as unhealthy
+                self.hardware_healthy = False
+                
+                # Attempt automatic recovery for overload errors
+                if self.error_status.overload_error and not self.error_recovery.recovery_in_progress:
+                    self.logger.info("Attempting automatic recovery from overload error")
+                    success = self.error_recovery.execute_recovery(servo, ErrorRecoveryCommand.TORQUE_CYCLE)
+                    if success:
+                        self.logger.info("Automatic recovery successful")
+                        self.hardware_healthy = True
+                    else:
+                        self.logger.error("Automatic recovery failed")
+        
+        except Exception as e:
+            self.logger.error(f"Error checking failed: {e}")
+    
+    def handle_error_recovery_command(self, command: ErrorRecoveryCommand):
+        """Handle error recovery command from DDS"""
+        if not self.gripper or not self.gripper.servos:
+            self.logger.warning("Cannot execute recovery - no servo available")
+            return
+            
+        servo = self.gripper.servos[0]
+        
+        # Execute recovery in separate thread to avoid blocking control loop
+        import threading
+        def recovery_thread():
+            success = self.error_recovery.execute_recovery(servo, command)
+            if success:
+                self.logger.info(f"Recovery command {command.name} completed successfully")
+                self.hardware_healthy = True
+            else:
+                self.logger.error(f"Recovery command {command.name} failed")
+        
+        thread = threading.Thread(target=recovery_thread)
+        thread.daemon = True
+        thread.start()
     
     def update_predicted_position(self):
         """Update predicted position with constraints (no overshoot, no reverse direction) - thread-safe"""
