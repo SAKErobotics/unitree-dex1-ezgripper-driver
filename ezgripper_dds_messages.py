@@ -108,9 +108,6 @@ class EZGripperState:
                 'contact_position': self.contact_position,
                 'last_dds_position': self.last_dds_position,
                 'last_servo_command': self.last_servo_command
-            },
-            'hardware': {
-                'position_raw': self.position_raw
             }
         }
 
