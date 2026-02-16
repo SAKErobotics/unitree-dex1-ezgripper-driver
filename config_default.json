@@ -52,12 +52,12 @@
       "status_return_level": 2
     },
     "force_management": {
-      "moving_force_pct": 17,
-      "_comment_moving": "Force during MOVING state. 17% = slower movement to reduce current. 17% × 1120 = 190 units = 638mA",
-      "grasping_force_pct": 10,
-      "_comment_grasping": "Force during GRASPING state (holding after contact/stall). 10% × 1120 = 112 units = 376mA",
-      "idle_force_pct": 0,
-      "_comment_idle": "Force during IDLE state. 0% = no holding force, minimal current consumption"
+      "moving_force_pct": 20,
+      "_comment_moving": "Force during MOVING state. 20% = 224 units = 752mA. Increased for better grasp reliability.",
+      "grasping_force_pct": 20,
+      "_comment_grasping": "Force during GRASPING state (holding after contact/stall). 20% × 1120 = 224 units = 752mA",
+      "idle_force_pct": 10,
+      "_comment_idle": "Force during IDLE state. 10% = minimal holding force to maintain position against spring"
     },
     "collision_detection": {
       "enabled": true,
