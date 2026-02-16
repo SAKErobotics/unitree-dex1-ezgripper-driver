@@ -339,6 +339,79 @@ The driver automatically monitors:
 
 All monitoring data is captured using bulk operations at 30 Hz with minimal performance impact.
 
+## Temperature Monitoring
+
+The driver provides real-time temperature monitoring of the servo motor. **Unlike current sensing on MX series servos, temperature readings are accurate and reliable.**
+
+### Automatic Temperature Logging
+
+Temperature is logged automatically every 0.1 seconds in the telemetry output:
+
+```bash
+# Watch temperature in real-time
+python3 ezgripper_dds_driver.py --side left | grep "temp="
+
+# Example output:
+📡 TELEMETRY: state=idle, pos=50.0% (cmd=50.0%), effort=10%, contact=False, temp=42.5°C, error=0
+📡 TELEMETRY: state=moving, pos=45.2% (cmd=40.0%), effort=17%, contact=False, temp=43.1°C, error=0
+```
+
+### Temperature Thresholds
+
+Configured in `config_default.json`:
+
+```json
+"temperature": {
+  "warning": 60,      // Log warning at 60°C
+  "advisory": 70,     // Advisory level at 70°C  
+  "shutdown": 75,     // Shutdown at 75°C
+  "hardware_max": 80  // Hardware maximum (servo protection)
+}
+```
+
+### DDS Telemetry Access
+
+Temperature is published via DDS at 30Hz on topic `rt/gripper/{side}/telemetry`:
+
+```python
+from unitree_sdk2py.core.channel import ChannelSubscriber
+from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
+import json
+
+def telemetry_callback(msg):
+    data = json.loads(msg.data)
+    temp = data['hardware']['temperature_c']
+    print(f"Temperature: {temp:.1f}°C")
+
+subscriber = ChannelSubscriber("rt/gripper/left/telemetry", String_)
+subscriber.Init(telemetry_callback)
+```
+
+### Dex1 State Messages
+
+Temperature is also included in Dex1 state messages at 200Hz on `rt/dex1/{side}/state`:
+
+```python
+from unitree_sdk2py.core.channel import ChannelSubscriber
+from unitree_sdk2py.go2.sport.sport_client import MotorStates_
+
+def state_callback(msg):
+    if msg.states and len(msg.states) > 0:
+        temp = msg.states[0].temperature  # uint8, degrees Celsius
+        print(f"Temperature: {temp}°C")
+
+subscriber = ChannelSubscriber("rt/dex1/left/state", MotorStates_)
+subscriber.Init(state_callback)
+```
+
+### Temperature Monitoring Best Practices
+
+1. **Monitor during extended operation** - Temperature rises during continuous use
+2. **Watch for rapid increases** - Sudden temperature spikes may indicate issues
+3. **Normal operating range** - 40-55°C during typical operation
+4. **Warning threshold** - 60°C indicates elevated temperature, reduce duty cycle
+5. **Critical threshold** - 75°C triggers automatic shutdown for servo protection
+
 ## GraspManager State Machine
 
 The driver includes an intelligent grasp management system that maintains grip on objects:
