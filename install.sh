@@ -217,6 +217,59 @@ else
     echo ""
 fi
 
+# Install EZGripper GUI (optional)
+echo "======================================"
+echo "EZGripper Web GUI Setup (Optional)"
+echo "======================================"
+echo ""
+echo "Would you like to install the web-based GUI for manual control?"
+read -p "Install EZGripper GUI? (y/n) " -n 1 -r
+echo ""
+
+if [[ $REPLY =~ ^[Yy]$ ]]; then
+    echo "Installing EZGripper GUI..."
+    
+    # Check for git
+    if ! command -v git &> /dev/null; then
+        echo "Error: git is not installed. Please install git to continue."
+    else
+        # Clone the GUI repository
+        if [ -d "ezgripper-gui" ]; then
+            echo "✓ EZGripper GUI repository already exists."
+        else
+            echo "Cloning GUI repository..."
+            git clone https://github.com/SAKErobotics/EZGripper-gui.git ezgripper-gui
+        fi
+        
+        # Create virtual environment
+        echo "Creating Python virtual environment for GUI..."
+        $PYTHON_CMD -m venv ezgripper-gui/venv
+        
+        # Install GUI dependencies
+        echo "Installing GUI dependencies..."
+        # Attempt to find the CycloneDDS installation directory
+        CYCLONE_INSTALL_PATH=""
+        if [ -d "/home/sokul/CascadeProjects/cyclonedds/install" ]; then
+            CYCLONE_INSTALL_PATH="/home/sokul/CascadeProjects/cyclonedds/install"
+        fi
+
+        if [ -n "$CYCLONE_INSTALL_PATH" ]; then
+            echo "Found CycloneDDS at: $CYCLONE_INSTALL_PATH"
+            CYCLONEDDS_HOME=$CYCLONE_INSTALL_PATH ./ezgripper-gui/venv/bin/pip install -r ezgripper-gui/backend/requirements.txt
+        else
+            echo "Warning: Could not automatically find a local CycloneDDS build."
+            echo "The GUI might fail to install if the system-wide library is not found."
+            ./ezgripper-gui/venv/bin/pip install -r ezgripper-gui/backend/requirements.txt
+        fi
+
+        echo "✓ EZGripper GUI installed."
+        echo ""
+    fi
+else
+    echo "Skipping GUI installation."
+fi
+echo ""
+
 # Installation complete
 echo "======================================"
 echo "Installation Complete!"

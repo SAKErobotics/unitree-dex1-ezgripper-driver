@@ -16,11 +16,74 @@ import os
 import json
 import threading
 from dataclasses import dataclass
+from http.server import HTTPServer, BaseHTTPRequestHandler
+from urllib.parse import urlparse, parse_qs
+import socket
 
 # CycloneDDS will auto-detect library location
 # os.environ['CYCLONEDDS_HOME'] = '/usr/lib/x86_64-linux-gnu'
 
 from unitree_sdk2py.core.channel import ChannelPublisher, ChannelSubscriber, ChannelFactoryInitialize
+
+
+class GripperAPIHandler(BaseHTTPRequestHandler):
+    """Simple HTTP API for GUI communication"""
+    
+    def __init__(self, driver_instance, *args, **kwargs):
+        self.driver = driver_instance
+        super().__init__(*args, **kwargs)
+    
+    def do_GET(self):
+        """Handle GET requests for status"""
+        if self.path == '/status':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            
+            # Get current state from driver
+            state = self.driver.get_current_state()
+            response = json.dumps(state).encode()
+            self.wfile.write(response)
+        else:
+            self.send_error(404)
+    
+    def do_POST(self):
+        """Handle POST requests for commands"""
+        if self.path == '/command':
+            content_length = int(self.headers['Content-Length'])
+            post_data = self.rfile.read(content_length)
+            
+            try:
+                command = json.loads(post_data.decode())
+                self.driver.execute_command(command)
+                
+                self.send_response(200)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
+                self.end_headers()
+                response = json.dumps({'status': 'ok'}).encode()
+                self.wfile.write(response)
+            except Exception as e:
+                self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.end_headers()
+                response = json.dumps({'error': str(e)}).encode()
+                self.wfile.write(response)
+        else:
+            self.send_error(404)
+    
+    def do_OPTIONS(self):
+        """Handle CORS preflight requests"""
+        self.send_response(200)
+        self.send_header('Access-Control-Allow-Origin', '*')
+        self.send_header('Access-Control-Allow-Methods', 'GET, POST, OPTIONS')
+        self.send_header('Access-Control-Allow-Headers', 'Content-Type')
+        self.end_headers()
+    
+    def log_message(self, format, *args):
+        """Suppress default HTTP logging"""
+        pass
 
 # Import ONLY what xr_teleoperate uses for Dex1
 from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_, MotorStates_, MotorState_
@@ -32,6 +95,9 @@ from libezgripper.grasp_manager import GraspManager
 from libezgripper.gripper_telemetry import GripperTelemetry
 from libezgripper.health_monitor import HealthMonitor
 import serial.tools.list_ports
+
+# EZGripper DDS messages for advanced interface
+from ezgripper_dds_messages import EZGripperAction, GraspState, EZGripperCmd, EZGripperState
 import importlib
 import sys
 
@@ -495,6 +561,32 @@ class CorrectedEZGripperDriver:
             self.logger.info(f"Debug telemetry publisher ready: {debug_topic} @ 30Hz")
         
         self.logger.info(f"Telemetry publisher ready: {telemetry_topic} @ 30Hz")
+        
+        # Setup EZGripper DDS interface (optional advanced interface)
+        try:
+            ezgripper_admin_topic = f"rt/ezgripper/{self.side}/admin"
+            ezgripper_state_topic = f"rt/ezgripper/{self.side}/state"
+            
+            # Create custom message types for EZGripper interface
+            # Note: These would need to be registered with the IDL system
+            # For now, we'll use String_ messages with JSON encoding
+            from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
+            
+            self.ezgripper_admin_subscriber = ChannelSubscriber(ezgripper_admin_topic, String_)
+            self.ezgripper_admin_subscriber.Init(self.ezgripper_admin_callback)
+            
+            self.ezgripper_state_publisher = ChannelPublisher(ezgripper_state_topic, String_)
+            self.ezgripper_state_publisher.Init()
+            
+            self.ezgripper_interface_enabled = True
+            self.logger.info(f"EZGripper interface ready: {ezgripper_admin_topic} → {ezgripper_state_topic}")
+            
+        except Exception as e:
+            self.logger.warning(f"EZGripper interface setup failed: {e}")
+            self.ezgripper_interface_enabled = False
+            self.ezgripper_admin_subscriber = None
+            self.ezgripper_state_publisher = None
+        
         self.logger.info(f"DDS ready: {cmd_topic_name} → {state_topic_name}")
     
     def calibrate(self):
@@ -602,15 +694,7 @@ class CorrectedEZGripperDriver:
                     motor_cmd = cmd_msg.cmds[0]
                     cmd_count += 1
                     
-                    # Check for error recovery command (using tau field as command)
-                    # tau > 0 indicates error recovery command (0-4)
-                    if motor_cmd.tau > 0 and motor_cmd.tau <= 4:
-                        recovery_cmd = ErrorRecoveryCommand(int(motor_cmd.tau))
-                        if recovery_cmd != ErrorRecoveryCommand.NO_OP:
-                            self.logger.info(f"📥 DDS RECOVERY CMD #{cmd_count}: {recovery_cmd.name}")
-                            self.handle_error_recovery_command(recovery_cmd)
-                            continue  # Skip normal command processing
-                    
+                    # Dex1 interface is POSITION-ONLY - no error recovery, no force control
                     # Convert Dex1 command to gripper parameters
                     target_position = self.dex1_to_ezgripper(motor_cmd.q)
                     
@@ -776,6 +860,160 @@ class CorrectedEZGripperDriver:
         
         except Exception as e:
             self.logger.error(f"Error checking failed: {e}")
+    
+    def ezgripper_admin_callback(self, msg):
+        """Handle EZGripper DDS admin messages (advanced interface)"""
+        try:
+            # Parse JSON command
+            import json
+            cmd_data = json.loads(msg.data)
+            
+            action = EZGripperAction(cmd_data.get('action', 0))
+            self.logger.info(f"🔧 EZGripper ADMIN: {action.name}")
+            
+            # Handle different actions
+            if action == EZGripperAction.CALIBRATE:
+                self.handle_ezgripper_calibration()
+            elif action == EZGripperAction.CLEAR_ERRORS:
+                self.handle_ezgripper_clear_errors()
+            elif action == EZGripperAction.GET_STATUS:
+                self.handle_ezgripper_get_status()
+            else:
+                self.logger.warning(f"Unknown EZGripper action: {action.name}")
+                
+        except Exception as e:
+            self.logger.error(f"EZGripper command callback error: {e}")
+    
+    def handle_ezgripper_calibration(self):
+        """Handle calibration from EZGripper interface"""
+        self.logger.info("🔧 EZGripper calibration requested")
+        
+        # Execute in separate thread
+        import threading
+        def calibrate_thread():
+            try:
+                success = self.calibrate()
+                if success:
+                    self.logger.info("✅ EZGripper calibration completed")
+                else:
+                    self.logger.error("❌ EZGripper calibration failed")
+            except Exception as e:
+                self.logger.error(f"EZGripper calibration exception: {e}")
+        
+        thread = threading.Thread(target=calibrate_thread)
+        thread.daemon = True
+        thread.start()
+    
+    def handle_ezgripper_clear_errors(self):
+        """Handle clear errors from EZGripper interface (torque cycle)"""
+        self.logger.info("🔧 EZGripper clear errors requested - performing torque cycle")
+        if self.gripper and self.gripper.servos:
+            # Execute in separate thread to avoid blocking
+            import threading
+            def clear_errors_thread():
+                try:
+                    servo = self.gripper.servos[0]
+                    
+                    # Step 1: Turn off torque
+                    self.logger.info("  Step 1: Turning off torque...")
+                    servo.write_address(self.gripper.config.reg_torque_enable, [0])
+                    import time
+                    time.sleep(0.2)  # Wait 200ms
+                    
+                    # Step 2: Clear hardware error status
+                    self.logger.info("  Step 2: Clearing hardware error status...")
+                    servo.write_address(self.gripper.config.reg_hardware_error_status, [0])
+                    time.sleep(0.1)  # Wait 100ms
+                    
+                    # Step 3: Turn torque back on
+                    self.logger.info("  Step 3: Turning torque back on...")
+                    servo.write_address(self.gripper.config.reg_torque_enable, [1])
+                    time.sleep(0.1)  # Wait 100ms
+                    
+                    # Verify errors are cleared
+                    error_status = servo.read_address(self.gripper.config.reg_hardware_error_status, 1)
+                    if error_status and len(error_status) > 0 and error_status[0] == 0:
+                        self.hardware_healthy = True
+                        self.logger.info("✅ EZGripper torque cycle completed - errors cleared")
+                    else:
+                        self.logger.warning(f"⚠️ EZGripper torque cycle completed but errors persist: {error_status}")
+                        
+                except Exception as e:
+                    self.logger.error(f"Failed to perform torque cycle: {e}")
+            
+            thread = threading.Thread(target=clear_errors_thread)
+            thread.daemon = True
+            thread.start()
+    
+    def handle_ezgripper_get_status(self):
+        """Handle status request from EZGripper interface"""
+        self.logger.debug("🔧 EZGripper status requested")
+        # Status is published automatically in the control loop
+    
+    def publish_ezgripper_state(self):
+        """Publish EZGripper state message (optional interface)"""
+        if not self.ezgripper_interface_enabled or not self.ezgripper_state_publisher:
+            return
+        
+        try:
+            # Create EZGripper state message
+            grasp_state_info = self.grasp_manager.get_state_info()
+            grasp_state_name = grasp_state_info.get('state', 'UNKNOWN')
+            
+            # Map grasp state to enum
+            state_map = {
+                'idle': GraspState.IDLE,
+                'moving': GraspState.MOVING,
+                'contact': GraspState.CONTACT,
+                'grasping': GraspState.GRASPING,
+                'error': GraspState.ERROR
+            }
+            grasp_state_enum = state_map.get(grasp_state_name.lower(), GraspState.IDLE)
+            
+            # Get error description
+            error_description = "No error"
+            if self.error_status and self.error_status.has_error:
+                errors = []
+                if self.error_status.overload_error: errors.append("OVERLOAD")
+                if self.error_status.overheating_error: errors.append("OVERHEATING")
+                if self.error_status.voltage_error: errors.append("VOLTAGE")
+                if self.error_status.hardware_error: errors.append("HARDWARE")
+                if self.error_status.servo_in_shutdown: errors.append("SHUTDOWN")
+                error_description = ", ".join(errors) if errors else "Unknown error"
+            
+            # Create state message with existing data only
+            state = EZGripperState(
+                timestamp=time.time(),
+                actual_position_pct=self.actual_position_pct,
+                actual_effort_pct=self.current_effort_pct,
+                grasp_state=grasp_state_enum,
+                grasp_state_description=grasp_state_name.upper(),
+                temperature_c=self.get_temperature(),
+                current_ma=self.get_current(),
+                voltage_v=self.get_voltage(),
+                hardware_error=self.get_error(),
+                hardware_error_description=error_description,
+                is_calibrated=self.is_calibrated,
+                calibration_offset=self.calibration_offset if hasattr(self, 'calibration_offset') else 0.0,
+                serial_number=self.serial_number if hasattr(self, 'serial_number') else 'unknown',
+                is_moving=grasp_state_name.lower() == 'moving',
+                contact_detected=grasp_state_info.get('contact_detected', False),
+                # State machine data from GraspManager
+                contact_position=grasp_state_info.get('contact_position'),
+                last_dds_position=grasp_state_info.get('last_dds_position'),
+                last_servo_command=grasp_state_info.get('last_servo_command')
+            )
+            
+            # Publish as JSON (temporary until proper IDL registration)
+            import json
+            from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
+            
+            json_str = json.dumps(state.to_dict())
+            msg = String_(data=json_str)
+            self.ezgripper_state_publisher.Write(msg)
+            
+        except Exception as e:
+            self.logger.error(f"EZGripper state publishing failed: {e}")
     
     def handle_error_recovery_command(self, command: ErrorRecoveryCommand):
         """Handle error recovery command from DDS"""
@@ -1071,6 +1309,9 @@ class CorrectedEZGripperDriver:
                             if self.telemetry_enabled:
                                 self._publish_telemetry()
                             
+                            # Publish EZGripper state at 30Hz (optional interface)
+                            self.publish_ezgripper_state()
+                            
                             self.comm_error_count = 0
                             self.last_successful_comm = time.time()
                             self.hardware_healthy = True  # Reset health on successful communication
@@ -1165,20 +1406,57 @@ class CorrectedEZGripperDriver:
         finally:
             self.logger.info("State thread stopped")
 
+    def ezgripper_admin_reception_loop(self):
+        """Dedicated thread for EZGripper admin command reception"""
+        if not self.ezgripper_interface_enabled or not self.ezgripper_admin_subscriber:
+            self.logger.info("EZGripper admin interface not enabled - skipping admin reception thread")
+            return
+            
+        self.logger.info("Starting EZGripper admin reception thread...")
+        self.logger.info(f"Listening on topic: rt/ezgripper/{self.side}/admin")
+        
+        admin_cmd_count = 0
+        while self.running:
+            try:
+                # ChannelSubscriber.Read() blocks until message arrives
+                msg = self.ezgripper_admin_subscriber.Read()
+                
+                if msg:
+                    admin_cmd_count += 1
+                    self.ezgripper_admin_callback(msg)
+                    
+            except Exception as e:
+                if self.running:  # Only log if not shutting down
+                    self.logger.error(f"EZGripper admin reception error: {e}")
+                    import traceback
+                    self.logger.error(traceback.format_exc())
+                    time.sleep(0.1)  # Brief pause on error
+        
+        self.logger.info(f"EZGripper admin reception thread stopped (received {admin_cmd_count} commands total)")
+
     def run(self):
         """Start multi-threaded driver with control and state threads"""
         self.logger.info("Starting multi-threaded EZGripper driver...")
         self.logger.info("  Control thread: 30 Hz (commands + actual position)")
         self.logger.info("  State thread: 200 Hz (actual position publishing)")
+        if self.ezgripper_interface_enabled:
+            self.logger.info("  EZGripper admin thread: Event-driven (calibration, error recovery)")
 
         # Start threads
         self.command_thread = threading.Thread(target=self.command_reception_loop, daemon=True, name="Commands")
         self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
         self.state_thread = threading.Thread(target=self.state_loop, daemon=True, name="State")
+        
+        # Start EZGripper admin thread if interface is enabled
+        self.admin_thread = None
+        if self.ezgripper_interface_enabled:
+            self.admin_thread = threading.Thread(target=self.ezgripper_admin_reception_loop, daemon=True, name="EZGripperAdmin")
 
         self.command_thread.start()
         self.control_thread.start()
         self.state_thread.start()
+        if self.admin_thread:
+            self.admin_thread.start()
 
         try:
             # Main thread waits for keyboard interrupt
@@ -1196,6 +1474,8 @@ class CorrectedEZGripperDriver:
                 self.control_thread.join(timeout=1.5)
             if self.state_thread and self.state_thread.is_alive():
                 self.state_thread.join(timeout=1.0)
+            if self.admin_thread and self.admin_thread.is_alive():
+                self.admin_thread.join(timeout=1.0)
                 
             self.logger.info("Threads joined. Invoking final hardware shutdown...")
             self.shutdown()

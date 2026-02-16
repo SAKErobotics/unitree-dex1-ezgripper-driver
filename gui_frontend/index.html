@@ -1,0 +1,180 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>EZGripper Control</title>
+    <link rel="stylesheet" href="style.css">
+</head>
+<body>
+    <div class="container">
+        <h1>EZGripper Control</h1>
+        
+        <!-- Mode Selection -->
+        <div class="mode-panel">
+            <h2>Mode Selection</h2>
+            <div class="mode-status">
+                <span id="current-mode">WATCHER MODE</span>
+                <span id="mode-indicator" class="indicator-safe"></span>
+            </div>
+            <div class="mode-buttons">
+                <button id="enable-control-btn" class="btn btn-warning">Enable Control Mode</button>
+                <button id="disable-control-btn" class="btn btn-info" style="display: none;">Return to Watcher Mode</button>
+            </div>
+            <div id="mode-warning" class="warning-box" style="display: none;">
+                <strong>⚠️ WARNING:</strong> Control mode allows sending commands to the gripper. 
+                This may interfere with other systems controlling the gripper.
+            </div>
+        </div>
+        
+        <div class="status-panel">
+            <h2>Command Interface (Desired Values)</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>Desired Position:</label>
+                    <span id="desired-position">0.0%</span>
+                </div>
+                <div class="status-item">
+                    <label>Desired Effort:</label>
+                    <span id="desired-effort">0.0%</span>
+                </div>
+                <div class="status-item">
+                    <label>Last Command:</label>
+                    <span id="last-command-time">Never</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-panel">
+            <h2>State Interface (Actual Values)</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>Actual Position:</label>
+                    <span id="actual-position">0.0%</span>
+                </div>
+                <div class="status-item">
+                    <label>Actual Effort:</label>
+                    <span id="actual-effort">0.0%</span>
+                </div>
+                <div class="status-item">
+                    <label>Temperature:</label>
+                    <span id="temperature">0.0°C</span>
+                </div>
+                <div class="status-item">
+                    <label>State:</label>
+                    <span id="state">idle</span>
+                </div>
+                <div class="status-item">
+                    <label>Error:</label>
+                    <span id="error">0</span>
+                </div>
+                <div class="status-item">
+                    <label>Last State:</label>
+                    <span id="last-state-time">Never</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-panel">
+            <h2>EZGripper Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>Calibrated:</label>
+                    <span id="is-calibrated">No</span>
+                </div>
+                <div class="status-item">
+                    <label>Serial Number:</label>
+                    <span id="serial-number">Unknown</span>
+                </div>
+                <div class="status-item">
+                    <label>Contact Position:</label>
+                    <span id="contact-position">-</span>
+                </div>
+                <div class="status-item">
+                    <label>Contact Detected:</label>
+                    <span id="contact-detected">No</span>
+                </div>
+                <div class="status-item">
+                    <label>Current:</label>
+                    <span id="current-ma">0mA</span>
+                </div>
+                <div class="status-item">
+                    <label>Voltage:</label>
+                    <span id="voltage-v">0.0V</span>
+                </div>
+                <div class="status-item">
+                    <label>Raw Position:</label>
+                    <span id="position-raw">-</span>
+                </div>
+                <div class="status-item">
+                    <label>Last DDS Cmd:</label>
+                    <span id="last-dds-position">-</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="status-panel">
+            <h2>Connection Status</h2>
+            <div class="status-grid">
+                <div class="status-item">
+                    <label>DDS Connected:</label>
+                    <span id="dds-connected">No</span>
+                </div>
+                <div class="status-item">
+                    <label>Position Error:</label>
+                    <span id="position-error">0.0%</span>
+                </div>
+                <div class="status-item">
+                    <label>Effort Error:</label>
+                    <span id="effort-error">0.0%</span>
+                </div>
+            </div>
+        </div>
+        
+        <div class="control-panel">
+            <h2>Manual Control</h2>
+            
+            <div class="control-group">
+                <label for="position-slider">Position:</label>
+                <input type="range" id="position-slider" min="0" max="100" value="50" step="1">
+                <span id="position-value">50%</span>
+            </div>
+            
+            <div class="control-group">
+                <label for="effort-slider">Effort:</label>
+                <input type="range" id="effort-slider" min="0" max="100" value="20" step="1">
+                <span id="effort-value">20%</span>
+            </div>
+            
+            <div class="button-group">
+                <button id="go-button" class="btn btn-primary">Go</button>
+                <button id="stop-button" class="btn btn-secondary">Stop</button>
+                <button id="release-button" class="btn btn-warning">Release</button>
+                <button id="calibrate-button" class="btn btn-danger">Calibrate</button>
+            </div>
+        </div>
+        
+        <div class="preset-panel">
+            <h2>Presets</h2>
+            <div class="preset-buttons">
+                <button class="btn btn-preset" data-position="0" data-effort="15">Close (15%)</button>
+                <button class="btn btn-preset" data-position="0" data-effort="20">Close (20%)</button>
+                <button class="btn btn-preset" data-position="0" data-effort="25">Close (25%)</button>
+                <button class="btn btn-preset" data-position="50" data-effort="10">Open (50%)</button>
+                <button class="btn btn-preset" data-position="100" data-effort="5">Full Open</button>
+            </div>
+        </div>
+        
+        <div class="log-panel">
+            <h2>Activity Log</h2>
+            <div class="log-controls">
+                <button id="log-pause-btn" class="btn btn-secondary">Pause</button>
+                <button id="log-clear-btn" class="btn btn-danger">Clear</button>
+            </div>
+            <div id="log" class="log"></div>
+        </div>
+    </div>
+    
+    <script src="script.js"></script>
+</body>
+</html>

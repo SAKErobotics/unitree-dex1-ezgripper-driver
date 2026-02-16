@@ -20,9 +20,9 @@ import time
 import logging
 
 class ErrorRecoveryCommand(IntEnum):
-    """Error recovery command types"""
-    NO_OP = 0                    # No operation
-    CLEAR_ERRORS = 1            # Clear hardware error status
+    """Error recovery commands that can be sent via DDS tau field"""
+    NO_OP = 0                   # No operation
+    CLEAR_ERROR = 1             # Clear error status register
     TORQUE_CYCLE = 2            # Turn torque off, wait, then on
     REBOOT_SERVO = 3            # Send Reboot instruction (0x08)
     FULL_RECOVERY = 4           # Complete recovery sequence

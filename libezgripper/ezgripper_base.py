@@ -382,9 +382,6 @@ def calibrate(self):
             else:
                 position_raw = (position_data[1] << 8) | position_data[0]
             
-            # Store raw position for calibration
-            sensor_data['position_raw'] = position_raw
-            
             # Apply software offset for normal operation
             servo_position = position_raw - self.zero_positions[servo_num]
             raw_pct = self.down_scale(servo_position, self.config.grip_max)
