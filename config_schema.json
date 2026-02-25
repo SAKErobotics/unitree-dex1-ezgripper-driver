@@ -1,235 +1,141 @@
 {
   "$schema": "http://json-schema.org/draft-07/schema#",
   "title": "EZGripper Configuration Schema",
-  "description": "Configuration schema for EZGripper driver with Protocol 2.0 Dynamixel servos",
+  "description": "Configuration schema for EZGripper driver with Protocol 2.0 Dynamixel servos - Cleaned structure",
   "type": "object",
   "required": ["servo", "gripper", "communication"],
   "properties": {
     "servo": {
       "type": "object",
       "description": "Servo motor configuration",
-      "required": ["model", "operating_mode", "current_limits", "temperature", "registers"],
+      "required": ["dynamixel_settings", "force_management", "collision_detection"],
       "properties": {
-        "model": {
-          "type": "string",
-          "description": "Servo model identifier",
-          "enum": ["MX-64", "XM540"]
-        },
-        "operating_mode": {
-          "type": "integer",
-          "description": "Operating mode: 3=Position Control, 4=Extended Position Control (multi-turn), 16=PWM Control Mode",
-          "enum": [3, 4, 16],
-          "default": 4
-        },
-        "pwm_limit": {
-          "type": "integer",
-          "description": "PWM limit (maximum duty cycle, 0-885). Only used in PWM mode (16)",
-          "minimum": 0,
-          "maximum": 885,
-          "default": 885
-        },
-        "current_limits": {
+        "dynamixel_settings": {
           "type": "object",
-          "description": "Current limits in units (Protocol 2.0)",
-          "required": ["holding", "movement", "max", "hardware_max"],
+          "description": "Hardware settings applied to servo during initialization (used by ezgripper_base_clean.py)",
+          "required": ["operating_mode", "current_limit"],
           "properties": {
-            "holding": {
+            "operating_mode": {
               "type": "integer",
-              "description": "Holding current (13% of max, safe for continuous use)",
-              "minimum": 0,
-              "maximum": 2047
+              "description": "Operating mode: 3=Position Control, 4=Extended Position Control, 5=Current-based Position Control",
+              "enum": [3, 4, 5],
+              "default": 5
             },
-            "movement": {
+            "current_limit": {
               "type": "integer",
-              "description": "Movement current (30% of max, for active grasping)",
+              "description": "Hardware current limit in units (1600 = 5376mA for MX-64)",
               "minimum": 0,
-              "maximum": 2047
+              "maximum": 2047,
+              "default": 1600
             },
-            "max": {
+            "velocity_limit": {
               "type": "integer",
-              "description": "Software-enforced maximum current (70% of hardware max)",
+              "description": "Maximum velocity limit (0-1023 range)",
               "minimum": 0,
-              "maximum": 2047
+              "maximum": 1023,
+              "default": 1023
             },
-            "hardware_max": {
+            "profile_velocity": {
               "type": "integer",
-              "description": "Hardware maximum current capability",
+              "description": "Profile velocity for smooth movement",
               "minimum": 0,
-              "maximum": 2047
-            }
-          }
-        },
-        "temperature": {
-          "type": "object",
-          "description": "Temperature thresholds in Celsius",
-          "required": ["warning", "advisory", "shutdown", "hardware_max"],
-          "properties": {
-            "warning": {
-              "type": "integer",
-              "description": "Warning threshold - start monitoring closely",
-              "minimum": 0,
-              "maximum": 100
+              "maximum": 1023,
+              "default": 500
             },
-            "advisory": {
+            "profile_acceleration": {
               "type": "integer",
-              "description": "Advisory threshold - approaching limit",
+              "description": "Profile acceleration for smooth movement",
               "minimum": 0,
-              "maximum": 100
+              "maximum": 32767,
+              "default": 800
             },
-            "shutdown": {
-              "type": "integer",
-              "description": "Software shutdown threshold",
-              "minimum": 0,
-              "maximum": 100
-            },
-            "hardware_max": {
-              "type": "integer",
-              "description": "Hardware maximum temperature",
-              "minimum": 0,
-              "maximum": 100
-            }
-          }
-        },
-        "registers": {
-          "type": "object",
-          "description": "Dynamixel Protocol 2.0 register addresses",
-          "required": ["operating_mode", "torque_enable", "current_limit", "goal_position", "present_position", "present_temperature", "present_current", "hardware_error"],
-          "properties": {
-            "operating_mode": {"type": "integer", "minimum": 0, "maximum": 255},
-            "torque_enable": {"type": "integer", "minimum": 0, "maximum": 255},
-            "current_limit": {"type": "integer", "minimum": 0, "maximum": 255},
-            "goal_current": {"type": "integer", "minimum": 0, "maximum": 255},
-            "pwm_limit": {"type": "integer", "minimum": 0, "maximum": 255},
-            "goal_pwm": {"type": "integer", "minimum": 0, "maximum": 255},
-            "present_pwm": {"type": "integer", "minimum": 0, "maximum": 255},
-            "goal_position": {"type": "integer", "minimum": 0, "maximum": 255},
-            "present_position": {"type": "integer", "minimum": 0, "maximum": 255},
-            "present_temperature": {"type": "integer", "minimum": 0, "maximum": 255},
-            "present_current": {"type": "integer", "minimum": 0, "maximum": 255},
-            "present_voltage": {"type": "integer", "minimum": 0, "maximum": 255},
-            "hardware_error": {"type": "integer", "minimum": 0, "maximum": 255},
-            "homing_offset": {"type": "integer", "minimum": 0, "maximum": 255},
-            "velocity_limit": {"type": "integer", "minimum": 0, "maximum": 255},
-            "temperature_limit": {"type": "integer", "minimum": 0, "maximum": 255},
-            "return_delay_time": {"type": "integer", "minimum": 0, "maximum": 255},
-            "status_return_level": {"type": "integer", "minimum": 0, "maximum": 255}
-          }
-        },
-        "eeprom_settings": {
-          "type": "object",
-          "description": "EEPROM optimization settings for best performance",
-          "required": ["return_delay_time", "status_return_level"],
-          "properties": {
             "return_delay_time": {
               "type": "integer",
-              "description": "Return delay time (0 = immediate response, best performance)",
+              "description": "Return delay time in microseconds",
               "minimum": 0,
-              "maximum": 254
+              "maximum": 254,
+              "default": 2
             },
             "status_return_level": {
               "type": "integer",
-              "description": "Status return level (0=none, 1=READ only, 2=all commands)",
-              "minimum": 0,
-              "maximum": 2
+              "description": "Status return level: 0=never, 1=only READ, 2=always",
+              "enum": [0, 1, 2],
+              "default": 2
             }
           }
         },
-        "backpressure_control": {
+        "force_management": {
           "type": "object",
-          "description": "Back-pressure detection and adaptive current control for gentle grasping",
-          "required": ["enabled", "fast_current_level", "desired_force_level"],
+          "description": "Force settings per GraspManager state (used by grasp_manager.py)",
+          "required": ["moving_force_pct", "grasping_force_pct", "idle_force_pct"],
+          "properties": {
+            "moving_force_pct": {
+              "type": "number",
+              "description": "Force during MOVING state (closing/opening)",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 50
+            },
+            "grasping_force_pct": {
+              "type": "number",
+              "description": "Force during GRASPING state (holding after contact)",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 20
+            },
+            "idle_force_pct": {
+              "type": "number",
+              "description": "Force during IDLE state",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 10
+            }
+          }
+        },
+        "collision_detection": {
+          "type": "object",
+          "description": "Stall/contact detection settings (used by grasp_manager.py)",
+          "required": ["consecutive_samples_required", "stall_tolerance_pct"],
           "properties": {
             "enabled": {
               "type": "boolean",
-              "description": "Enable back-pressure detection and adaptive current control",
+              "description": "Enable collision detection",
               "default": true
             },
-            "fast_current_level": {
-              "type": "string",
-              "description": "Current level to use for fast initial movement",
-              "enum": ["holding", "movement", "max"],
-              "default": "max"
+            "consecutive_samples_required": {
+              "type": "integer",
+              "description": "Number of consecutive stagnant readings to confirm contact",
+              "minimum": 1,
+              "maximum": 10,
+              "default": 3
             },
-            "desired_force_level": {
-              "type": "string", 
-              "description": "Current level to use for desired force after contact",
-              "enum": ["holding", "movement", "max"],
-              "default": "movement"
+            "stall_tolerance_pct": {
+              "type": "number",
+              "description": "Position range tolerance for stall detection (percentage)",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 2.0
             },
-            "holding_current_level": {
-              "type": "string",
-              "description": "Current level to use for force maintenance",
-              "enum": ["holding", "movement", "max"],
-              "default": "holding"
+            "zero_target_tolerance_pct": {
+              "type": "number",
+              "description": "Tight tolerance for stable position at 0% target",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 0.04
             },
-            "detection": {
-              "type": "object",
-              "description": "Back-pressure detection parameters",
-              "required": ["current_spike_threshold", "stagnation_distance"],
-              "properties": {
-                "current_spike_threshold": {
-                  "type": "integer",
-                  "description": "Current threshold in mA for spike detection",
-                  "minimum": 500,
-                  "maximum": 2000,
-                  "default": 1000
-                },
-                "stagnation_distance": {
-                  "type": "integer",
-                  "description": "Distance to target in raw units for stagnation detection",
-                  "minimum": 10,
-                  "maximum": 200,
-                  "default": 50
-                },
-                "stagnation_movement": {
-                  "type": "integer",
-                  "description": "Minimum movement in raw units to consider 'moving'",
-                  "minimum": 1,
-                  "maximum": 10,
-                  "default": 2
-                },
-                "monitor_frequency_hz": {
-                  "type": "integer",
-                  "description": "Monitoring frequency for back-pressure detection",
-                  "minimum": 10,
-                  "maximum": 200,
-                  "default": 100
-                },
-                "detection_timeout_s": {
-                  "type": "number",
-                  "description": "Maximum time to wait for back-pressure detection",
-                  "minimum": 1.0,
-                  "maximum": 10.0,
-                  "default": 5.0
-                }
-              }
+            "position_change_threshold_pct": {
+              "type": "number",
+              "description": "Threshold for state transitions",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 1.0
             },
-            "response": {
-              "type": "object",
-              "description": "Response parameters for back-pressure handling",
-              "properties": {
-                "reduction_delay_ms": {
-                  "type": "integer",
-                  "description": "Delay before reducing current (0 = immediate)",
-                  "minimum": 0,
-                  "maximum": 100,
-                  "default": 0
-                },
-                "force_adjustment_step": {
-                  "type": "integer",
-                  "description": "Step size for fine force adjustments in mA",
-                  "minimum": 1,
-                  "maximum": 50,
-                  "default": 10
-                },
-                "contact_settle_time_ms": {
-                  "type": "integer",
-                  "description": "Time to wait after contact detection before fine adjustments",
-                  "minimum": 50,
-                  "maximum": 500,
-                  "default": 100
-                }
-              }
+            "command_change_threshold_pct": {
+              "type": "number",
+              "description": "Threshold for sending new servo commands",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 3.0
             }
           }
         }
@@ -242,8 +148,10 @@
       "properties": {
         "grip_max": {
           "type": "integer",
-          "description": "Maximum position range in servo units",
-          "minimum": 0
+          "description": "Maximum position range in servo units (0-2500 for practical range)",
+          "minimum": 0,
+          "maximum": 4095,
+          "default": 2500
         },
         "position_scaling": {
           "type": "object",
@@ -252,146 +160,138 @@
           "properties": {
             "max_open_percent": {
               "type": "integer",
-              "description": "Maximum open position percentage. 0% is always fully closed. Commands are scaled: 100% input → max_open_percent output",
+              "description": "Maximum open position percentage. 100% GUI command -> max_open_percent output",
               "minimum": 1,
               "maximum": 100,
-              "default": 70
+              "default": 100
             }
           }
         },
         "dex1_mapping": {
           "type": "object",
-          "description": "Mapping to Dex1 hand radians",
+          "description": "Mapping to Unitree Dex1 hand radians for DDS interface",
           "required": ["open_radians", "close_radians"],
           "properties": {
-            "open_radians": {"type": "number"},
-            "close_radians": {"type": "number"}
+            "open_radians": {
+              "type": "number",
+              "description": "Dex1 hand radians for open position",
+              "default": 5.4
+            },
+            "close_radians": {
+              "type": "number",
+              "description": "Dex1 hand radians for close position",
+              "default": 0.0
+            }
           }
         },
         "calibration": {
           "type": "object",
-          "description": "Calibration parameters",
+          "description": "Calibration sequence settings (used by ezgripper_dds_driver.py)",
           "properties": {
-            "current": {
+            "goto_position_target": {
               "type": "integer",
-              "description": "Current to use during calibration",
-              "minimum": 0
+              "description": "Target position for calibration goto sequence",
+              "default": -300
             },
-            "position": {
+            "goto_position_effort": {
               "type": "integer",
-              "description": "Position to command for finding zero"
+              "description": "Effort level for calibration",
+              "minimum": 0,
+              "maximum": 100,
+              "default": 30
             },
-            "timeout": {
-              "type": "number",
-              "description": "Timeout in seconds",
-              "minimum": 0
+            "settle_position": {
+              "type": "integer",
+              "description": "Position after calibration",
+              "default": 35
             },
             "auto_on_init": {
               "type": "boolean",
-              "description": "Auto-calibrate on initialization"
+              "description": "Automatically run calibration on driver initialization",
+              "default": true
             }
           }
         }
       }
     },
-    "wave_following": {
-      "type": "object",
-      "description": "Wave-following control algorithm parameters",
-      "properties": {
-        "enabled": {"type": "boolean"},
-        "history_window": {
-          "type": "integer",
-          "description": "Number of commands to analyze",
-          "minimum": 1
-        },
-        "variance_threshold": {
-          "type": "number",
-          "description": "Variance below this = steady state",
-          "minimum": 0
-        },
-        "position_tolerance": {
-          "type": "number",
-          "description": "Position tolerance for 'at goal'",
-          "minimum": 0
-        },
-        "mode_switch_delay": {
-          "type": "number",
-          "description": "Delay before switching modes (seconds)",
-          "minimum": 0
-        }
-      }
-    },
-    "health_interface": {
-      "type": "object",
-      "description": "Health monitoring DDS interface",
-      "properties": {
-        "enabled": {"type": "boolean"},
-        "topic": {"type": "string"},
-        "rate_hz": {
-          "type": "number",
-          "description": "Publication rate in Hz",
-          "minimum": 0
-        },
-        "qos_reliability": {
-          "type": "string",
-          "enum": ["RELIABLE", "BEST_EFFORT"]
-        },
-        "qos_durability": {
-          "type": "string",
-          "enum": ["VOLATILE", "TRANSIENT_LOCAL"]
-        }
-      }
-    },
-    "error_management": {
-      "type": "object",
-      "description": "Error detection and handling",
-      "properties": {
-        "auto_recovery": {"type": "boolean"},
-        "max_attempts": {
-          "type": "integer",
-          "minimum": 0
-        },
-        "use_reboot": {"type": "boolean"},
-        "retry_delay": {
-          "type": "number",
-          "minimum": 0
-        }
-      }
-    },
     "communication": {
       "type": "object",
-      "description": "Serial communication parameters",
+      "description": "Serial communication parameters (used by lib_robotis.py)",
       "required": ["device", "baudrate", "protocol_version", "servo_id"],
       "properties": {
         "device": {
           "type": "string",
-          "description": "Serial device path"
+          "description": "Serial device path for USB connection to Dynamixel servo",
+          "default": "/dev/ttyUSB0"
         },
         "baudrate": {
           "type": "integer",
-          "description": "Communication baudrate",
-          "enum": [57600, 115200, 1000000, 2000000, 3000000, 4000000]
+          "description": "Communication baudrate (1Mbps is standard for Dynamixel)",
+          "enum": [57600, 115200, 1000000, 2000000, 3000000, 4000000],
+          "default": 1000000
         },
         "protocol_version": {
           "type": "number",
-          "description": "Dynamixel protocol version",
-          "enum": [1.0, 2.0]
+          "description": "Dynamixel protocol version (2.0 for MX-64)",
+          "enum": [1.0, 2.0],
+          "default": 2.0
         },
         "servo_id": {
           "type": "integer",
-          "description": "Servo ID",
+          "description": "Dynamixel servo ID",
           "minimum": 0,
-          "maximum": 252
+          "maximum": 252,
+          "default": 1
         },
         "timeout": {
           "type": "number",
           "description": "Communication timeout (seconds)",
-          "minimum": 0
+          "minimum": 0,
+          "default": 0.5
         },
         "smart_init": {
           "type": "boolean",
-          "description": "Read servo values before writing to prevent EEPROM wear",
+          "description": "Enable smart initialization with automatic device detection",
           "default": true
+        }
+      }
+    },
+    "telemetry": {
+      "type": "object",
+      "description": "Telemetry publishing settings (used by ezgripper_dds_driver.py)",
+      "properties": {
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable telemetry data publishing",
+          "default": true
+        },
+        "topic_prefix": {
+          "type": "string",
+          "description": "DDS topic prefix for telemetry messages",
+          "default": "rt/gripper"
+        },
+        "rate_hz": {
+          "type": "integer",
+          "description": "Telemetry publish rate in Hz",
+          "minimum": 1,
+          "maximum": 200,
+          "default": 30
+        },
+        "qos_reliability": {
+          "type": "string",
+          "description": "DDS Quality of Service reliability",
+          "enum": ["RELIABLE", "BEST_EFFORT"],
+          "default": "RELIABLE"
+        },
+        "debug_enabled": {
+          "type": "boolean",
+          "description": "Enable debug telemetry",
+          "default": false
+        },
+        "debug_topic_prefix": {
+          "type": "string",
+          "description": "DDS topic prefix for debug telemetry messages",
+          "default": "rt/gripper/debug"
         }
       }
     },
@@ -399,18 +299,42 @@
       "type": "object",
       "description": "Logging configuration",
       "properties": {
-        "enabled": {"type": "boolean"},
+        "enabled": {
+          "type": "boolean",
+          "description": "Enable system logging",
+          "default": true
+        },
         "level": {
           "type": "string",
-          "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"]
+          "description": "Logging level",
+          "enum": ["DEBUG", "INFO", "WARNING", "ERROR", "CRITICAL"],
+          "default": "INFO"
         },
-        "log_errors": {"type": "boolean"},
-        "log_temperature": {"type": "boolean"},
-        "log_current": {"type": "boolean"},
-        "log_file": {"type": "string"},
+        "log_errors": {
+          "type": "boolean",
+          "description": "Log error conditions",
+          "default": true
+        },
+        "log_temperature": {
+          "type": "boolean",
+          "description": "Log temperature warnings",
+          "default": true
+        },
+        "log_current": {
+          "type": "boolean",
+          "description": "Log current usage data",
+          "default": false
+        },
+        "log_file": {
+          "type": "string",
+          "description": "System log file path",
+          "default": "/var/log/ezgripper.log"
+        },
         "max_log_size_mb": {
           "type": "integer",
-          "minimum": 1
+          "description": "Maximum log file size before rotation",
+          "minimum": 1,
+          "default": 100
         }
       }
     }

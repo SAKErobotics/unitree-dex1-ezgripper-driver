@@ -2,8 +2,17 @@
 """
 Configuration loader for EZGripper driver
 
-Loads and validates JSON configuration files against schema.
+Loads and validates JSON configuration files.
 Provides typed access to configuration parameters.
+
+Configuration Structure (cleaned):
+- servo.dynamixel_settings: Hardware settings applied to servo (used by ezgripper_base_clean.py)
+- servo.force_management: Force settings per GraspManager state (used by grasp_manager.py)
+- servo.collision_detection: Stall/contact detection settings (used by grasp_manager.py)
+- gripper: Geometry and calibration settings (used by multiple modules)
+- communication: Serial communication settings (used by lib_robotis.py)
+- telemetry: Telemetry publishing settings (used by ezgripper_dds_driver.py)
+- logging: Logging settings (used by config.py)
 """
 
 import json
@@ -23,262 +32,206 @@ class Config:
     def __init__(self, config_dict: Dict[str, Any]):
         self._config = config_dict
     
-    # Servo configuration
+    # =========================================================================
+    # Servo Dynamixel Settings - Hardware settings applied during initialization
+    # Used by: ezgripper_base_clean.py:_setup_position_control()
+    # =========================================================================
+    
     @property
-    def servo_model(self) -> str:
-        return self._config['servo']['model']
+    def dynamixel_settings(self) -> Dict[str, Any]:
+        """Get all dynamixel_settings as a dictionary (used by ezgripper_base_clean.py)"""
+        return self._config['servo'].get('dynamixel_settings', {})
     
     @property
     def operating_mode(self) -> int:
-        return self._config['servo']['operating_mode']
+        """Operating mode from dynamixel_settings (Mode 5 = Current-based Position Control)"""
+        return self.dynamixel_settings.get('operating_mode', 5)
     
     @property
-    def holding_current(self) -> int:
-        return self._config['servo']['current_limits']['holding']
+    def current_limit(self) -> int:
+        """Hardware current limit in units (used for current calculations)"""
+        return self.dynamixel_settings.get('current_limit', 1600)
     
     @property
-    def movement_current(self) -> int:
-        return self._config['servo']['current_limits']['movement']
+    def profile_velocity(self) -> int:
+        """Profile velocity for smooth movement"""
+        return self.dynamixel_settings.get('profile_velocity', 500)
     
     @property
-    def max_current(self) -> int:
-        return self._config['servo']['current_limits']['max']
+    def profile_acceleration(self) -> int:
+        """Profile acceleration for smooth movement"""
+        return self.dynamixel_settings.get('profile_acceleration', 800)
+    
+    # =========================================================================
+    # Force Management Settings - Used by GraspManager
+    # Used by: grasp_manager.py:__init__()
+    # =========================================================================
     
     @property
-    def hardware_max_current(self) -> int:
-        return self._config['servo']['current_limits']['hardware_max']
+    def force_management(self) -> Dict[str, Any]:
+        """Get all force_management settings as a dictionary"""
+        return self._config['servo'].get('force_management', {})
     
     @property
-    def pwm_limit(self) -> int:
-        return self._config['servo'].get('pwm_limit', 885)
+    def moving_force_pct(self) -> float:
+        """Force during MOVING state (closing/opening)"""
+        return self.force_management.get('moving_force_pct', 50)
     
     @property
-    def backpressure_control(self) -> Dict[str, Any]:
-        return self._config['servo'].get('backpressure_control', {})
+    def grasping_force_pct(self) -> float:
+        """Force during GRASPING state (holding after contact)"""
+        return self.force_management.get('grasping_force_pct', 20.0)
     
     @property
-    def current_limits(self) -> Dict[str, int]:
-        return {
-            'holding': self.holding_current,
-            'movement': self.movement_current,
-            'max': self.max_current,
-            'hardware_max': self.hardware_max_current
-        }
+    def idle_force_pct(self) -> float:
+        """Force during IDLE state"""
+        return self.force_management.get('idle_force_pct', 10)
+    
+    # =========================================================================
+    # Collision Detection Settings - Used by GraspManager
+    # Used by: grasp_manager.py:__init__()
+    # =========================================================================
     
     @property
-    def temp_warning(self) -> int:
-        return self._config['servo']['temperature']['warning']
+    def collision_detection(self) -> Dict[str, Any]:
+        """Get all collision_detection settings as a dictionary"""
+        return self._config['servo'].get('collision_detection', {})
     
     @property
-    def temp_advisory(self) -> int:
-        return self._config['servo']['temperature']['advisory']
+    def stall_tolerance_pct(self) -> float:
+        """Position range tolerance for stall detection"""
+        return self.collision_detection.get('stall_tolerance_pct', 2.0)
     
     @property
-    def temp_shutdown(self) -> int:
-        return self._config['servo']['temperature']['shutdown']
+    def consecutive_samples_required(self) -> int:
+        """Number of consecutive stagnant readings to confirm contact"""
+        return self.collision_detection.get('consecutive_samples_required', 3)
     
-    @property
-    def temp_hardware_max(self) -> int:
-        return self._config['servo']['temperature']['hardware_max']
+    # =========================================================================
+    # Gripper Configuration - Geometry and calibration
+    # Used by: ezgripper_base_clean.py, ezgripper_dds_driver.py
+    # =========================================================================
     
-    # Register addresses
-    @property
-    def reg_operating_mode(self) -> int:
-        return self._config['servo']['registers']['operating_mode']
-    
-    @property
-    def reg_torque_enable(self) -> int:
-        return self._config['servo']['registers']['torque_enable']
-    
-    @property
-    def reg_current_limit(self) -> int:
-        return self._config['servo']['registers']['current_limit']
-    
-    @property
-    def reg_goal_current(self) -> int:
-        return self._config['servo']['registers']['goal_current']
-    
-    @property
-    def reg_pwm_limit(self) -> int:
-        return self._config['servo']['registers']['pwm_limit']
-    
-    @property
-    def reg_goal_pwm(self) -> int:
-        return self._config['servo']['registers']['goal_pwm']
-    
-    @property
-    def reg_present_pwm(self) -> int:
-        return self._config['servo']['registers']['present_pwm']
-    
-    @property
-    def reg_goal_position(self) -> int:
-        return self._config['servo']['registers']['goal_position']
-    
-    @property
-    def reg_present_position(self) -> int:
-        return self._config['servo']['registers']['present_position']
-    
-    @property
-    def reg_present_temperature(self) -> int:
-        return self._config['servo']['registers']['present_temperature']
-    
-    @property
-    def reg_present_current(self) -> int:
-        return self._config['servo']['registers']['present_current']
-    
-    @property
-    def reg_present_voltage(self) -> int:
-        return self._config['servo']['registers']['present_voltage']
-    
-    @property
-    def reg_hardware_error(self) -> int:
-        return self._config['servo']['registers']['hardware_error']
-    
-    @property
-    def reg_homing_offset(self) -> int:
-        return self._config['servo']['registers']['homing_offset']
-    
-    @property
-    def reg_return_delay_time(self) -> int:
-        return self._config['servo']['registers']['return_delay_time']
-    
-    @property
-    def reg_status_return_level(self) -> int:
-        return self._config['servo']['registers']['status_return_level']
-    
-    # EEPROM optimization settings
-    @property
-    def eeprom_return_delay_time(self) -> int:
-        return self._config['servo']['eeprom_settings']['return_delay_time']
-    
-    @property
-    def eeprom_status_return_level(self) -> int:
-        return self._config['servo']['eeprom_settings']['status_return_level']
-    
-    # Gripper configuration
     @property
     def grip_max(self) -> int:
+        """Maximum position range in servo units (0-2500 for practical range)"""
         return self._config['gripper']['grip_max']
     
     @property
     def max_open_percent(self) -> int:
+        """Maximum opening percentage (100% GUI command -> max_open_percent hardware)"""
         return self._config['gripper']['position_scaling']['max_open_percent']
     
     @property
     def dex1_open_radians(self) -> float:
+        """Dex1 hand radians for open position"""
         return self._config['gripper']['dex1_mapping']['open_radians']
     
     @property
     def dex1_close_radians(self) -> float:
+        """Dex1 hand radians for close position"""
         return self._config['gripper']['dex1_mapping']['close_radians']
     
     @property
-    def calibration_current(self) -> int:
-        return self._config['gripper'].get('calibration', {}).get('current', self.max_current)
-    
-    @property
-    def calibration_position(self) -> int:
-        return self._config['gripper'].get('calibration', {}).get('position', -10000)
-    
-    @property
-    def calibration_timeout(self) -> float:
-        return self._config['gripper'].get('calibration', {}).get('timeout', 3.0)
-    
-    @property
     def calibration_auto_on_init(self) -> bool:
+        """Automatically run calibration on driver initialization"""
         return self._config['gripper'].get('calibration', {}).get('auto_on_init', False)
     
     @property
-    def calibration_pwm(self) -> int:
-        return self._config['gripper'].get('calibration', {}).get('pwm', 100)
-    
-    # Wave-following configuration
-    @property
-    def wave_following_enabled(self) -> bool:
-        return self._config.get('wave_following', {}).get('enabled', True)
+    def calibration_goto_target(self) -> int:
+        """Target position for calibration goto sequence"""
+        return self._config['gripper'].get('calibration', {}).get('goto_position_target', -300)
     
     @property
-    def wave_history_window(self) -> int:
-        return self._config.get('wave_following', {}).get('history_window', 10)
+    def calibration_goto_effort(self) -> int:
+        """Effort level for calibration"""
+        return self._config['gripper'].get('calibration', {}).get('goto_position_effort', 30)
     
     @property
-    def wave_variance_threshold(self) -> float:
-        return self._config.get('wave_following', {}).get('variance_threshold', 2.0)
+    def calibration_settle_position(self) -> int:
+        """Position after calibration"""
+        return self._config['gripper'].get('calibration', {}).get('settle_position', 35)
     
-    @property
-    def wave_position_tolerance(self) -> float:
-        return self._config.get('wave_following', {}).get('position_tolerance', 5.0)
+    # =========================================================================
+    # Communication Configuration - Serial communication
+    # Used by: lib_robotis.py
+    # =========================================================================
     
-    @property
-    def wave_mode_switch_delay(self) -> float:
-        return self._config.get('wave_following', {}).get('mode_switch_delay', 0.5)
-    
-    # Health interface configuration
-    @property
-    def health_enabled(self) -> bool:
-        return self._config.get('health_interface', {}).get('enabled', True)
-    
-    @property
-    def health_topic(self) -> str:
-        return self._config.get('health_interface', {}).get('topic', 'rt/gripper/health')
-    
-    @property
-    def health_rate_hz(self) -> float:
-        return self._config.get('health_interface', {}).get('rate_hz', 10.0)
-    
-    @property
-    def health_qos_reliability(self) -> str:
-        return self._config.get('health_interface', {}).get('qos_reliability', 'RELIABLE')
-    
-    # Error management configuration
-    @property
-    def error_auto_recovery(self) -> bool:
-        return self._config.get('error_management', {}).get('auto_recovery', True)
-    
-    @property
-    def error_max_attempts(self) -> int:
-        return self._config.get('error_management', {}).get('max_attempts', 3)
-    
-    @property
-    def error_use_reboot(self) -> bool:
-        return self._config.get('error_management', {}).get('use_reboot', True)
-    
-    # Communication configuration
     @property
     def comm_device(self) -> str:
+        """Serial device path for USB connection to Dynamixel servo"""
         return self._config['communication']['device']
     
     @property
     def comm_baudrate(self) -> int:
+        """Serial communication speed (1Mbps is standard for Dynamixel)"""
         return self._config['communication']['baudrate']
     
     @property
     def comm_protocol_version(self) -> float:
+        """Dynamixel Protocol version (2.0 for MX-64)"""
         return self._config['communication']['protocol_version']
     
     @property
     def comm_servo_id(self) -> int:
+        """Dynamixel servo ID"""
         return self._config['communication']['servo_id']
     
     @property
     def comm_timeout(self) -> float:
+        """Serial communication timeout in seconds"""
         return self._config['communication'].get('timeout', 0.5)
     
     @property
     def comm_smart_init(self) -> bool:
+        """Enable smart initialization with automatic device detection"""
         return self._config['communication'].get('smart_init', True)
     
-    # Logging configuration
+    # =========================================================================
+    # Telemetry Configuration - Telemetry publishing
+    # Used by: ezgripper_dds_driver.py
+    # =========================================================================
+    
+    @property
+    def telemetry_enabled(self) -> bool:
+        """Enable telemetry data publishing"""
+        return self._config.get('telemetry', {}).get('enabled', True)
+    
+    @property
+    def telemetry_topic_prefix(self) -> str:
+        """DDS topic prefix for telemetry messages"""
+        return self._config.get('telemetry', {}).get('topic_prefix', 'rt/gripper')
+    
+    @property
+    def telemetry_rate_hz(self) -> int:
+        """Telemetry publish rate in Hz"""
+        return self._config.get('telemetry', {}).get('rate_hz', 30)
+    
+    @property
+    def telemetry_debug_enabled(self) -> bool:
+        """Enable debug telemetry"""
+        return self._config.get('telemetry', {}).get('debug_enabled', False)
+    
+    # =========================================================================
+    # Logging Configuration
+    # =========================================================================
+    
     @property
     def log_enabled(self) -> bool:
+        """Enable system logging"""
         return self._config.get('logging', {}).get('enabled', True)
     
     @property
     def log_level(self) -> str:
+        """Logging level: DEBUG, INFO, WARNING, ERROR"""
         return self._config.get('logging', {}).get('level', 'INFO')
     
+    # =========================================================================
+    # Raw Access
+    # =========================================================================
+    
     def get_raw(self) -> Dict[str, Any]:
-        """Get raw configuration dictionary"""
+        """Get raw configuration dictionary (used by modules that need direct access)"""
         return self._config
 
 
@@ -339,73 +292,26 @@ def validate_config(config: Dict[str, Any]) -> bool:
             return False
     
     # Validate servo section
-    if 'current_limits' not in config['servo']:
-        print("Missing servo.current_limits")
+    if 'dynamixel_settings' not in config['servo']:
+        print("Missing servo.dynamixel_settings")
         return False
     
-    if 'temperature' not in config['servo']:
-        print("Missing servo.temperature")
+    if 'force_management' not in config['servo']:
+        print("Missing servo.force_management")
         return False
     
-    if 'registers' not in config['servo']:
-        print("Missing servo.registers")
+    if 'collision_detection' not in config['servo']:
+        print("Missing servo.collision_detection")
         return False
     
-    # Validate current limits
-    limits = config['servo']['current_limits']
-    if limits['holding'] > limits['movement']:
-        print("Warning: holding_current > movement_current")
-    
-    if limits['movement'] > limits['max']:
-        print("Warning: movement_current > max_current")
-    
-    if limits['max'] > limits['hardware_max']:
-        print("Error: max_current > hardware_max_current")
+    # Validate gripper section
+    if 'grip_max' not in config['gripper']:
+        print("Missing gripper.grip_max")
         return False
     
-    # Validate temperature thresholds
-    temps = config['servo']['temperature']
-    if temps['warning'] >= temps['advisory']:
-        print("Warning: warning temp >= advisory temp")
-    
-    if temps['advisory'] >= temps['shutdown']:
-        print("Warning: advisory temp >= shutdown temp")
-    
-    if temps['shutdown'] > temps['hardware_max']:
-        print("Error: shutdown temp > hardware_max temp")
+    # Validate communication section
+    if 'device' not in config['communication']:
+        print("Missing communication.device")
         return False
     
     return True
-
-
-def get_servo_config(config: Config) -> Dict[str, Any]:
-    """Get servo-specific configuration as dictionary"""
-    return {
-        'model': config.servo_model,
-        'current_limits': {
-            'holding': config.holding_current,
-            'movement': config.movement_current,
-            'max': config.max_current,
-            'hardware_max': config.hardware_max_current
-        },
-        'temperature': {
-            'warning': config.temp_warning,
-            'advisory': config.temp_advisory,
-            'shutdown': config.temp_shutdown,
-            'hardware_max': config.temp_hardware_max
-        }
-    }
-
-
-def get_gripper_config(config: Config) -> Dict[str, Any]:
-    """Get gripper-specific configuration as dictionary"""
-    return {
-        'grip_max': config.grip_max,
-        'position_scaling': {
-            'max_open_percent': config.max_open_percent
-        },
-        'dex1_mapping': {
-            'open_radians': config.dex1_open_radians,
-            'close_radians': config.dex1_close_radians
-        }
-    }

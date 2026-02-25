@@ -1,148 +1,114 @@
 {
   "$schema": "./config_schema.json",
+  "_comment": "EZGripper Configuration - Cleaned and organized. Only contains settings that are actually used by the code.",
+  
   "servo": {
-    "model": "MX-64",
-    "operating_mode": 4,
-    "current_limits": {
-      "holding": 50,
-      "movement": 100,
-      "max": 200,
-      "hardware_max": 1359
-    },
-    "temperature": {
-      "warning": 60,
-      "advisory": 70,
-      "shutdown": 75,
-      "hardware_max": 80
-    },
-    "registers": {
-      "operating_mode": 11,
-      "torque_enable": 64,
-      "current_limit": 38,
-      "profile_velocity": 112,
-      "goal_current": 102,
-      "goal_position": 116,
-      "present_position": 132,
-      "present_temperature": 146,
-      "present_current": 126,
-      "present_voltage": 144,
-      "hardware_error": 70,
-      "return_delay_time": 9,
-      "status_return_level": 68
-    },
-    "performance": {
-      "max_current_limit": 1600,
-      "max_profile_velocity": 1023
-    },
-    "eeprom_settings": {
-      "return_delay_time": 0,
-      "status_return_level": 1
-    },
+    "_comment": "Dynamixel MX-64 servo configuration",
+    
     "dynamixel_settings": {
+      "_comment": "Hardware settings applied to servo during initialization via ezgripper_base_clean.py:_setup_position_control()",
       "operating_mode": 5,
-      "_comment_operating_mode": "Mode 5: Current-based Position Control Mode - CRITICAL for gripper with spring force at 0% position",
-      "_comment_why_mode_5": "Research: Humanoid robots (soccer players) use Mode 5 for joints with constant loads (gravity/spring). Control flow: PID\u2192Desired Current\u2192Goal Current Limit\u2192Current Controller\u2192PWM\u2192PWM Limit\u2192Motor. In Mode 4, PID outputs PWM directly and Goal Current is just a limit (servo draws unlimited current). In Mode 5, PID outputs desired current and current controller actively manages torque. See: https://emanual.robotis.com/docs/en/dxl/mx/mx-64-2/ Position PID Gain section. ROBOTIS gripper RH-P12-RN uses Mode 5 exclusively.",
-      "_comment_mode_5_reset": "IMPORTANT: Switching to Mode 5 automatically resets Position PID Gain(80,82,84) and PWM Limit(36) to values optimized for current control. These are tuned by ROBOTIS and should not be manually overridden unless necessary.",
-      "current_limit": 1120,
-      "_comment_current_limit": "70% of max (1600). 1120 units \u00d7 3.36mA = 3763mA (3.76A) hardware limit. Dual-limit system: Goal Current (from force_pct) limits desired current, then PWM Limit limits final PWM output.",
+      "_comment_operating_mode": "Mode 5: Current-based Position Control - PID outputs desired current, current controller manages torque. Critical for gripper with spring force. ROBOTIS RH-P12-RN uses Mode 5 exclusively.",
+      "current_limit": 1600,
+      "_comment_current_limit": "Maximum current in units (1600 × 3.36mA = 5376mA). Goal Current from force_pct limits desired current.",
       "velocity_limit": 1023,
-      "profile_velocity": 0,
-      "profile_acceleration": 0,
+      "_comment_velocity_limit": "Maximum velocity limit (0-1023 range)",
+      "profile_velocity": 500,
+      "_comment_profile_velocity": "Profile velocity for smooth movement. 500 = moderate speed with fast profile calculation (eliminates freezing at 30Hz)",
+      "profile_acceleration": 800,
+      "_comment_profile_acceleration": "Profile acceleration for smooth movement. 800 = near-rectangular profile for fast response",
       "return_delay_time": 2,
-      "status_return_level": 2
+      "_comment_return_delay_time": "Return delay time in microseconds (2µs)",
+      "status_return_level": 2,
+      "_comment_status_return_level": "Status return level: 0=never, 1=only READ, 2=always"
     },
+    
     "force_management": {
-      "moving_force_pct": 17,
-      "_comment_moving": "Force during MOVING state. 17% = slower movement to reduce current. 17% \u00d7 1120 = 190 units = 638mA",
+      "_comment": "Force settings per GraspManager state - used by grasp_manager.py",
+      "moving_force_pct": 50,
+      "_comment_moving": "Force during MOVING state (closing/opening). 50% × 1600 = 800 units = 2688mA - strong wrapping force",
       "grasping_force_pct": 20.0,
-      "_comment_grasping": "Force during GRASPING state (holding after contact/stall). 10% \u00d7 1120 = 112 units = 376mA",
+      "_comment_grasping": "Force during GRASPING state (holding after contact). 20% × 1600 = 320 units = 1075mA - prevents backdriving",
       "idle_force_pct": 10,
-      "_comment_idle": "Force during IDLE state. 10% = minimal holding force to maintain position against spring"
+      "_comment_idle": "Force during IDLE state. 10% × 1600 = 160 units = 538mA - minimal holding force"
     },
+    
     "collision_detection": {
+      "_comment": "Stall/contact detection settings - used by grasp_manager.py",
       "enabled": true,
-      "current_spike_threshold_pct": 25,
-      "stagnation_movement_units": 0.5,
       "consecutive_samples_required": 3,
+      "_comment_consecutive_samples": "Number of consecutive stagnant readings to confirm contact",
       "stall_tolerance_pct": 2.0,
-      "_comment_stall_tolerance": "Percentage tolerance for stall detection. Servo range: 2500 ticks = 100%, resolution: 1 tick = 0.04%. Value of 2.0% = 50 ticks. If 3 consecutive positions are all within 50 ticks of each other (max-min < 2.0%), they are considered the same position (stalled). Loosened to catch more positives when gripper oscillates slightly under spring force.",
+      "_comment_stall_tolerance": "Position range tolerance for stall detection. 2.0% = 50 ticks. If 3 consecutive positions are within this range, considered stalled.",
       "zero_target_tolerance_pct": 0.04,
-      "_comment_zero_tolerance": "Tight tolerance for detecting stable position at target 0%. Value of 0.04% = 1 tick. Used to trigger GRASPING when fully closed.",
-      "obstacle_error_threshold_pct": 5.0,
-      "_comment_obstacle_threshold": "Position error threshold for obstacle detection. If position stagnant and >5% from target, obstacle detected.",
+      "_comment_zero_tolerance": "Tight tolerance for stable position at 0% target. 0.04% = 1 tick. Triggers GRASPING when fully closed.",
       "position_change_threshold_pct": 1.0,
-      "_comment_position_change": "Threshold for state transitions. Position must change by >1% to trigger state change.",
+      "_comment_position_change": "Threshold for state transitions. Position must change >1% to trigger state change.",
       "command_change_threshold_pct": 3.0,
-      "_comment_command_change": "Threshold for sending new servo commands. Only send if position changes by >3%.",
-      "monitor_frequency_hz": 30
+      "_comment_command_change": "Threshold for sending new servo commands. Only send if position changes >3%."
     }
   },
+  
   "gripper": {
+    "_comment": "Gripper geometry and calibration settings",
     "grip_max": 2500,
-    "_comment_grip_max": "Maximum position range in servo units. MX-64: 0-4095, but EZGripper typically uses 0-2500 for practical range.",
+    "_comment_grip_max": "Maximum position range in servo units (0-2500 for practical range, MX-64 supports 0-4095)",
+    
     "position_scaling": {
       "max_open_percent": 100,
-      "_comment_position_scaling": "Simplified position scaling. 0% is always fully closed (cannot be configured for safety). Commands are scaled: 100% input \u2192 max_open_percent output. Set to 70 for limited range, 100 for full range. This provides fine control over maximum opening while preserving full closing capability.",
-      "_comment_examples": "Examples: max_open_percent=70 means 100% GUI command \u2192 70% hardware output. max_open_percent=50 means 100% GUI command \u2192 50% hardware output. 0% always \u2192 0% (fully closed)."
+      "_comment": "Maximum opening percentage. 100% GUI command → max_open_percent hardware output. 0% always → fully closed."
     },
+    
     "dex1_mapping": {
+      "_comment": "Mapping to Unitree Dex1 hand radians for DDS interface",
       "close_radians": 0.0,
       "open_radians": 5.4,
-      "_comment_dex1_mapping": "Mapping to Dex1 hand radians. 0.0 rad = trigger released (gripper open), 5.4 rad = trigger squeezed (gripper closed). Note: This is inverted in the driver to match user expectations - squeezing trigger closes gripper."
+      "_comment_mapping": "0.0 rad = trigger released (gripper open), 5.4 rad = trigger squeezed (gripper closed). Inverted in driver to match user expectations."
     },
+    
     "calibration": {
+      "_comment": "Calibration sequence settings - used by ezgripper_dds_driver.py",
       "goto_position_target": -300,
-      "_comment_goto_target": "Target position for calibration goto sequence. Negative value ensures full range movement.",
+      "_comment_goto_target": "Target position for calibration goto sequence. Negative ensures full range movement.",
       "goto_position_effort": 30,
-      "_comment_goto_effort": "Effort level for calibration goto sequence. Moderate force to overcome resistance.",
+      "_comment_goto_effort": "Effort level for calibration. Moderate force to overcome resistance.",
       "settle_position": 35,
-      "_comment_settle_position": "Position where gripper settles after calibration. Middle of typical range.",
+      "_comment_settle_position": "Position after calibration. Middle of typical range.",
       "auto_on_init": true,
-      "_comment_auto_calib": "Automatically run calibration sequence on driver initialization."
+      "_comment_auto_calib": "Automatically run calibration on driver initialization."
     }
   },
+  
   "communication": {
+    "_comment": "Serial communication settings - used by lib_robotis.py",
     "device": "/dev/ttyUSB0",
-    "_comment_device": "Serial device path for USB connection to Dynamixel servo.",
     "baudrate": 1000000,
-    "_comment_baudrate": "Serial communication speed. 1Mbps is standard for Dynamixel servos.",
     "protocol_version": 2.0,
-    "_comment_protocol": "Dynamixel Protocol 2.0 for MX-64 servos. Provides better error detection and larger data packets.",
     "servo_id": 1,
-    "_comment_servo_id": "Dynamixel servo ID. Must match physical servo configuration.",
     "timeout": 0.5,
-    "_comment_timeout": "Serial communication timeout in seconds. 0.5s provides good balance of responsiveness and reliability.",
     "smart_init": true,
     "_comment_smart_init": "Enable smart initialization with automatic device detection and error recovery."
   },
+  
   "telemetry": {
+    "_comment": "Telemetry publishing settings - used by ezgripper_dds_driver.py",
     "enabled": true,
-    "_comment_enabled": "Enable telemetry data publishing for monitoring and debugging.",
     "topic_prefix": "rt/gripper",
-    "_comment_topic": "DDS topic prefix for telemetry messages.",
     "rate_hz": 30,
-    "_comment_rate": "Telemetry publish rate in Hz. 30Hz matches control loop frequency.",
+    "_comment_rate": "Telemetry publish rate. 30Hz matches control loop frequency.",
     "qos_reliability": "RELIABLE",
-    "_comment_qos": "DDS Quality of Service setting. RELIABLE ensures message delivery.",
     "debug_enabled": false,
-    "_comment_debug": "Enable additional debug telemetry for detailed troubleshooting.",
-    "debug_topic_prefix": "rt/gripper/debug",
-    "_comment_debug_topic": "DDS topic prefix for debug telemetry messages."
+    "debug_topic_prefix": "rt/gripper/debug"
   },
+  
   "logging": {
+    "_comment": "Logging settings - used by config.py properties",
     "enabled": true,
-    "_comment_enabled": "Enable system logging for operation monitoring and debugging.",
     "level": "INFO",
-    "_comment_level": "Logging level: DEBUG, INFO, WARNING, ERROR. INFO provides good balance of detail.",
     "log_errors": true,
-    "_comment_log_errors": "Log error conditions for troubleshooting.",
     "log_temperature": true,
-    "_comment_log_temp": "Log temperature warnings and advisories for thermal management.",
     "log_current": false,
-    "_comment_log_current": "Log current usage data. Disabled by default to reduce log volume.",
     "log_file": "/var/log/ezgripper.log",
-    "_comment_log_file": "System log file path. Ensure write permissions and log rotation.",
-    "max_log_size_mb": 100,
-    "_comment_log_size": "Maximum log file size before rotation. 100MB provides good history."
+    "max_log_size_mb": 100
   }
 }
