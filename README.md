@@ -56,6 +56,37 @@ python3 ezgripper_dds_driver.py --side right --dev /dev/ttyUSB1
 - Integrated with Unitree https://github.com/unitreerobotics/xr_teleoperate
 - Unitree G1 integration kit includes; mount, cabling and software for EZGripper integration
 
+## 📊 DDS Integration for AI Development
+
+### **Real-Time Telemetry**
+The DDS interface provides multi-modal sensor data for AI/ML applications:
+
+```yaml
+rt/dex1/left/state:  # MotorStates_ @ 200 Hz
+  - q: joint_position_radians      # Proprioceptive feedback
+  - tau_est: estimated_torque_Nm   # Force feedback
+  - temperature: motor_temp_celsius # Real Dynamixel MX-64AR sensor
+  - mode: control_mode_status      # Operational context
+```
+
+### **Multi-Modal Learning Support**
+- **Visual**: Camera feeds + gripper state correspondence for visual-force learning
+- **Force**: 35N max force with 0-100% configurable control for force-aware manipulation
+- **Proprioceptive**: 0.1% position accuracy for precise motion planning
+- **Thermal**: Real Dynamixel motor temperature for workload and health monitoring
+
+### **Dataset Generation Benefits**
+- **Grasp Success Labeling**: Torque patterns correlate with successful grasps
+- **Object Property Detection**: Force profiles indicate object hardness/compliance
+- **Contact Event Detection**: Torque changes reveal surface contact events
+- **Humanoid Dynamics**: Spring compliance provides examples of successful grasps despite body movement
+
+### **For VLM/VLA Development**
+- **200 Hz State Publishing**: High-frequency feedback for reactive control
+- **Predictive Position Model**: Smooth interpolation between hardware reads
+- **Multi-Threaded Architecture**: Isolated control and telemetry streams
+- **Protocol 2.0 Bulk Operations**: Efficient sensor data collection
+
 ## Installation on Unitree G1
 
 Clone the repository on the G1:
