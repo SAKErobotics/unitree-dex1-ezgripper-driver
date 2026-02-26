@@ -663,22 +663,6 @@ class CorrectedEZGripperDriver:
         # Direct mapping: 0% -> 0 rad, 100% -> 5.4 rad
         return (pct_clamped / 100.0) * 5.4
     
-    def dex1_to_effort(self, tau: float) -> float:
-        """
-        Convert Dex1 torque to gripper effort
-        
-        Use 100% effort for position mode commands to ensure fast, responsive movement
-        """
-        # Use 100% effort for position mode
-        return 100.0
-    
-    def get_appropriate_effort(self, position_pct: float) -> float:
-        """Get appropriate effort for different positions"""
-        if position_pct <= 5.0 or position_pct >= 95.0:
-            return 40.0  # Lower effort at extremes
-        else:
-            return 50.0  # Standard effort (peak power limited)
-    
     def command_reception_loop(self):
         """Dedicated thread for DDS command reception (blocking Read() is OK here)"""
         self.logger.info("Starting command reception thread...")
@@ -1036,29 +1020,6 @@ class CorrectedEZGripperDriver:
         thread = threading.Thread(target=recovery_thread)
         thread.daemon = True
         thread.start()
-    
-    def update_predicted_position(self):
-        """Update predicted position with constraints (no overshoot, no reverse direction) - thread-safe"""
-        current_time = time.time()
-        dt = current_time - self.last_predict_time
-        self.last_predict_time = current_time
-        
-        with self.state_lock:
-            # Calculate maximum position change based on gripper speed
-            max_delta = self.movement_speed * dt  # %/sec * seconds = %
-            
-            # Calculate error between commanded and predicted position
-            position_error = self.commanded_position_pct - self.predicted_position_pct
-            
-            # Constraint 1: Never overshoot commanded position
-            if abs(position_error) <= max_delta:
-                # Close enough - snap to commanded position
-                self.predicted_position_pct = self.commanded_position_pct
-            else:
-                # Move toward commanded position at maximum speed
-                # Constraint 2: Never move opposite to commanded direction
-                direction = 1.0 if position_error > 0 else -1.0
-                self.predicted_position_pct += direction * max_delta
     
     def _publish_debug_telemetry(self, cmd, sensor_data, goal_position, goal_effort):
         """Publish debug telemetry to DDS for contact detection analysis"""
