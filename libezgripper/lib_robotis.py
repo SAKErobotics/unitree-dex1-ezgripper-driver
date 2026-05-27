@@ -213,6 +213,15 @@ class Robotis_Servo:
             print('Servo [%d]: change setting %d from %d to %d (word)'%(self.servo_id, address, value, word))
             self.write_word(address, word)
     
+    def reboot(self):
+        """Send Protocol 2.0 REBOOT instruction to clear hardware errors (e.g. overload)."""
+        with self.dyn.lock:
+            comm_result, error = self.dyn.packetHandler.reboot(
+                self.dyn.portHandler, self.servo_id)
+            if comm_result != COMM_SUCCESS:
+                raise CommunicationError(
+                    self.dyn.packetHandler.getTxRxResult(comm_result))
+
     def read_encoder(self):
         """Read current encoder position (Present Position register 132)"""
         data = self.read_address(132, 4)

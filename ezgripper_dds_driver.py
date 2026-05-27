@@ -891,45 +891,25 @@ class CorrectedEZGripperDriver:
         thread.start()
     
     def handle_ezgripper_clear_errors(self):
-        """Handle clear errors from EZGripper interface (torque cycle)"""
-        self.logger.info("🔧 EZGripper clear errors requested - performing torque cycle")
-        if self.gripper and self.gripper.servos:
-            # Execute in separate thread to avoid blocking
-            import threading
-            def clear_errors_thread():
-                try:
-                    servo = self.gripper.servos[0]
-                    
-                    # Step 1: Turn off torque
-                    self.logger.info("  Step 1: Turning off torque...")
-                    servo.write_address(self.gripper.config.reg_torque_enable, [0])
-                    import time
-                    time.sleep(0.2)  # Wait 200ms
-                    
-                    # Step 2: Clear hardware error status
-                    self.logger.info("  Step 2: Clearing hardware error status...")
-                    servo.write_address(self.gripper.config.reg_hardware_error_status, [0])
-                    time.sleep(0.1)  # Wait 100ms
-                    
-                    # Step 3: Turn torque back on
-                    self.logger.info("  Step 3: Turning torque back on...")
-                    servo.write_address(self.gripper.config.reg_torque_enable, [1])
-                    time.sleep(0.1)  # Wait 100ms
-                    
-                    # Verify errors are cleared
-                    error_status = servo.read_address(self.gripper.config.reg_hardware_error_status, 1)
-                    if error_status and len(error_status) > 0 and error_status[0] == 0:
-                        self.hardware_healthy = True
-                        self.logger.info("✅ EZGripper torque cycle completed - errors cleared")
-                    else:
-                        self.logger.warning(f"⚠️ EZGripper torque cycle completed but errors persist: {error_status}")
-                        
-                except Exception as e:
-                    self.logger.error(f"Failed to perform torque cycle: {e}")
-            
-            thread = threading.Thread(target=clear_errors_thread)
-            thread.daemon = True
-            thread.start()
+        """Reboot servo to clear hardware overload (Protocol 2.0 REBOOT instruction)."""
+        self.logger.info("🔧 EZGripper clear errors — rebooting servo via Dynamixel SDK")
+        if not self.gripper or not self.gripper.servos:
+            return
+
+        def reboot_thread():
+            try:
+                servo = self.gripper.servos[0]
+                self.logger.info(f"  Sending REBOOT to servo {servo.servo_id}...")
+                servo.reboot()
+                time.sleep(1.5)   # servo needs ~1 s to restart
+                self.gripper._setup_position_control()
+                self.hardware_healthy = True
+                self.logger.info("✅ Servo reboot complete — position control re-initialised")
+            except Exception as e:
+                self.logger.error(f"Servo reboot failed: {e}")
+
+        thread = threading.Thread(target=reboot_thread, daemon=True)
+        thread.start()
     
     def handle_ezgripper_get_status(self):
         """Handle status request from EZGripper interface"""
