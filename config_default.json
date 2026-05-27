@@ -83,7 +83,7 @@
   
   "communication": {
     "_comment": "Serial communication settings - used by lib_robotis.py",
-    "device": "/dev/ttyUSB2",
+    "device": "/dev/ttyUSB0",
     "baudrate": 1000000,
     "protocol_version": 2.0,
     "servo_id": 1,

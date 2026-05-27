@@ -1523,12 +1523,23 @@ def main():
         
         logging.info(f"Auto-discovered device for {args.side}: {device}")
     
-    # Create and run driver
-    driver = CorrectedEZGripperDriver(
-        side=args.side,
-        device=device,
-        domain=args.domain
-    )
+    # Create and run driver (retry on transient startup failures, e.g. SCARA driver servo reboot)
+    driver = None
+    for _attempt in range(1, 6):
+        try:
+            driver = CorrectedEZGripperDriver(
+                side=args.side,
+                device=device,
+                domain=args.domain
+            )
+            break
+        except Exception as _e:
+            if _attempt < 5:
+                logging.warning(f"Init failed (attempt {_attempt}/5): {_e}. Retrying in 4s...")
+                time.sleep(4.0)
+            else:
+                logging.error(f"Failed to initialize after 5 attempts: {_e}")
+                sys.exit(1)
     
     # Calibrate by default unless --no-calibrate is specified
     if not args.no_calibrate:
