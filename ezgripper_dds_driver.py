@@ -232,13 +232,14 @@ def get_device_config():
 
 class CorrectedEZGripperDriver:
     """Corrected EZGripper DDS Driver with Command Queue"""
-    
-    def __init__(self, side: str, device: str = "/dev/ttyUSB0", domain: int = 0, 
-                 calibration_file: str = None):
+
+    def __init__(self, side: str, device: str = "/dev/ttyUSB0", domain: int = 0,
+                 calibration_file: str = None, servo_id: int = 1):
         self.side = side
         # Correctly use the device argument from the command line
         self.device = device if device else "/dev/ttyUSB0"
         self.domain = domain
+        self.servo_id = servo_id
         self.calibration_file = calibration_file or f"/tmp/ezgripper_{side}_calibration.txt"
         
         # Setup logging
@@ -353,7 +354,7 @@ class CorrectedEZGripperDriver:
             self.logger.info("Waiting for servo to settle...")
             time.sleep(2.0)
             
-            self.gripper = create_gripper(self.connection, f'corrected_{self.side}', [1])
+            self.gripper = create_gripper(self.connection, f'corrected_{self.side}', [self.servo_id])
             
             # CLEAR HARDWARE ERRORS (The fix for Error 128)
             self.logger.info("Attempting to clear hardware error states (Resetting Error 128)...")
@@ -1491,6 +1492,8 @@ def main():
                        help="Gripper side (left/right/center)")
     parser.add_argument("--dev", default=None,
                        help="EZGripper device path (auto-discover if not specified)")
+    parser.add_argument("--servo-id", type=int, default=1,
+                       help="Dynamixel servo ID on the bus (default: 1)")
     parser.add_argument("--domain", type=int, default=0,
                        help="DDS domain")
     parser.add_argument("--no-calibrate", action="store_true",
@@ -1530,7 +1533,8 @@ def main():
             driver = CorrectedEZGripperDriver(
                 side=args.side,
                 device=device,
-                domain=args.domain
+                domain=args.domain,
+                servo_id=args.servo_id
             )
             break
         except Exception as _e:
