@@ -236,7 +236,8 @@ class CorrectedEZGripperDriver:
     def __init__(self, side: str, device: str = "/dev/ttyUSB0", domain: int = 0, 
                  calibration_file: str = None):
         self.side = side
-        self.device = device
+        # Correctly use the device argument from the command line
+        self.device = device if device else "/dev/ttyUSB0"
         self.domain = domain
         self.calibration_file = calibration_file or f"/tmp/ezgripper_{side}_calibration.txt"
         
@@ -1486,8 +1487,8 @@ class CorrectedEZGripperDriver:
 def main():
     """Main entry point"""
     parser = argparse.ArgumentParser(description="Corrected EZGripper DDS Driver")
-    parser.add_argument("--side", required=True, choices=["left", "right"],
-                       help="Gripper side (left/right)")
+    parser.add_argument("--side", required=True, choices=["left", "right", "center"],
+                       help="Gripper side (left/right/center)")
     parser.add_argument("--dev", default=None,
                        help="EZGripper device path (auto-discover if not specified)")
     parser.add_argument("--domain", type=int, default=0,

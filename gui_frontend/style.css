@@ -260,3 +260,37 @@ input[type="range"] {
 .log .info {
     color: #3498db;
 }
+
+/* Force Settings Display */
+.force-display {
+    background-color: #f8f9fa;
+    border: 1px solid #dee2e6;
+    border-radius: 4px;
+    padding: 10px;
+    margin-top: 5px;
+}
+
+.force-item {
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+    padding: 4px 0;
+    border-bottom: 1px solid #e9ecef;
+}
+
+.force-item:last-child {
+    border-bottom: none;
+}
+
+.force-item span:first-child {
+    font-weight: 500;
+    color: #495057;
+}
+
+.force-item span:last-child {
+    font-weight: bold;
+    color: #28a745;
+    background-color: #e9ecef;
+    padding: 2px 8px;
+    border-radius: 3px;
+}

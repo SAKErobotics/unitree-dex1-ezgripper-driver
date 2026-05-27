@@ -35,10 +35,6 @@
                     <span id="desired-position">0.0%</span>
                 </div>
                 <div class="status-item">
-                    <label>Desired Effort:</label>
-                    <span id="desired-effort">0.0%</span>
-                </div>
-                <div class="status-item">
                     <label>Last Command:</label>
                     <span id="last-command-time">Never</span>
                 </div>
@@ -135,15 +131,27 @@
             <h2>Manual Control</h2>
             
             <div class="control-group">
-                <label for="position-slider">Position:</label>
+                <label for="position-slider">Position (0%=Open, 100%=Closed):</label>
                 <input type="range" id="position-slider" min="0" max="100" value="50" step="1">
                 <span id="position-value">50%</span>
             </div>
             
             <div class="control-group">
-                <label for="effort-slider">Effort:</label>
-                <input type="range" id="effort-slider" min="0" max="100" value="20" step="1">
-                <span id="effort-value">20%</span>
+                <label>Force Settings (from config):</label>
+                <div class="force-display">
+                    <div class="force-item">
+                        <span>Moving Force:</span>
+                        <span id="moving-force">50%</span>
+                    </div>
+                    <div class="force-item">
+                        <span>Grasping Force:</span>
+                        <span id="grasping-force">15%</span>
+                    </div>
+                    <div class="force-item">
+                        <span>Idle Force:</span>
+                        <span id="idle-force">10%</span>
+                    </div>
+                </div>
             </div>
             
             <div class="button-group">

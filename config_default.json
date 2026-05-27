@@ -27,7 +27,9 @@
       "_comment": "Force settings per GraspManager state - used by grasp_manager.py",
       "moving_force_pct": 50,
       "_comment_moving": "Force during MOVING state (closing/opening). 50% × 1600 = 800 units = 2688mA - strong wrapping force",
-      "grasping_force_pct": 20.0,
+      "contact_force_pct": 20,
+      "_comment_contact": "Force during CONTACT state (settling after detection). 20% × 1600 = 320 units = 1075mA - moderate settling force",
+      "grasping_force_pct": 15.0,
       "_comment_grasping": "Force during GRASPING state (holding after contact). 20% × 1600 = 320 units = 1075mA - prevents backdriving",
       "idle_force_pct": 10,
       "_comment_idle": "Force during IDLE state. 10% × 1600 = 160 units = 538mA - minimal holding force"

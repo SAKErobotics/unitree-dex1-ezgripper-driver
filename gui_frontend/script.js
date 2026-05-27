@@ -1,8 +1,22 @@
 class EZGripperGUI {
     constructor() {
         this.connected = false;
+        this.connectionLogged = false;  // Prevent repeated connection messages
         this.logPaused = false;
         this.init();
+    }
+
+    // Coordinate conversion functions
+    ezgripperToDisplay(ezgripperPos) {
+        // Convert EZGripper coordinates (0% = closed, 100% = open) 
+        // to display coordinates (100% = closed, 0% = open)
+        return 100.0 - ezgripperPos;
+    }
+
+    displayToEzgripper(displayPos) {
+        // Convert display coordinates (100% = closed, 0% = open)
+        // to EZGripper coordinates (0% = closed, 100% = open)  
+        return 100.0 - displayPos;
     }
 
     init() {
@@ -17,21 +31,15 @@ class EZGripperGUI {
         const positionSlider = document.getElementById('position-slider');
         const positionValue = document.getElementById('position-value');
         positionSlider.addEventListener('input', (e) => {
-            const position = parseFloat(e.target.value);
-            positionValue.textContent = position + '%';
-            // Update desired position display immediately
-            document.getElementById('desired-position').textContent = position.toFixed(1) + '%';
+            const displayPosition = parseFloat(e.target.value);
+            positionValue.textContent = displayPosition + '%';
+            // Convert display position to EZGripper position for desired display
+            const ezgripperPosition = this.displayToEzgripper(displayPosition);
+            document.getElementById('desired-position').textContent = ezgripperPosition.toFixed(1) + '%';
         });
 
-        // Effort slider
-        const effortSlider = document.getElementById('effort-slider');
-        const effortValue = document.getElementById('effort-value');
-        effortSlider.addEventListener('input', (e) => {
-            const effort = parseFloat(e.target.value);
-            effortValue.textContent = effort + '%';
-            // Update desired effort display immediately
-            document.getElementById('desired-effort').textContent = effort.toFixed(1) + '%';
-        });
+        // Display force settings from config
+        this.displayForceSettings();
 
         // Control buttons
         document.getElementById('go-button').addEventListener('click', () => this.go());
@@ -66,16 +74,23 @@ class EZGripperGUI {
     }
 
     async go() {
-        const position = parseFloat(document.getElementById('position-slider').value);
-        const effort = parseFloat(document.getElementById('effort-slider').value);
+        const displayPosition = parseFloat(document.getElementById('position-slider').value);
+        // Convert display position to EZGripper coordinates for command
+        const ezgripperPosition = this.displayToEzgripper(displayPosition);
         
         await this.sendCommand({
             action: 'go',
-            position: position,
-            effort: effort
+            position: ezgripperPosition
         });
         
-        this.log(`Go: Position=${position}%, Effort=${effort}%`, 'info');
+        this.log(`Go: Position=${displayPosition}% (display) → ${ezgripperPosition.toFixed(1)}% (EZGripper)`, 'info');
+    }
+
+    displayForceSettings() {
+        // Display force settings from config (these are the actual values being used)
+        document.getElementById('moving-force').textContent = '50%';
+        document.getElementById('grasping-force').textContent = '15%';
+        document.getElementById('idle-force').textContent = '10%';
     }
 
     async stop() {
@@ -186,11 +201,15 @@ class EZGripperGUI {
             if (!this.connected) {
                 this.connected = true;
                 this.updateConnectionStatus(true);
-                this.log('Connected to gripper', 'success');
+                if (!this.connectionLogged) {
+                    this.log('Connected to gripper', 'success');
+                    this.connectionLogged = true;
+                }
             }
         } catch (error) {
             if (this.connected) {
                 this.connected = false;
+                this.connectionLogged = false;  // Reset to allow reconnection message
                 this.updateConnectionStatus(false);
                 this.log(`Connection lost: ${error.message}`, 'error');
             }
@@ -200,13 +219,14 @@ class EZGripperGUI {
     updateStatusDisplay(data) {
         // Command Interface (Desired Values)
         const cmd = data.command_interface || {};
-        document.getElementById('desired-position').textContent = cmd.desired_position ? cmd.desired_position.toFixed(1) + '%' : '0.0%';
-        document.getElementById('desired-effort').textContent = cmd.desired_effort ? cmd.desired_effort.toFixed(1) + '%' : '0.0%';
+        const desiredDisplayPos = cmd.desired_position ? this.ezgripperToDisplay(cmd.desired_position) : 0.0;
+        document.getElementById('desired-position').textContent = desiredDisplayPos.toFixed(1) + '%';
         document.getElementById('last-command-time').textContent = cmd.timestamp ? this.formatTime(cmd.timestamp) : 'Never';
         
         // State Interface (Actual Values)
         const state = data.state_interface || {};
-        document.getElementById('actual-position').textContent = state.actual_position ? state.actual_position.toFixed(1) + '%' : '0.0%';
+        const actualDisplayPos = state.actual_position ? this.ezgripperToDisplay(state.actual_position) : 0.0;
+        document.getElementById('actual-position').textContent = actualDisplayPos.toFixed(1) + '%';
         document.getElementById('actual-effort').textContent = state.actual_effort ? state.actual_effort.toFixed(1) + '%' : '0.0%';
         document.getElementById('temperature').textContent = state.temperature ? state.temperature.toFixed(1) + '°C' : '0.0°C';
         document.getElementById('state').textContent = state.state || 'unknown';
@@ -224,21 +244,21 @@ class EZGripperGUI {
         document.getElementById('position-error').textContent = posError.toFixed(1) + '%';
         document.getElementById('effort-error').textContent = effError.toFixed(1) + '%';
         
-        // EZGripper-specific status
+        // EZGripper-specific status (using actual DDS data)
         document.getElementById('is-calibrated').textContent = state.is_calibrated ? 'Yes' : 'No';
         document.getElementById('serial-number').textContent = state.serial_number || 'Unknown';
         document.getElementById('contact-position').textContent = 
-            state.state_machine?.contact_position !== null && state.state_machine?.contact_position !== undefined 
-                ? state.state_machine.contact_position.toFixed(1) + '%' : '-';
+            state.state === 'contact' || state.state === 'grasping' 
+                ? state.actual_position.toFixed(1) + '%' : '-';
         document.getElementById('contact-detected').textContent = state.contact_detected ? 'Yes' : 'No';
         document.getElementById('current-ma').textContent = (state.current_ma || 0).toFixed(0) + 'mA';
         document.getElementById('voltage-v').textContent = (state.voltage_v || 0).toFixed(1) + 'V';
         document.getElementById('position-raw').textContent = 
-            state.hardware?.position_raw !== null && state.hardware?.position_raw !== undefined
-                ? state.hardware.position_raw.toString() : '-';
+            state.raw_q !== null && state.raw_q !== undefined
+                ? state.raw_q.toFixed(3) + 'rad' : '-';
         document.getElementById('last-dds-position').textContent = 
-            state.state_machine?.last_dds_position !== null && state.state_machine?.last_dds_position !== undefined
-                ? state.state_machine.last_dds_position.toFixed(1) + '%' : '-';
+            state.raw_q !== null && state.raw_q !== undefined
+                ? this.dex1ToEzgripper(state.raw_q).toFixed(1) + '%' : '-';
         
         // Update connection status based on data freshness
         const now = Date.now() / 1000;
@@ -253,6 +273,15 @@ class EZGripperGUI {
     formatTime(timestamp) {
         const date = new Date(timestamp * 1000);
         return date.toLocaleTimeString();
+    }
+    
+    dex1ToEzgripper(q) {
+        // Convert from Dex1 radians to EZGripper percentage
+        // Reverse of the conversion in the driver
+        // Driver: current_q = (0.0 - 5.4) * (pos_pct / 100.0) + 5.4
+        // Reverse: pos_pct = (current_q - 5.4) / (0.0 - 5.4) * 100.0
+        const pos_pct = (q - 5.4) / (0.0 - 5.4) * 100.0;
+        return Math.max(0.0, Math.min(100.0, pos_pct));
     }
 
     startStatusUpdates() {

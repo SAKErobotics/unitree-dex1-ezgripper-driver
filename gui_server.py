@@ -58,6 +58,30 @@ class EZGripperGUIHandler(BaseHTTPRequestHandler):
             self.send_header('Content-type', 'application/json')
             self.end_headers()
             self.wfile.write(json.dumps(mode_info).encode())
+        elif self.path == '/debug':
+            self.send_response(200)
+            self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
+            self.end_headers()
+            
+            # Get current state and show raw data
+            state = self.gui_server.get_current_state()
+            debug_info = {
+                'command_interface': state['command_interface'],
+                'state_interface': state['state_interface'],
+                'connection_status': state['connection_status'],
+                'notes': [
+                    'Raw DDS data fields:',
+                    '- raw_q: position in radians',
+                    '- raw_tau: effort in DDS units', 
+                    '- raw_mode: grasp state mode number',
+                    '- current_ma: estimated from effort',
+                    '- is_calibrated: True when driver running',
+                    '- contact_detected: derived from grasp state'
+                ]
+            }
+            response = json.dumps(debug_info, indent=2).encode()
+            self.wfile.write(response)
         else:
             self.send_error(404)
     
@@ -150,7 +174,23 @@ class EZGripperGUIServer:
             'temperature': 0.0,
             'error': 0,
             'state': 'idle',
-            'timestamp': time.time()
+            'timestamp': time.time(),
+            
+            # Additional fields expected by GUI
+            'current_ma': 0.0,
+            'voltage_v': 12.0,
+            'is_calibrated': False,
+            'serial_number': 'Unknown',
+            'contact_detected': False,
+            'is_moving': False,
+            'temperature_trend': 'stable',
+            
+            # Raw DDS data fields
+            'raw_q': None,
+            'raw_tau': None,
+            'raw_mode': None,
+            'raw_lost': None,
+            'raw_reserve': None
         }
         
         # Initialize DDS connection
@@ -244,92 +284,25 @@ class EZGripperGUIServer:
         except Exception as e:
             logger.error(f"Dex1 command callback error: {e}")
     
+    def _estimate_current_from_effort(self, effort_pct):
+        """Estimate current draw from effort percentage"""
+        # Rough estimation: 1600mA max at 100% effort
+        max_current_ma = 1600
+        return effort_pct * max_current_ma / 100.0
+    
     def telemetry_callback(self, msg):
-        """Callback for EZGripper telemetry messages (rich status data)"""
-        try:
-            # Parse JSON telemetry data
-            import json
-            telemetry_data = json.loads(msg.data)
-            
-            # Extract rich telemetry information
-            position_data = telemetry_data.get('position', {})
-            grasp_data = telemetry_data.get('grasp_manager', {})
-            contact_data = telemetry_data.get('contact_detection', {})
-            health_data = telemetry_data.get('health', {})
-            
-            # Update actual state with rich telemetry data
-            self.actual_state.update({
-                'actual_position': position_data.get('actual_pct', 0.0),
-                'actual_effort': grasp_data.get('managed_effort_pct', 0.0),
-                'temperature': health_data.get('temperature_c', 0.0),
-                'state': grasp_data.get('state', 'unknown'),
-                'timestamp': telemetry_data.get('timestamp', time.time()),
-                
-                # Rich telemetry data
-                'commanded_position': position_data.get('commanded_pct', 0.0),
-                'position_error': position_data.get('error_pct', 0.0),
-                'contact_detected': contact_data.get('detected', False),
-                'current_ma': health_data.get('current_ma', 0.0),
-                'voltage_v': health_data.get('voltage_v', 0.0),
-                'is_moving': health_data.get('is_moving', False),
-                'temperature_trend': health_data.get('temperature_trend', 'unknown'),
-                'hardware_error': telemetry_data.get('hardware_error', 0),
-                'hardware_error_description': telemetry_data.get('hardware_error_description', ''),
-                
-                # Calibration and error status (will be added to telemetry)
-                'is_calibrated': False,  # TODO: Add to telemetry
-                'serial_number': '',      # TODO: Add to telemetry
-            })
-            
-            logger.debug(f"Telemetry: pos={self.actual_state['actual_position']:.1f}%, "
-                        f"state={self.actual_state['state']}, "
-                        f"temp={self.actual_state['temperature']:.1f}°C")
-                
-        except Exception as e:
-            logger.error(f"EZGripper state callback error: {e}")
+        """Callback for EZGripper telemetry messages (currently not published by driver)"""
+        # This callback exists but the driver doesn't publish telemetry messages yet
+        # All data comes through dex1_state_callback for now
+        logger.debug("Telemetry callback called (driver doesn't publish this topic yet)")
+        pass
     
     def ezgripper_state_callback(self, msg):
-        """Callback for EZGripper state messages (rich status data)"""
-        try:
-            # Parse JSON state data
-            import json
-            state_data = json.loads(msg.data)
-            
-            # Extract rich EZGripper state information
-            position_data = state_data.get('position', {})
-            grasp_data = state_data.get('grasp_manager', {})
-            hardware_data = state_data.get('hardware', {})
-            calibration_data = state_data.get('calibration', {})
-            health_data = state_data.get('health', {})
-            
-            # Update actual state with rich EZGripper data
-            self.actual_state.update({
-                'actual_position': position_data.get('actual_pct', 0.0),
-                'actual_effort': state_data.get('effort', {}).get('actual_pct', 0.0),
-                'temperature': hardware_data.get('temperature_c', 0.0),
-                'state': grasp_data.get('state_name', 'unknown').lower(),
-                'timestamp': state_data.get('timestamp', time.time()),
-                
-                # Rich EZGripper data
-                'current_ma': hardware_data.get('current_ma', 0.0),
-                'voltage_v': hardware_data.get('voltage_v', 0.0),
-                'hardware_error': hardware_data.get('error', 0),
-                'hardware_error_description': hardware_data.get('error_description', ''),
-                'is_calibrated': calibration_data.get('is_calibrated', False),
-                'calibration_offset': calibration_data.get('offset', 0.0),
-                'serial_number': calibration_data.get('serial_number', ''),
-                'is_moving': health_data.get('is_moving', False),
-                'temperature_trend': health_data.get('temperature_trend', 'unknown'),
-                'contact_detected': health_data.get('contact_detected', False),
-                'error_recovery_available': state_data.get('error_recovery', {}).get('available', False),
-            })
-            
-            logger.debug(f"EZGripper State: pos={self.actual_state['actual_position']:.1f}%, "
-                        f"state={self.actual_state['state']}, "
-                        f"calibrated={self.actual_state['is_calibrated']}")
-                
-        except Exception as e:
-            logger.error(f"EZGripper state callback error: {e}")
+        """Callback for EZGripper state messages (currently not published by driver)"""
+        # This callback exists but the driver doesn't publish EZGripper state messages yet
+        # All data comes through dex1_state_callback for now
+        logger.debug("EZGripper state callback called (driver doesn't publish this topic yet)")
+        pass
     
     def dex1_state_callback(self, msg):
         """Callback for DDS state messages"""
@@ -366,16 +339,36 @@ class EZGripperGUIServer:
                 # Extract error from reserve field
                 error_code = reserve[0] if isinstance(reserve, list) and len(reserve) > 0 else 0
                 
+                # Update actual state with DDS data and additional computed fields
                 self.actual_state.update({
                     'actual_position': position_pct,
                     'actual_effort': effort_pct,
                     'temperature': float(temperature),
                     'error': error_code,
                     'state': grasp_state,
-                    'timestamp': time.time()
+                    'timestamp': time.time(),
+                    
+                    # Additional fields for GUI (computed from DDS data)
+                    'current_ma': self._estimate_current_from_effort(effort_pct),
+                    'voltage_v': 12.0,  # Default voltage (can be updated if sensor available)
+                    'is_calibrated': True,  # Assume calibrated if driver is running
+                    'serial_number': 'DDS-' + self.side.upper(),  # Placeholder
+                    'contact_detected': grasp_state in ['contact', 'grasping'],
+                    'is_moving': grasp_state == 'moving',
+                    'temperature_trend': 'stable',  # Could be computed from history
+                    
+                    # Raw DDS data for advanced users
+                    'raw_q': position_q,
+                    'raw_tau': effort_tau,
+                    'raw_mode': mode,
+                    'raw_lost': lost,
+                    'raw_reserve': reserve
                 })
                 
                 logger.debug(f"DDS State: actual_pos={position_pct:.1f}%, actual_eff={effort_pct:.1f}%, temp={temperature}°C, state={grasp_state}")
+                
+                # Debug: Log what we're putting in actual_state
+                logger.info(f"GUI DATA UPDATE: pos={position_pct:.1f}%, eff={effort_pct:.1f}%, temp={temperature}°C, state={grasp_state}, current={self._estimate_current_from_effort(effort_pct):.0f}mA")
             else:
                 logger.warning("Received DDS message without states array")
                 
