@@ -37,9 +37,9 @@ class EZGripperGUIHandler(BaseHTTPRequestHandler):
             self.wfile.write(response)
         elif self.path == '/' or self.path == '/index.html':
             self.serve_file('gui_frontend/index.html', 'text/html')
-        elif self.path == '/style.css':
+        elif self.path == '/style.css' or self.path.startswith('/style.css?'):
             self.serve_file('gui_frontend/style.css', 'text/css')
-        elif self.path == '/script.js':
+        elif self.path == '/script.js' or self.path.startswith('/script.js?'):
             self.serve_file('gui_frontend/script.js', 'application/javascript')
         elif self.path == '/favicon.ico':
             # Return a simple 1x1 transparent GIF to avoid 404
@@ -96,10 +96,13 @@ class EZGripperGUIHandler(BaseHTTPRequestHandler):
                 result = self.gui_server.send_command(command)
                 self.send_response(200)
                 self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps(result).encode())
             except Exception as e:
                 self.send_response(500)
+                self.send_header('Content-type', 'application/json')
+                self.send_header('Access-Control-Allow-Origin', '*')
                 self.end_headers()
                 self.wfile.write(json.dumps({'error': str(e)}).encode())
         elif self.path == '/mode/enable':
@@ -107,6 +110,7 @@ class EZGripperGUIHandler(BaseHTTPRequestHandler):
             result = self.gui_server.enable_control_mode()
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
         elif self.path == '/mode/disable':
@@ -114,6 +118,7 @@ class EZGripperGUIHandler(BaseHTTPRequestHandler):
             result = self.gui_server.disable_control_mode()
             self.send_response(200)
             self.send_header('Content-type', 'application/json')
+            self.send_header('Access-Control-Allow-Origin', '*')
             self.end_headers()
             self.wfile.write(json.dumps(result).encode())
         else:
@@ -163,13 +168,13 @@ class EZGripperGUIServer:
         
         # Current state cache - separate for command and state interfaces
         self.command_state = {
-            'desired_position': 0.0,
+            'desired_position': 0.0,  # DEX1 radians (0.0 = closed)
             'desired_effort': 0.0,
             'timestamp': time.time()
         }
         
         self.actual_state = {
-            'actual_position': 0.0,
+            'actual_position': 0.0,  # DEX1 radians (0.0 = closed)
             'actual_effort': 0.0,
             'temperature': 0.0,
             'error': 0,
@@ -269,17 +274,17 @@ class EZGripperGUIServer:
                 desired_q = getattr(cmd, 'q', 0.0)
                 desired_tau = getattr(cmd, 'tau', 0.0)
                 
-                # Convert to GUI units
-                desired_pos_pct = self.dex1_to_ezgripper(desired_q)
+                # Convert to GUI units - keep DEX1 radians for consistency
+                desired_pos_q = desired_q  # Keep in DEX1 radians
                 desired_eff_pct = desired_tau * 10.0
                 
                 self.command_state.update({
-                    'desired_position': desired_pos_pct,
+                    'desired_position': desired_pos_q,
                     'desired_effort': desired_eff_pct,
                     'timestamp': time.time()
                 })
                 
-                logger.debug(f"Command: desired_pos={desired_pos_pct:.1f}%, desired_eff={desired_eff_pct:.1f}%")
+                logger.debug(f"Command: desired_pos={desired_pos_q:.3f}rad, desired_eff={desired_eff_pct:.1f}%")
                 
         except Exception as e:
             logger.error(f"Dex1 command callback error: {e}")
@@ -305,8 +310,18 @@ class EZGripperGUIServer:
         pass
     
     def dex1_state_callback(self, msg):
-        """Callback for DDS state messages"""
+        """Callback for DDS state messages - rate limited to 30 Hz"""
         try:
+            # Rate limiting: only process updates at 30 Hz (200 Hz / 30 Hz = ~6.67)
+            current_time = time.time()
+            if not hasattr(self, '_last_callback_time'):
+                self._last_callback_time = 0
+            
+            if current_time - self._last_callback_time < 0.033:  # 33ms = 30 Hz
+                return  # Skip this update
+            
+            self._last_callback_time = current_time
+            
             # Parse the actual DDS message structure from the driver
             if hasattr(msg, 'states') and len(msg.states) > 0:
                 state = msg.states[0]
@@ -320,8 +335,8 @@ class EZGripperGUIServer:
                 reserve = getattr(state, 'reserve', [0, 0])
                 
                 # Convert from DDS units to GUI units
-                # Position: convert from radians back to percentage
-                position_pct = self.dex1_to_ezgripper(position_q)
+                # Position: keep in DEX1 radians for GUI (no conversion)
+                actual_position_q = position_q
                 
                 # Effort: convert from DDS units back to percentage
                 effort_pct = effort_tau * 10.0  # Driver divides by 10, so multiply back
@@ -341,7 +356,7 @@ class EZGripperGUIServer:
                 
                 # Update actual state with DDS data and additional computed fields
                 self.actual_state.update({
-                    'actual_position': position_pct,
+                    'actual_position': actual_position_q,
                     'actual_effort': effort_pct,
                     'temperature': float(temperature),
                     'error': error_code,
@@ -365,10 +380,10 @@ class EZGripperGUIServer:
                     'raw_reserve': reserve
                 })
                 
-                logger.debug(f"DDS State: actual_pos={position_pct:.1f}%, actual_eff={effort_pct:.1f}%, temp={temperature}°C, state={grasp_state}")
+                logger.debug(f"DDS State: actual_pos={actual_position_q:.3f}rad, actual_eff={effort_pct:.1f}%, temp={temperature}°C, state={grasp_state}")
                 
                 # Debug: Log what we're putting in actual_state
-                logger.info(f"GUI DATA UPDATE: pos={position_pct:.1f}%, eff={effort_pct:.1f}%, temp={temperature}°C, state={grasp_state}, current={self._estimate_current_from_effort(effort_pct):.0f}mA")
+                logger.info(f"GUI DATA UPDATE: pos={actual_position_q:.3f}rad, eff={effort_pct:.1f}%, temp={temperature}°C, state={grasp_state}, current={self._estimate_current_from_effort(effort_pct):.0f}mA")
             else:
                 logger.warning("Received DDS message without states array")
                 
@@ -398,13 +413,12 @@ class EZGripperGUIServer:
             from unitree_sdk2py.idl.unitree_go.msg.dds_ import MotorCmds_
             from unitree_sdk2py.idl.std_msgs.msg.dds_ import String_
             
+            # DDS factory should already be initialized in init_dds()
+            # Don't re-initialize to avoid conflicts
+            
             # Dex1 command publisher
             self.dex1_cmd_publisher = ChannelPublisher(self.dex1_cmd_topic, MotorCmds_)
             self.dex1_cmd_publisher.Init()
-            
-            # Dex1 command subscriber (to see what we're sending)
-            self.dex1_cmd_subscriber = ChannelSubscriber(self.dex1_cmd_topic, MotorCmds_)
-            self.dex1_cmd_subscriber.Init(self.dex1_command_callback)
             
             # EZGripper admin publisher
             ezgripper_admin_topic = f"rt/ezgripper/{self.side}/admin"
@@ -463,13 +477,14 @@ class EZGripperGUIServer:
             if 'action' in command:
                 action = command['action']
                 
-                if action == 'go' and 'position' in command and 'effort' in command:
-                    # Convert GUI units to DDS units
-                    pos_pct = command['position']
-                    eff_pct = command['effort']
+                if action == 'go' and 'position' in command:
+                    # GUI sends position in DEX1 interface units (0.0-5.4 radians)
+                    # No conversion needed - send directly to DEX1 interface
+                    q = command['position']
+                    eff_pct = command.get('effort', 50.0)  # Default to 50% if not specified
                     
-                    # Convert position to radians (driver conversion)
-                    q = (0.0 - 5.4) * (pos_pct / 100.0) + 5.4
+                    # Validate DEX1 range
+                    q = max(0.0, min(5.4, q))
                     
                     # Convert effort to DDS units (driver divides by 10)
                     tau = eff_pct / 10.0
@@ -480,7 +495,7 @@ class EZGripperGUIServer:
                     cmd_msg.kp = 0.0  # Position gain
                     cmd_msg.kd = 0.0  # Damping gain
                     
-                    logger.info(f"Go command: pos={pos_pct:.1f}%→{q:.3f}rad, eff={eff_pct:.1f}%→{tau:.1f}")
+                    logger.info(f"Go command: pos={q:.3f}rad, eff={eff_pct:.1f}%→{tau:.1f}")
                     
                 elif action == 'stop':
                     # Stop command - zero effort

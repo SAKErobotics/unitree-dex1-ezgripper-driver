@@ -6,17 +6,16 @@ class EZGripperGUI {
         this.init();
     }
 
-    // Coordinate conversion functions
+    // DEX1 Interface: 0.0 rad = closed, 5.4 rad = open
+    // Display as percentage with direct mapping: 0% = 0.0 rad, 100% = 5.4 rad
     ezgripperToDisplay(ezgripperPos) {
-        // Convert EZGripper coordinates (0% = closed, 100% = open) 
-        // to display coordinates (100% = closed, 0% = open)
-        return 100.0 - ezgripperPos;
+        // Convert DEX1 radians to display percentage (direct mapping)
+        return (ezgripperPos / 5.4) * 100.0;
     }
 
     displayToEzgripper(displayPos) {
-        // Convert display coordinates (100% = closed, 0% = open)
-        // to EZGripper coordinates (0% = closed, 100% = open)  
-        return 100.0 - displayPos;
+        // Convert display percentage to DEX1 radians (direct mapping)
+        return (displayPos / 100.0) * 5.4;
     }
 
     init() {
@@ -75,15 +74,17 @@ class EZGripperGUI {
 
     async go() {
         const displayPosition = parseFloat(document.getElementById('position-slider').value);
+        const displayEffort = parseFloat(document.getElementById('effort-slider').value);
         // Convert display position to EZGripper coordinates for command
         const ezgripperPosition = this.displayToEzgripper(displayPosition);
         
         await this.sendCommand({
             action: 'go',
-            position: ezgripperPosition
+            position: ezgripperPosition,
+            effort: displayEffort
         });
         
-        this.log(`Go: Position=${displayPosition}% (display) → ${ezgripperPosition.toFixed(1)}% (EZGripper)`, 'info');
+        this.log(`Go: Position=${displayPosition}% (display) → ${ezgripperPosition.toFixed(1)}% (EZGripper), Effort=${displayEffort}%`, 'info');
     }
 
     displayForceSettings() {
@@ -152,12 +153,17 @@ class EZGripperGUI {
                 signal: controller.signal
             });
             clearTimeout(timeoutId);
-            return await response.json();
+            
+            if (!response.ok) {
+                throw new Error(`HTTP ${response.status}: ${response.statusText}`);
+            }
+            
+            const result = await response.json();
+            console.log(`fetchWithTimeout ${url} result:`, result);
+            return result;
         } catch (error) {
             clearTimeout(timeoutId);
-            if (error.name === 'AbortError') {
-                throw new Error('Request timeout');
-            }
+            console.error(`fetchWithTimeout ${url} error:`, error);
             throw error;
         }
     }
@@ -295,34 +301,26 @@ class EZGripperGUI {
     }
 
     async enableControlMode() {
-        // Show warning dialog
-        const warningBox = document.getElementById('mode-warning');
-        warningBox.style.display = 'block';
-        
-        // Wait for user confirmation
-        const confirmed = await this.showConfirmDialog(
-            'Enable Control Mode',
-            'This will allow sending commands to the gripper. Continue?'
-        );
-        
-        warningBox.style.display = 'none';
-        
-        if (confirmed) {
-            try {
-                const result = await this.fetchWithTimeout('/mode/enable', {
-                    method: 'POST'
-                });
-                
-                if (result.enabled) {
-                    this.log('⚠️ CONTROL MODE ENABLED - GUI can now send commands', 'warning');
-                    this.updateModeDisplay();
-                    this.enableControlButtons();
-                } else {
-                    this.log(`Failed to enable control mode: ${result.error}`, 'error');
-                }
-            } catch (error) {
-                this.log(`Error enabling control mode: ${error.message}`, 'error');
+        // Bypass confirmation dialog for debugging
+        console.log('enableControlMode() called');
+        try {
+            console.log('Sending POST to /mode/enable...');
+            const result = await this.fetchWithTimeout('/mode/enable', {
+                method: 'POST'
+            });
+            
+            console.log('Enable result:', result);
+            
+            if (result.enabled || result.already_enabled) {
+                this.log('⚠️ CONTROL MODE ENABLED - GUI can now send commands', 'warning');
+                this.updateModeDisplay();
+                this.enableControlButtons();
+            } else {
+                this.log(`Failed to enable control mode: ${result.error}`, 'error');
             }
+        } catch (error) {
+            console.error('Enable control mode error:', error);
+            this.log(`Error enabling control mode: ${error.message}`, 'error');
         }
     }
 
@@ -332,7 +330,7 @@ class EZGripperGUI {
                 method: 'POST'
             });
             
-            if (result.disabled) {
+            if (result.disabled || result.already_disabled) {
                 this.log('🔒 Returned to WATCHER MODE - GUI cannot send commands', 'info');
                 this.updateModeDisplay();
                 this.disableControlButtons();
