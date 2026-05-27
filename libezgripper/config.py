@@ -249,8 +249,17 @@ def load_config(config_path: Optional[str] = None) -> Config:
         ConfigError: If config file not found or invalid
     """
     if config_path is None:
-        # Use default config in same directory as driver
-        config_path = os.path.join(
+        # When installed as a ROS 2 package, prefer the share directory
+        _found = None
+        try:
+            from ament_index_python.packages import get_package_share_directory
+            _share = get_package_share_directory('unitree-dex1-ezgripper-driver')
+            _candidate = os.path.join(_share, 'config_default.json')
+            if os.path.exists(_candidate):
+                _found = _candidate
+        except Exception:
+            pass
+        config_path = _found or os.path.join(
             os.path.dirname(os.path.dirname(__file__)),
             'config_default.json'
         )

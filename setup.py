@@ -9,7 +9,7 @@ setup(
     data_files=[
         ('share/ament_index/resource_index/packages',
             ['resource/' + package_name]),
-        ('share/' + package_name, ['package.xml', 'ezgripper_dds_driver.py', 'ezgripper_dds_messages.py']),
+        ('share/' + package_name, ['package.xml', 'ezgripper_dds_driver.py', 'ezgripper_dds_messages.py', 'error_recovery_enhancement.py', 'config_default.json']),
     ],
     install_requires=['setuptools'],
     zip_safe=True,
