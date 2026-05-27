@@ -22,7 +22,7 @@ class USB2Dynamixel_Device:
     def __init__(self, dev_name, baudrate=1000000):
         self.dev_name = dev_name
         self.baudrate = baudrate
-        self.lock = threading.Lock()
+        self.lock = threading.RLock()  # RLock: nested acquisition safe across bulk + single-packet paths
         
         # Initialize Dynamixel SDK
         self.portHandler = PortHandler(dev_name)

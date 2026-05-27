@@ -347,29 +347,23 @@ class Gripper:
         sensor_data = {}
         
         try:
-            # Execute bulk read - SINGLE USB transaction
-            result = self.bulk_read.txRxPacket()
-            if result != COMM_SUCCESS:
-                raise Exception(f"Bulk read communication failed: {result}")
-            
             servo_id = self.servo_ids[servo_num]
-            
-            # Check if data is available
-            if not self.bulk_read.isAvailable(servo_id, 126, 21):
-                raise Exception(f"Bulk read data not available for servo {servo_id}")
-            
-            # Extract data from bulk read buffer (all in one transaction)
-            # Register 126: present_current (2 bytes)
-            current_raw = self.bulk_read.getData(servo_id, 126, 2)
-            
-            # Register 132: present_position (4 bytes)
-            position_raw = self.bulk_read.getData(servo_id, 132, 4)
-            
-            # Register 144: present_voltage (2 bytes)
-            voltage_raw = self.bulk_read.getData(servo_id, 144, 2)
-            
-            # Register 146: present_temperature (1 byte)
-            temperature = self.bulk_read.getData(servo_id, 146, 1)
+
+            # Acquire bus lock for the entire txRxPacket + getData sequence so
+            # no other gripper thread can interleave bytes on the shared RS-485 bus.
+            with self.connection.lock:
+                result = self.bulk_read.txRxPacket()
+                if result != COMM_SUCCESS:
+                    raise Exception(f"Bulk read communication failed: {result}")
+
+                if not self.bulk_read.isAvailable(servo_id, 126, 21):
+                    raise Exception(f"Bulk read data not available for servo {servo_id}")
+
+                # Extract data from bulk read buffer (still within the lock)
+                current_raw  = self.bulk_read.getData(servo_id, 126, 2)
+                position_raw = self.bulk_read.getData(servo_id, 132, 4)
+                voltage_raw  = self.bulk_read.getData(servo_id, 144, 2)
+                temperature  = self.bulk_read.getData(servo_id, 146, 1)
             
             # Parse position with wrap-around handling
             sensor_data['position_raw'] = position_raw
@@ -449,50 +443,42 @@ class Gripper:
         max_current = self.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
         goal_current = int(int(self.target_effort) * max_current / 100)
         
-        # Clear previous bulk write params
-        self.bulk_write_current.clearParam()
-        self.bulk_write_position.clearParam()
-        
-        # Add parameters for each servo
         import logging
         logger = logging.getLogger(self.name)
-        
+        from dynamixel_sdk import COMM_SUCCESS
+
+        # Build params outside the lock (pure computation, no bus access)
+        writes = []
         for i in range(len(self.servos)):
             target_raw_pos = self.zero_positions[i] + scaled_position
-            
-            # Add Goal Current (2 bytes) for Extended Position Control Mode
-            current_param = [
-                goal_current & 0xFF,
-                (goal_current >> 8) & 0xFF
-            ]
-            self.bulk_write_current.addParam(self.servo_ids[i], current_param)
-            
-            # Add goal_position (4 bytes)
+            current_param = [goal_current & 0xFF, (goal_current >> 8) & 0xFF]
             pos_param = [
                 target_raw_pos & 0xFF,
                 (target_raw_pos >> 8) & 0xFF,
                 (target_raw_pos >> 16) & 0xFF,
-                (target_raw_pos >> 24) & 0xFF
+                (target_raw_pos >> 24) & 0xFF,
             ]
-            self.bulk_write_position.addParam(self.servo_ids[i], pos_param)
-            
+            writes.append((self.servo_ids[i], current_param, pos_param))
             logger.info(f"✍️ WRITE: pos={self.target_position}%→raw={target_raw_pos}, current={self.target_effort}%→{goal_current}mA")
-        
-        # Execute bulk writes (2 USB transactions)
-        from dynamixel_sdk import COMM_SUCCESS
-        
-        # Write Goal Current first
-        result = self.bulk_write_current.txPacket()
-        if result != COMM_SUCCESS:
-            logger.error(f"❌ Bulk write current failed: {result}")
-            raise Exception(f"Bulk write current failed: {result}")
-        
-        # Write goal_position second
-        result = self.bulk_write_position.txPacket()
-        if result != COMM_SUCCESS:
-            logger.error(f"❌ Bulk write position failed: {result}")
-            raise Exception(f"Bulk write position failed: {result}")
-        
+
+        # Both bulk writes must be atomic — acquire bus lock for the full sequence
+        with self.connection.lock:
+            self.bulk_write_current.clearParam()
+            self.bulk_write_position.clearParam()
+            for sid, cur_p, pos_p in writes:
+                self.bulk_write_current.addParam(sid, cur_p)
+                self.bulk_write_position.addParam(sid, pos_p)
+
+            result = self.bulk_write_current.txPacket()
+            if result != COMM_SUCCESS:
+                logger.error(f"❌ Bulk write current failed: {result}")
+                raise Exception(f"Bulk write current failed: {result}")
+
+            result = self.bulk_write_position.txPacket()
+            if result != COMM_SUCCESS:
+                logger.error(f"❌ Bulk write position failed: {result}")
+                raise Exception(f"Bulk write position failed: {result}")
+
         logger.debug(f"✅ Servo write complete")
 
     def goto_position(self, position_pct, effort_pct):
@@ -548,96 +534,88 @@ class Gripper:
         
         print(f"  Closing: current={closing_current}mA (30%), threshold={current_threshold_ma}mA")
         
-        # Write Goal Current
-        self.bulk_write_current.clearParam()
+        # Send closing command — current + position are paired, send atomically
         current_param = [closing_current & 0xFF, (closing_current >> 8) & 0xFF]
-        self.bulk_write_current.addParam(servo_id, current_param)
-        self.bulk_write_current.txPacket()
-        
-        # Write position
-        self.bulk_write_position.clearParam()
         pos_param = [
             target_pos & 0xFF,
             (target_pos >> 8) & 0xFF,
             (target_pos >> 16) & 0xFF,
-            (target_pos >> 24) & 0xFF
+            (target_pos >> 24) & 0xFF,
         ]
-        self.bulk_write_position.addParam(servo_id, pos_param)
-        self.bulk_write_position.txPacket()
-        
+        with self.connection.lock:
+            self.bulk_write_current.clearParam()
+            self.bulk_write_current.addParam(servo_id, current_param)
+            self.bulk_write_current.txPacket()
+            self.bulk_write_position.clearParam()
+            self.bulk_write_position.addParam(servo_id, pos_param)
+            self.bulk_write_position.txPacket()
+
         # Monitor until stable contact (position stagnation detection)
         stable_count = 0
         stable_required = 5  # Require 5 consecutive stable readings (165ms)
         last_position = None
         position_threshold = 2  # Position must not change by more than 2 units
-        
+
         for cycle in range(200):  # 6.6 second timeout
             time.sleep(0.033)
-            
-            # Read position only - MX-64 in Mode 5 doesn't return actual current
-            result = self.bulk_read.txRxPacket()
-            if result == COMM_SUCCESS:
-                position_raw = self.bulk_read.getData(servo_id, 132, 4)
-                
-                # Check if position is stable (stagnant = contact detected)
-                if last_position is not None:
-                    position_change = abs(position_raw - last_position)
-                    
-                    if position_change <= position_threshold:
-                        # Position stable - increment counter
-                        stable_count += 1
-                        
-                        if cycle % 5 == 0:  # Log every 5 cycles
-                            print(f"    {cycle}: pos={position_raw}, change={position_change}, stable={stable_count}/{stable_required}")
-                        
-                        if stable_count >= stable_required:
-                            print(f"  ✅ Stable contact: {stable_count} consecutive readings")
-                            print(f"     Position: {position_raw}")
-                            
-                            # Record zero (positive value for position calculation)
-                            self.zero_positions[0] = position_raw
-                            print(f"  📍 Zero offset: {self.zero_positions[0]}")
-                            
-                            # Move to stable 50% position with torque enabled
-                            # This prevents spring force from opening gripper uncontrollably
-                            print(f"  🎯 Moving to 50% position...")
-                            grip_max = self.config._config.get('gripper', {}).get('grip_max', 2500)
-                            target_50pct = self.zero_positions[0] + int(grip_max * 0.5)  # 50% of range
-                            
-                            # Write position with moderate current
-                            max_current = self.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
-                            moderate_current = int(max_current * 0.4)  # 40% current for stable hold
+
+            # Read position — lock covers txRxPacket + getData (same buffer)
+            with self.connection.lock:
+                result = self.bulk_read.txRxPacket()
+                position_raw = self.bulk_read.getData(servo_id, 132, 4) if result == COMM_SUCCESS else None
+
+            if position_raw is None:
+                continue
+
+            if last_position is not None:
+                position_change = abs(position_raw - last_position)
+
+                if position_change <= position_threshold:
+                    stable_count += 1
+
+                    if cycle % 5 == 0:
+                        print(f"    {cycle}: pos={position_raw}, change={position_change}, stable={stable_count}/{stable_required}")
+
+                    if stable_count >= stable_required:
+                        print(f"  ✅ Stable contact: {stable_count} consecutive readings")
+                        print(f"     Position: {position_raw}")
+
+                        self.zero_positions[0] = position_raw
+                        print(f"  📍 Zero offset: {self.zero_positions[0]}")
+
+                        print(f"  🎯 Moving to 50% position...")
+                        grip_max = self.config._config.get('gripper', {}).get('grip_max', 2500)
+                        target_50pct = self.zero_positions[0] + int(grip_max * 0.5)
+                        max_current = self.config._config.get('servo', {}).get('dynamixel_settings', {}).get('current_limit', 1600)
+                        moderate_current = int(max_current * 0.4)
+
+                        with self.connection.lock:
                             self.bulk_write_current.clearParam()
-                            current_param = [moderate_current & 0xFF, (moderate_current >> 8) & 0xFF]
-                            self.bulk_write_current.addParam(servo_id, current_param)
+                            self.bulk_write_current.addParam(servo_id, [moderate_current & 0xFF, (moderate_current >> 8) & 0xFF])
                             self.bulk_write_current.txPacket()
-                            
                             self.bulk_write_position.clearParam()
-                            pos_param = [
+                            self.bulk_write_position.addParam(servo_id, [
                                 target_50pct & 0xFF,
                                 (target_50pct >> 8) & 0xFF,
                                 (target_50pct >> 16) & 0xFF,
-                                (target_50pct >> 24) & 0xFF
-                            ]
-                            self.bulk_write_position.addParam(servo_id, pos_param)
+                                (target_50pct >> 24) & 0xFF,
+                            ])
                             self.bulk_write_position.txPacket()
-                            
-                            # Wait for movement to complete
-                            time.sleep(1.0)
-                            
-                            print(f"  ✅ Calibration complete - gripper at 50% with torque enabled")
-                            return True
-                    else:
-                        # Position changed - reset counter
-                        stable_count = 0
-                
-                last_position = position_raw
-        
-        # Timeout
+
+                        time.sleep(1.0)
+                        print(f"  ✅ Calibration complete - gripper at 50% with torque enabled")
+                        return True
+                else:
+                    stable_count = 0
+
+            last_position = position_raw
+
+        # Timeout — zero current to stop servo
         print(f"  ❌ Timeout - stopping")
-        self.bulk_write_current.clearParam()
-        self.bulk_write_current.addParam(servo_id, [0, 0])
-        self.bulk_write_current.txPacket()
+        with self.connection.lock:
+            self.bulk_write_current.clearParam()
+            self.bulk_write_current.addParam(servo_id, [0, 0])
+            self.bulk_write_current.txPacket()
         return False
 
     def get_position(self):

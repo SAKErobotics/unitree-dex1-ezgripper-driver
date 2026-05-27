@@ -234,12 +234,14 @@ class CorrectedEZGripperDriver:
     """Corrected EZGripper DDS Driver with Command Queue"""
 
     def __init__(self, side: str, device: str = "/dev/ttyUSB0", domain: int = 0,
-                 calibration_file: str = None, servo_id: int = 1):
+                 calibration_file: str = None, servo_id: int = 1,
+                 connection=None, dds_initialized: bool = False):
         self.side = side
-        # Correctly use the device argument from the command line
         self.device = device if device else "/dev/ttyUSB0"
         self.domain = domain
         self.servo_id = servo_id
+        self._shared_connection = connection    # pre-opened port (multi-gripper mode)
+        self._dds_initialized = dds_initialized  # ChannelFactoryInitialize already called
         self.calibration_file = calibration_file or f"/tmp/ezgripper_{side}_calibration.txt"
         
         # Setup logging
@@ -294,6 +296,7 @@ class CorrectedEZGripperDriver:
         
         # Thread control
         self.running = True
+        self.calibrating = False  # True while calibration owns the bus; control loop pauses writes
         self.state_lock = threading.Lock()  # Protects shared state variables
         self.control_thread = None
         self.state_thread = None
@@ -344,34 +347,34 @@ class CorrectedEZGripperDriver:
     
     def _initialize_hardware(self):
         """Initialize hardware connection and detect serial number"""
-        self.logger.info(f"Connecting to EZGripper on {self.device}")
-        
         try:
-            self.connection = create_connection(dev_name=self.device, baudrate=1000000)  # 1 Mbps
-            
-            # Wait 2 seconds for servo to be ready after USB connection
-            # Prevents communication errors on first read operation
-            self.logger.info("Waiting for servo to settle...")
-            time.sleep(2.0)
-            
+            if self._shared_connection is not None:
+                # Multi-gripper mode: reuse the caller-managed connection
+                self.connection = self._shared_connection
+                self.logger.info(f"Using shared bus connection for {self.side} (servo {self.servo_id})")
+            else:
+                self.logger.info(f"Connecting to EZGripper on {self.device}")
+                self.connection = create_connection(dev_name=self.device, baudrate=1000000)
+                self.logger.info("Waiting for servo to settle...")
+                time.sleep(2.0)
+
             self.gripper = create_gripper(self.connection, f'corrected_{self.side}', [self.servo_id])
-            
-            # CLEAR HARDWARE ERRORS (The fix for Error 128)
-            self.logger.info("Attempting to clear hardware error states (Resetting Error 128)...")
-            for servo in self.gripper.servos:
-                try:
-                    # Method A: Use the libezgripper reboot if available
-                    if hasattr(servo, 'reboot'):
-                        servo.reboot()
-                    else:
-                        # Method B: Direct register write to Reboot (Address 0x08 for SAKE/Dynamixel-based)
-                        # This clears the 128 (0x80) error bit
-                        servo.write_address(0x08, [1]) 
-                    
-                    self.logger.info(f"Servo {servo.servo_id} reboot command sent.")
-                    time.sleep(0.5) # Give the firmware time to restart the control loop
-                except Exception as e:
-                    self.logger.warning(f"Could not reboot servo {servo.servo_id}: {e}")
+
+            # Reboot only in standalone mode. In shared-connection mode the caller controls
+            # servo lifecycle; rebooting here would reset goal_current to 0 on the shared bus
+            # and corrupt other grippers' state.
+            if self._shared_connection is None:
+                self.logger.info("Attempting to clear hardware error states (servo reboot)...")
+                for servo in self.gripper.servos:
+                    try:
+                        if hasattr(servo, 'reboot'):
+                            servo.reboot()
+                        else:
+                            servo.write_address(0x08, [1])
+                        self.logger.info(f"Servo {servo.servo_id} reboot command sent.")
+                        time.sleep(0.5)
+                    except Exception as e:
+                        self.logger.warning(f"Could not reboot servo {servo.servo_id}: {e}")
             
             # Test connection and cache initial sensor data
             sensor_data = self.gripper.bulk_read_sensor_data()
@@ -528,8 +531,9 @@ class CorrectedEZGripperDriver:
         """Setup DDS interfaces - matches xr_teleoperate exactly"""
         self.logger.info("Setting up DDS interfaces...")
         
-        # Initialize DDS factory - matches xr_teleoperate
-        ChannelFactoryInitialize(self.domain)  # Don't use shm:// to avoid buffer overflow
+        # Initialize DDS factory once per process (skip if caller already did it)
+        if not self._dds_initialized:
+            ChannelFactoryInitialize(self.domain)
         
         # Dex1 topics - matches xr_teleoperate exactly
         cmd_topic_name = f"rt/dex1/{self.side}/cmd"
@@ -594,23 +598,23 @@ class CorrectedEZGripperDriver:
     def calibrate(self):
         """Calibration on command - can be called by robot when needed"""
         self.logger.info("Starting calibration on command...")
-        
+        self.calibrating = True  # Pause control loop writes during calibration
         try:
             # Perform calibration - this closes gripper and sets zero position
             self.gripper.calibrate()
-            
+
             # Save actual zero position to device config for persistence
             zero_pos = self.gripper.zero_positions[0]
             self.save_calibration(zero_pos)
-            
+
             # Calibration already moved to 50% position, wait for it to arrive
             import time
-            time.sleep(0.5)  # Wait for gripper to reach position 50
-            
+            time.sleep(1.0)  # Give gripper time to reach 50%
+
             sensor_data = self.gripper.bulk_read_sensor_data(0)
             actual = sensor_data.get('position', 0.0)
             error = abs(actual - 50.0)
-            
+
             if error <= 10.0:
                 self.is_calibrated = True
                 self.logger.info(f"✅ Calibration successful (at {actual:.1f}%, error: {error:.1f}%)")
@@ -618,10 +622,12 @@ class CorrectedEZGripperDriver:
             else:
                 self.logger.warning(f"⚠️ Calibration issue (at {actual:.1f}%, expected 50%, error: {error:.1f}%)")
                 return False
-                
+
         except Exception as e:
             self.logger.error(f"Calibration failed: {e}")
             return False
+        finally:
+            self.calibrating = False  # Always resume control loop
     
     def dex1_to_ezgripper(self, q_radians: float) -> float:
         """
@@ -1224,9 +1230,10 @@ class CorrectedEZGripperDriver:
                             # Track managed effort for telemetry
                             self.managed_effort = goal_effort
                             
-                            # Execute managed goal to hardware
-                            self.gripper.goto_position(goal_position, goal_effort)
-                            
+                            # Execute managed goal to hardware (skip while calibration owns the bus)
+                            if not self.calibrating:
+                                self.gripper.goto_position(goal_position, goal_effort)
+
                             # Serial bus safety: small delay to let RS485 bus settle after write
                             time.sleep(0.005)
                             
@@ -1377,51 +1384,57 @@ class CorrectedEZGripperDriver:
         
         self.logger.info(f"EZGripper admin reception thread stopped (received {admin_cmd_count} commands total)")
 
-    def run(self):
-        """Start multi-threaded driver with control and state threads"""
-        self.logger.info("Starting multi-threaded EZGripper driver...")
-        self.logger.info("  Control thread: 30 Hz (commands + actual position)")
-        self.logger.info("  State thread: 200 Hz (actual position publishing)")
-        if self.ezgripper_interface_enabled:
-            self.logger.info("  EZGripper admin thread: Event-driven (calibration, error recovery)")
-
-        # Start threads
-        self.command_thread = threading.Thread(target=self.command_reception_loop, daemon=True, name="Commands")
-        self.control_thread = threading.Thread(target=self.control_loop, daemon=True, name="Control")
-        self.state_thread = threading.Thread(target=self.state_loop, daemon=True, name="State")
-        
-        # Start EZGripper admin thread if interface is enabled
+    def start(self):
+        """Launch driver threads (non-blocking). Call join() or run() to wait."""
+        self.logger.info(f"Starting {self.side} gripper threads...")
+        self.command_thread = threading.Thread(
+            target=self.command_reception_loop, daemon=True,
+            name=f"Cmd-{self.side}")
+        self.control_thread = threading.Thread(
+            target=self.control_loop, daemon=True,
+            name=f"Ctrl-{self.side}")
+        self.state_thread = threading.Thread(
+            target=self.state_loop, daemon=True,
+            name=f"State-{self.side}")
         self.admin_thread = None
         if self.ezgripper_interface_enabled:
-            self.admin_thread = threading.Thread(target=self.ezgripper_admin_reception_loop, daemon=True, name="EZGripperAdmin")
+            self.admin_thread = threading.Thread(
+                target=self.ezgripper_admin_reception_loop, daemon=True,
+                name=f"Admin-{self.side}")
 
         self.command_thread.start()
         self.control_thread.start()
         self.state_thread.start()
         if self.admin_thread:
             self.admin_thread.start()
+        self.logger.info(f"  {self.side}: control@30Hz, state@200Hz" +
+                         (", admin" if self.admin_thread else ""))
 
+    def join(self, close_connection: bool = True):
+        """Wait for all threads to stop and shut down hardware."""
         try:
-            # Main thread waits for keyboard interrupt
             while self.running:
                 time.sleep(0.1)
         except (KeyboardInterrupt, SystemExit):
             self.logger.info("Shutdown signal received...")
         finally:
             self.running = False
-            
-            # Wait for threads to stop
-            if self.command_thread and self.command_thread.is_alive():
-                self.command_thread.join(timeout=1.5)
-            if self.control_thread and self.control_thread.is_alive():
-                self.control_thread.join(timeout=1.5)
-            if self.state_thread and self.state_thread.is_alive():
-                self.state_thread.join(timeout=1.0)
-            if self.admin_thread and self.admin_thread.is_alive():
-                self.admin_thread.join(timeout=1.0)
-                
-            self.logger.info("Threads joined. Invoking final hardware shutdown...")
+            for t, timeout in [(self.command_thread, 1.5),
+                                (self.control_thread, 1.5),
+                                (self.state_thread,   1.0),
+                                (self.admin_thread,   1.0)]:
+                if t and t.is_alive():
+                    t.join(timeout=timeout)
+            self.logger.info("Threads joined.")
+            if not close_connection:
+                # Caller manages the shared connection — don't close it
+                self.connection = None
             self.shutdown()
+
+    def run(self):
+        """Single-driver convenience: start threads then block until shutdown."""
+        self.start()
+        self.join(close_connection=True)
     
     def shutdown(self):
         """Clean shutdown - Fixed for USB2Dynamixel_Device"""
