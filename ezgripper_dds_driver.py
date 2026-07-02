@@ -375,7 +375,17 @@ class CorrectedEZGripperDriver:
                         time.sleep(0.5)
                     except Exception as e:
                         self.logger.warning(f"Could not reboot servo {servo.servo_id}: {e}")
-            
+
+                # Re-enable torque after reboot (reboot disables torque)
+                self.logger.info("Re-enabling torque after reboot...")
+                for servo in self.gripper.servos:
+                    try:
+                        servo.write_address(64, [1])
+                        self.logger.info(f"Torque enabled for servo {servo.servo_id}")
+                        time.sleep(0.1)
+                    except Exception as e:
+                        self.logger.warning(f"Could not enable torque for servo {servo.servo_id}: {e}")
+
             # Test connection and cache initial sensor data
             sensor_data = self.gripper.bulk_read_sensor_data()
             self.current_sensor_data = sensor_data
