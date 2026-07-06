@@ -4,6 +4,14 @@ CycloneDDS driver for EZGripper control on Unitree G1 robots.
 
 ⚠️ **IMPORTANT:** MX series servos do NOT have real current sensing. See [MX_CURRENT_SENSING_LIMITATIONS.md](MX_CURRENT_SENSING_LIMITATIONS.md) for critical safety information.
 
+## ⚠️ Protocol 2.0 Required
+
+**Your EZGripper servos must be upgraded to Protocol 2.0 to use this driver.**
+
+**How to Check**: If your servos are using Protocol 1.0, this driver will not work.
+
+**How to Upgrade**: See [Servo Upgrade Guide](https://github.com/SAKErobotics/ezgripper-dds-interface/blob/main/SERVO_UPGRADE.md)
+
 ## Quick Start
 
 ```bash
