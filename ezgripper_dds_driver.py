@@ -297,6 +297,9 @@ class CorrectedEZGripperDriver:
         # Thread control
         self.running = True
         self.calibrating = False  # True while calibration owns the bus; control loop pauses writes
+        self.is_released = False  # True when torque is disabled due to idle timeout or manual release
+        self.last_activity_time = time.time()
+        self.inactivity_timeout = 300.0  # 5 minutes in seconds
         self.state_lock = threading.Lock()  # Protects shared state variables
         self.control_thread = None
         self.state_thread = None
@@ -317,6 +320,13 @@ class CorrectedEZGripperDriver:
         self._initialize_hardware()
         self._load_calibration()
         self._setup_dds()
+        
+        # Load inactivity timeout from config (default 300s / 5m, None/<=0 means disabled)
+        self.inactivity_timeout = self.gripper.config.inactivity_timeout_seconds
+        if self.inactivity_timeout is not None and self.inactivity_timeout > 0:
+            self.logger.info(f"Inactivity timeout enabled: {self.inactivity_timeout:.1f}s ({self.inactivity_timeout/60.1:.1f}m)")
+        else:
+            self.logger.info("Inactivity timeout disabled (no-timeout mode)")
         
         # Initialize simplified grasp manager after hardware is ready
         # Loads force percentages and thresholds from config
@@ -690,6 +700,15 @@ class CorrectedEZGripperDriver:
                     # Convert Dex1 command to gripper parameters
                     target_position = self.dex1_to_ezgripper(motor_cmd.q)
                     
+                    self.last_activity_time = time.time()
+                    if self.is_released:
+                        self.logger.info(f"⚡ Command received while released: immediately re-enabling torque on {self.side} gripper")
+                        try:
+                            self.gripper.enable_torque()
+                        except Exception as e:
+                            self.logger.error(f"Failed to enable torque on command: {e}")
+                        self.is_released = False
+                    
                     # Log every command for debugging (will reduce later)
                     if cmd_count % 10 == 1:  # Log every 10th command
                         self.logger.info(f"📥 DDS CMD #{cmd_count}: q={motor_cmd.q:.3f} rad → {target_position:.1f}%")
@@ -863,11 +882,21 @@ class CorrectedEZGripperDriver:
             action = EZGripperAction(cmd_data.get('action', 0))
             self.logger.info(f"🔧 EZGripper ADMIN: {action.name}")
             
+            self.last_activity_time = time.time()
+            
             # Handle different actions
             if action == EZGripperAction.CALIBRATE:
+                if self.is_released:
+                    try:
+                        self.gripper.enable_torque()
+                    except Exception as e:
+                        self.logger.error(f"Failed to enable torque for calibration: {e}")
+                    self.is_released = False
                 self.handle_ezgripper_calibration()
             elif action == EZGripperAction.CLEAR_ERRORS:
                 self.handle_ezgripper_clear_errors()
+            elif action == EZGripperAction.RELEASE:
+                self.handle_ezgripper_release()
             elif action == EZGripperAction.GET_STATUS:
                 self.handle_ezgripper_get_status()
             else:
@@ -917,6 +946,16 @@ class CorrectedEZGripperDriver:
         thread = threading.Thread(target=reboot_thread, daemon=True)
         thread.start()
     
+    def handle_ezgripper_release(self):
+        """Release torque on gripper to protect servos"""
+        self.logger.info(f"🔓 Torque release requested for {self.side} gripper")
+        try:
+            self.gripper.release()
+            self.is_released = True
+            self.logger.info(f"✅ Torque released on {self.side} gripper")
+        except Exception as e:
+            self.logger.error(f"Failed to release torque: {e}")
+
     def handle_ezgripper_get_status(self):
         """Handle status request from EZGripper interface"""
         self.logger.debug("🔧 EZGripper status requested")
@@ -1230,8 +1269,23 @@ class CorrectedEZGripperDriver:
                             # Track managed effort for telemetry
                             self.managed_effort = goal_effort
                             
-                            # Execute managed goal to hardware (skip while calibration owns the bus)
-                            if not self.calibrating:
+                            # Check for inactivity timeout (only in IDLE/no-motion state)
+                            if (self.inactivity_timeout is not None and not self.is_released 
+                                    and (time.time() - self.last_activity_time >= self.inactivity_timeout)):
+                                state_info = self.grasp_manager.get_state_info()
+                                current_state = state_info.get('state', 'UNKNOWN')
+                                if current_state in ('IDLE', 'UNKNOWN') and not self.calibrating:
+                                    self.logger.warning(
+                                        f"⏱️ Inactivity timeout ({self.inactivity_timeout:.0f}s / {self.inactivity_timeout/60.0:.1f}m) reached "
+                                        f"— releasing torque on {self.side} gripper to protect servos")
+                                    try:
+                                        self.gripper.release()
+                                        self.is_released = True
+                                    except Exception as e:
+                                        self.logger.error(f"Inactivity release failed: {e}")
+
+                            # Execute managed goal to hardware (skip while calibration owns the bus OR if torque is released)
+                            if not self.calibrating and not self.is_released:
                                 self.gripper.goto_position(goal_position, goal_effort)
 
                             # Serial bus safety: small delay to let RS485 bus settle after write

@@ -87,6 +87,14 @@ class Config:
         """Force during IDLE state"""
         return self.force_management.get('idle_force_pct', 10)
     
+    @property
+    def inactivity_timeout_seconds(self) -> Optional[float]:
+        """Inactivity timeout in seconds before releasing torque. None or <= 0 means no timeout."""
+        val = self.force_management.get('inactivity_timeout_seconds', 300)
+        if val is None or val <= 0:
+            return None
+        return float(val)
+    
     # =========================================================================
     # Collision Detection Settings - Used by GraspManager
     # Used by: grasp_manager.py:__init__()

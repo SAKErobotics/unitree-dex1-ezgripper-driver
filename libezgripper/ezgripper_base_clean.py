@@ -481,6 +481,40 @@ class Gripper:
 
         logger.debug(f"✅ Servo write complete")
 
+    def release(self):
+        """Release torque on all servos (disable torque register 64 and zero goal current)"""
+        import logging
+        logger = logging.getLogger(self.name)
+        logger.info("🔓 RELEASING TORQUE on servos")
+        with self.connection.lock:
+            try:
+                self.bulk_write_current.clearParam()
+                for sid in self.servo_ids:
+                    self.bulk_write_current.addParam(sid, [0, 0])
+                self.bulk_write_current.txPacket()
+            except Exception as e:
+                logger.warning(f"Failed to zero current during release: {e}")
+
+            for servo in self.servos:
+                try:
+                    servo.write_address(64, [0])
+                except Exception as e:
+                    logger.warning(f"Failed to disable torque on servo {servo.servo_id}: {e}")
+        logger.info("✅ Torque released — motor unpowered")
+
+    def enable_torque(self):
+        """Re-enable torque on all servos (register 64 = 1)"""
+        import logging
+        logger = logging.getLogger(self.name)
+        logger.info("🔒 ENABLING TORQUE on servos")
+        with self.connection.lock:
+            for servo in self.servos:
+                try:
+                    servo.write_address(64, [1])
+                except Exception as e:
+                    logger.warning(f"Failed to enable torque on servo {servo.servo_id}: {e}")
+        logger.info("✅ Torque re-enabled")
+
     def goto_position(self, position_pct, effort_pct):
         """
         Set target position - ALWAYS UNCLAMPED, goes until destination or collision

@@ -32,7 +32,9 @@
       "grasping_force_pct": 15.0,
       "_comment_grasping": "Force during GRASPING state (holding after contact). 20% × 1600 = 320 units = 1075mA - prevents backdriving",
       "idle_force_pct": 10,
-      "_comment_idle": "Force during IDLE state. 10% × 1600 = 160 units = 538mA - minimal holding force"
+      "_comment_idle": "Force during IDLE state. 10% × 1600 = 160 units = 538mA - minimal holding force",
+      "inactivity_timeout_seconds": 300,
+      "_comment_inactivity": "Inactivity timeout in seconds before releasing torque (0, null, or negative = no timeout / disabled). Default 300 (5 minutes)."
     },
     
     "collision_detection": {

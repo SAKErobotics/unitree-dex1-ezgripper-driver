@@ -17,6 +17,7 @@ class EZGripperAction(IntEnum):
     GET_STATUS = 1               # Request detailed status
     CALIBRATE = 2                # Calibrate gripper zero position
     CLEAR_ERRORS = 3             # Clear hardware errors (torque cycle)
+    RELEASE = 4                  # Release torque (unpower motor)
 
 
 class GraspState(IntEnum):

@@ -89,6 +89,11 @@
               "minimum": 0,
               "maximum": 100,
               "default": 10
+            },
+            "inactivity_timeout_seconds": {
+              "type": ["number", "null"],
+              "description": "Inactivity timeout in seconds before releasing torque. 0, negative, or null disables timeout. Default: 300 (5 minutes)",
+              "default": 300
             }
           }
         },
