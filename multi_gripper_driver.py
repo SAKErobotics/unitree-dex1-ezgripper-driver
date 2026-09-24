@@ -71,18 +71,48 @@ def main():
     ChannelFactoryInitialize(args.domain)
 
     # --- Build drivers sharing the connection ---
+    # A gripper whose servo does not answer on the bus (unplugged, unpowered,
+    # wrong/lost ID) must NOT take the whole driver down: the constructor probes
+    # the hardware and raises on a missing servo, so we catch that per-gripper,
+    # report a clear error, and keep the remaining grippers running.
     drivers = []
+    missing = []
     for side, servo_id in GRIPPER_MAP:
         log.info(f"  Creating driver: {side} (servo {servo_id})")
-        d = CorrectedEZGripperDriver(
-            side=side,
-            device=args.device,
-            domain=args.domain,
-            servo_id=servo_id,
-            connection=connection,       # shared FD, protected by RLock
-            dds_initialized=True,        # ChannelFactoryInitialize already called
-        )
+        try:
+            d = CorrectedEZGripperDriver(
+                side=side,
+                device=args.device,
+                domain=args.domain,
+                servo_id=servo_id,
+                connection=connection,       # shared FD, protected by RLock
+                dds_initialized=True,        # ChannelFactoryInitialize already called
+            )
+        except Exception as e:
+            log.error(
+                f"  ✗ {side} gripper (servo {servo_id}) NOT INITIALIZED: {e}"
+            )
+            log.error(
+                f"  → Skipping {side} gripper and continuing with the others. "
+                f"Check its power, daisy-chain cable, and servo ID."
+            )
+            missing.append((side, servo_id))
+            continue
         drivers.append(d)
+
+    if missing:
+        summary = ", ".join(f"{s} (servo {i})" for s, i in missing)
+        log.error(
+            f"GRIPPER HARDWARE ERROR: {summary} did not respond on {args.device}. "
+            f"Running with {len(drivers)} of {len(GRIPPER_MAP)} grippers."
+        )
+    if not drivers:
+        log.error("No grippers initialized — nothing to run. Exiting.")
+        try:
+            connection.portHandler.closePort()
+        except Exception:
+            pass
+        return
 
     # --- Startup calibration (sequential — one servo at a time, no contention) ---
     if not args.no_calibrate:
